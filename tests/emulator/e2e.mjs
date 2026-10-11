@@ -66,13 +66,14 @@ try {
   await owner.getByText('숫자만 고치고').waitFor();
   const priceInput = (label) => owner.locator('label.price-row', { hasText: label }).locator('input');
   await priceInput('평당 단가').fill('8000');
-  assert.match(await owner.locator('.warn-box').innerText(), /분쟁/, '9,000원 미만 경고');
+  const priceWarn = owner.locator('section.card .warn-box');
+  assert.match(await priceWarn.innerText(), /분쟁/, '9,000원 미만 경고');
   await priceInput('평당 단가').fill('13000');
-  assert.equal(await owner.locator('.warn-box').isHidden(), true);
+  assert.equal(await priceWarn.isHidden(), true);
   await priceInput('신축').fill('20');
   await priceInput('곰팡이 제거').fill('30000');
   await shot(owner, '1-owner-price');
-  await owner.getByRole('button', { name: '단가표 저장' }).click();
+  await owner.getByRole('button', { name: /단가표 저장/ }).click();
   await owner.getByText('단가표를 저장했어요').waitFor();
   const uid = await owner.evaluate(async () => (await import('./js/firebase.js')).auth.currentUser.uid);
 
@@ -81,6 +82,11 @@ try {
   const cust = await newPage();
   await cust.goto(`${BASE}q.html?shop=${uid}&emulator=1`);
   const next = () => cust.locator('.nav-row .btn.primary').click();
+  // 개인정보 동의 (체크 전엔 시작 불가)
+  assert.equal(await cust.getByRole('button', { name: '시작하기' }).isDisabled(), true);
+  await cust.locator('#consent').check();
+  await shot(cust, '2-customer-consent');
+  await cust.getByRole('button', { name: '시작하기' }).click();
   await cust.getByPlaceholder('홍길동').fill('김고객');
   await cust.getByPlaceholder('010-0000-0000').fill('010-3333-4444');
   await shot(cust, '2-customer-step1');
@@ -106,13 +112,19 @@ try {
   await shot(cust, '3-customer-checklist');
   await next();
   await next(); // 추가 서비스 없음
-  const fileInputs = cust.locator('.photo-slot input[type=file]');
-  await fileInputs.nth(0).setInputFiles({ name: 'a.png', mimeType: 'image/png', buffer: PNG });
-  await cust.locator('.photo-slot img').first().waitFor();
-  await cust.locator('.photo-slot input[type=file]').nth(1).setInputFiles({ name: 'b.png', mimeType: 'image/png', buffer: PNG });
-  await cust.locator('.photo-slot img').nth(1).waitFor();
+  // 칸을 누르면 촬영 안내 바텀시트 → [앨범에서 고르기]
+  for (const i of [0, 1]) {
+    await cust.locator('.photo-slot').nth(i).click();
+    const sheet = cust.locator('dialog.sheet[open]');
+    await sheet.waitFor();
+    if (i === 0) await shot(cust, '4a-customer-photo-sheet');
+    await sheet.locator('input[type=file]:not([capture])').setInputFiles({ name: `${i}.png`, mimeType: 'image/png', buffer: PNG });
+    await cust.locator('.photo-slot img').nth(i).waitFor();
+  }
   await shot(cust, '4-customer-photos');
   await next();
+  // 필수 사진이 비면 화면 안 안내 → 사진 없이 다음
+  await cust.getByRole('button', { name: '사진 없이 다음' }).click();
   await next(); // 요청사항 → 제출
   await cust.getByText('요청이 접수되었습니다').waitFor({ timeout: 15000 });
   await shot(cust, '5-customer-done');
@@ -128,11 +140,11 @@ try {
   await item.click();
   await owner.locator('.total-box').waitFor();
   assert.match(await owner.locator('.total-box').innerText(), /560,000원/);
-  const condValue = await owner.locator('label.field', { hasText: '현장 추가요금 조건' }).locator('textarea').inputValue();
-  assert.match(condValue, /붙박이장 내부/);
+  const condValues = await owner.locator('.conds input.line-label').evaluateAll((els) => els.map((e) => e.value));
+  assert.ok(condValues.some((v) => /붙박이장 내부/.test(v)), condValues.join(','));
   await owner.locator('.photo-grid.view img[src]').nth(1).waitFor();
   await shot(owner, '7-owner-detail');
-  await owner.getByRole('button', { name: '견적 발송' }).click();
+  await owner.getByRole('button', { name: /견적 발송/ }).click();
   await owner.locator('dialog.sheet').waitFor();
   const viewUrl = await owner.getByRole('link', { name: '견적서 미리보기' }).getAttribute('href');
   await shot(owner, '8-owner-sent');
@@ -156,7 +168,32 @@ try {
   await owner.locator('.req-item', { hasText: '김고객' }).getByText('계약요청').waitFor({ timeout: 10000 });
   await shot(owner, '10-owner-booking-requested');
 
-  console.log('\n✅ 완료 확인 시나리오 1~5 모두 통과');
+  // 6) 다업종 (S1·S2): 이사 추가 → 고객 링크에 서비스 선택, 기존 입주청소 요청 금액은 그대로
+  step('6) 업종 추가(이사) → 서비스 선택 단계, 기존 요청 560,000원 유지');
+  await owner.getByRole('button', { name: '업체 정보' }).click();
+  await owner.getByRole('button', { name: '이사', exact: true }).click();
+  await owner.getByRole('button', { name: '저장', exact: true }).click();
+  await owner.getByText('숫자만 고치고').waitFor();
+  await owner.getByRole('button', { name: '이사', exact: true }).click(); // 단가표 업종 탭
+  await owner.getByText('이사 기본값이 채워져').waitFor();
+  await shot(owner, '11-owner-price-moving');
+  await owner.getByRole('button', { name: /견적 요청/ }).click();
+  assert.match(await owner.locator('.req-item', { hasText: '김고객' }).innerText(), /560,000원/);
+  const cust2 = await newPage();
+  await cust2.goto(`${BASE}q.html?shop=${uid}&emulator=1`);
+  await cust2.locator('#consent').check();
+  await cust2.getByRole('button', { name: '시작하기' }).click();
+  await cust2.getByText('어떤 서비스가 필요하세요?').waitFor();
+  await shot(cust2, '12-customer-service-select');
+  await cust2.getByRole('button', { name: '이사' }).click();
+  await cust2.getByText('이사 견적 요청').waitFor();
+  const cust3 = await newPage();
+  await cust3.goto(`${BASE}q.html?shop=${uid}&t=moving&emulator=1`);
+  await cust3.locator('#consent').check();
+  await cust3.getByRole('button', { name: '시작하기' }).click();
+  await cust3.getByPlaceholder('홍길동').waitFor(); // &t= 이면 선택 단계 없이 바로
+
+  console.log('\n✅ 완료 확인 시나리오 1~6 모두 통과');
 } catch (e) {
   for (const [i, p] of pages.entries()) await shot(p, `fail-${i}`).catch(() => {});
   throw e;

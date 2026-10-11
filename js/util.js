@@ -1,4 +1,5 @@
 // 화면 공통 도우미 (DOM·이미지·클립보드)
+// 주의: 이 파일은 Node 테스트에서도 import 된다(isValidBizNo). 최상위에서 DOM 을 건드리지 않는다.
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -90,9 +91,38 @@ export const PAYMENT_STATUS = {
   canceled: { label: '취소', cls: 'st-hold' },
 };
 
+export function statusInfo(status) {
+  return STATUS[status] || PAYMENT_STATUS[status] || { label: status || '-', cls: '' };
+}
+
 export function statusBadge(status) {
-  const s = STATUS[status] || PAYMENT_STATUS[status] || { label: status, cls: '' };
-  return h(`span.badge.${s.cls}`, {}, s.label);
+  const s = statusInfo(status);
+  return h(`span.badge${s.cls ? `.${s.cls}` : ''}`, {}, s.label);
+}
+
+/** 사장님이 지금 처리해야 할 상태 (목록 맨 위 + 미처리 배지). 앞쪽일수록 급함 — 결제완료가 맨 위 (M8) */
+export const ACTION_STATUSES = ['paid_deposit', 'booking_requested', 'new'];
+
+/**
+ * 사업자등록번호 체크섬 (국세청 공개 알고리즘). 하이픈 허용. 서버 functions/lib 와 같은 계산.
+ * 가중치 1,3,7,1,3,7,1,3,5 → 합 + floor(9번째 자리×5/10) → (10 - 합%10)%10 == 마지막 자리
+ */
+export function isValidBizNo(v) {
+  const d = String(v ?? '').replace(/-/g, '');
+  if (!/^\d{10}$/.test(d)) return false;
+  const w = [1, 3, 7, 1, 3, 7, 1, 3, 5];
+  let sum = 0;
+  for (let i = 0; i < 9; i += 1) sum += Number(d[i]) * w[i];
+  sum += Math.floor((Number(d[8]) * 5) / 10);
+  return (10 - (sum % 10)) % 10 === Number(d[9]);
+}
+
+/** 0000000000 → 000-00-00000 */
+export function formatBizNo(v) {
+  const d = String(v ?? '').replace(/\D/g, '').slice(0, 10);
+  if (d.length <= 3) return d;
+  if (d.length <= 5) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`;
 }
 
 export function fmtDateTime(ts) {

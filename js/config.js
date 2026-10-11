@@ -12,6 +12,16 @@ export const firebaseConfig = {
 // 앱 기본값
 export const appConfig = {
   defaultTemplateId: 'move-in-cleaning',
+  // 이용 안내(약관)·개인정보처리방침 링크 (legal 담당 확정 후 입력). paymentConfig 에 같은 이름 값이 있으면 그쪽이 우선.
+  // privacyUrl 이 비어 있으면 고객 화면에 동의 내용 전문을 바로 보여준다.
+  termsUrl: '',
+  privacyUrl: '',
+  // 고객 개인정보 동의 문구 버전 (legal copy-snippets §1). 문구를 바꾸면 consent-v2 로 올린다. 규칙은 'consent-v' 로 시작하는지만 본다.
+  consentVersion: 'consent-v1',
+  // 보관 기간(개월) — 동의 문구 "[3개월]" 칸. 대표 결정 전 임시값.
+  retentionMonths: 3,
+  // 사업자 인증 서버 주소. 비어 있으면 paymentConfig.functionsBaseUrl 을 쓰고, 둘 다 비면 체크섬만 확인("서버 미연결").
+  functionsBaseUrl: '',
 };
 
 // ★ 온라인 결제(계약금) — 기본은 꺼짐. 꺼져 있으면 견적서에 기존 "예약 요청" 버튼이 그대로 나온다.
@@ -29,3 +39,8 @@ export const paymentConfig = {
   termsVersion: 'draft-2026-10',    // 고객이 동의한 약관 버전 → payments 문서에 증거로 기록
   sdkUrl: 'https://js.tosspayments.com/v2/standard',
 };
+
+/** 약관·처리방침 링크: paymentConfig 우선, 없으면 appConfig (payment.js 와 같은 규칙) */
+export function legalUrl(name) {
+  return String(paymentConfig?.[name] || appConfig?.[name] || '').trim();
+}

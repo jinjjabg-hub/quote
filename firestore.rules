@@ -15,6 +15,39 @@ service cloud.firestore {
     function keepsPayment() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['payment']);
     }
+    // 결제가 기록된 견적은 금액·조건·규정을 바꿀 수 없다 (M9: 분쟁 증거). 상태 변경은 가능.
+    function keepsPaidQuote() {
+      return !('payment' in resource.data)
+        || !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['number', 'lines', 'total', 'deposit', 'conditions', 'included', 'excluded', 'cancelPolicy', 'depositPct', 'refundRules']);
+    }
+
+    // 고객 답변 크기 상한 (L7).
+    // 규칙 계산 한도(요청당 1000식) 때문에 "모든 값"을 하나씩 검사할 수 없다(실측: 15칸 넘으면 한도 초과 → 정상 요청까지 거부됨).
+    // 그래서: 답 키 40개 이하 + 자유 입력 칸(text·textarea, 템플릿 전체 목록)은 이름으로 길이 검사 + extras 목록 검사.
+    // 새 템플릿에 자유 입력 칸을 추가하면 아래 목록에도 추가한다.
+    function okListItems(l) {
+      return l.size() <= 12
+        && (l.size() <= 0 || (l[0] is string && l[0].size() <= 60))
+        && (l.size() <= 1 || (l[1] is string && l[1].size() <= 60))
+        && (l.size() <= 2 || (l[2] is string && l[2].size() <= 60))
+        && (l.size() <= 3 || (l[3] is string && l[3].size() <= 60))
+        && (l.size() <= 4 || (l[4] is string && l[4].size() <= 60))
+        && (l.size() <= 5 || (l[5] is string && l[5].size() <= 60))
+        && (l.size() <= 6 || (l[6] is string && l[6].size() <= 60))
+        && (l.size() <= 7 || (l[7] is string && l[7].size() <= 60))
+        && (l.size() <= 8 || (l[8] is string && l[8].size() <= 60))
+        && (l.size() <= 9 || (l[9] is string && l[9].size() <= 60))
+        && (l.size() <= 10 || (l[10] is string && l[10].size() <= 60))
+        && (l.size() <= 11 || (l[11] is string && l[11].size() <= 60));
+    }
+    function okText(a, k, max) { return !(k in a) || (a[k] is string && a[k].size() <= max); }
+    function okAnswers(a) {
+      return a.keys().size() <= 40
+        && okText(a, 'memo', 500) && okText(a, 'windowSizes', 500) && okText(a, 'model', 60)
+        && okText(a, 'toRegion', 60) && okText(a, 'date', 20)
+        && (!('extras' in a) || (a.extras is list && okListItems(a.extras)));
+    }
 
     // 고객이 견적서에서 "예약 요청"을 누를 때: sent → booking_requested 만 허용
     function isCustomerBooking() {
@@ -31,19 +64,33 @@ service cloud.firestore {
     }
 
     // 업체 공개 정보 (shopId = 사장님 uid)
+    // 신원(사업자 인증) 필드는 서버(Admin SDK)만 쓴다. 인증 후 상호·사업자번호 변경도 서버(updateIdentity)만.
     match /shops/{shopId} {
+      function identityKeys() { return ['bizVerified', 'bizVerifiedAt', 'bizVerifiedMode', 'identityChangedAt', 'identityHistory']; }
       function validShop() {
         let d = request.resource.data;
-        return d.keys().hasOnly(['ownerUid', 'templateId', 'name', 'ownerName', 'phone', 'bizNo', 'logoUrl', 'createdAt', 'updatedAt'])
+        return d.keys().hasOnly(['ownerUid', 'templateId', 'templateIds', 'name', 'ownerName', 'phone', 'bizNo', 'logoUrl', 'brandColor',
+            'createdAt', 'updatedAt', 'bizVerified', 'bizVerifiedAt', 'bizVerifiedMode', 'identityChangedAt', 'identityHistory'])
           && d.ownerUid == shopId
           && str(d.templateId, 60)
+          // 여러 업종: js/templates.js TEMPLATE_LIST 와 같은 7개. 첫 값 = templateId (하위호환)
+          && (!('templateIds' in d) || (d.templateIds is list && d.templateIds.size() >= 1 && d.templateIds.size() <= 7
+              && d.templateIds[0] == d.templateId
+              && d.templateIds.hasOnly(['move-in-cleaning', 'home-cleaning', 'moving', 'aircon-cleaning', 'aircon-install', 'curtain', 'jungmun'])))
           && (!('name' in d) || str(d.name, 60))
+          && (!('ownerName' in d) || str(d.ownerName, 60))
           && (!('phone' in d) || str(d.phone, 30))
-          && (!('logoUrl' in d) || str(d.logoUrl, 1000));
+          && (!('bizNo' in d) || str(d.bizNo, 20))
+          && (!('logoUrl' in d) || str(d.logoUrl, 1000))
+          && (!('brandColor' in d) || (d.brandColor is string && d.brandColor.matches('^#[0-9a-fA-F]{6}$')));
       }
       allow get: if true;            // 고객 화면에 상호·연락처 표시
       allow list: if false;
-      allow create, update: if isOwner(shopId) && validShop();
+      allow create: if isOwner(shopId) && validShop() && !request.resource.data.keys().hasAny(identityKeys());
+      allow update: if isOwner(shopId) && validShop()
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(identityKeys())
+        && (resource.data.get('bizVerified', false) != true
+            || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['name', 'bizNo']));
       allow delete: if false;
 
       // 단가표 등 비공개 설정 (경쟁업체가 링크로 단가를 볼 수 없게 분리)
@@ -52,15 +99,26 @@ service cloud.firestore {
       }
     }
 
+    // 사업자번호 1개 = 계정 1개 (서버 verifyBusiness 가 트랜잭션으로 선점). 클라이언트는 읽기·쓰기 모두 불가.
+    match /bizNos/{bizNo} {
+      allow read, write: if false;
+    }
+
     // 고객 견적 요청
     match /requests/{requestId} {
       function validNewRequest() {
         let d = request.resource.data;
-        return d.keys().hasOnly(['shopId', 'templateId', 'status', 'customer', 'answers', 'checklist', 'photos', 'quoteId', 'createdAt'])
-          && d.keys().hasAll(['shopId', 'templateId', 'status', 'customer', 'answers', 'createdAt'])
+        return d.keys().hasOnly(['shopId', 'templateId', 'status', 'customer', 'answers', 'checklist', 'photos', 'quoteId', 'consent', 'createdAt'])
+          && d.keys().hasAll(['shopId', 'templateId', 'status', 'customer', 'answers', 'consent', 'createdAt'])
           && d.shopId is string
           && exists(shopPath(d.shopId))
-          && d.templateId == get(shopPath(d.shopId)).data.templateId
+          // 고객이 고른 업종이 그 업체의 업종 중 하나여야 한다 (templateIds 없는 기존 업체는 templateId 1개)
+          && d.templateId in get(shopPath(d.shopId)).data.get('templateIds', [get(shopPath(d.shopId)).data.templateId])
+          // 개인정보 수집·이용 동의 (S3): 문구 버전 + 서버 시각
+          && d.consent is map && d.consent.keys().hasOnly(['version', 'at']) && d.consent.keys().hasAll(['version', 'at'])
+          // 문구 버전: legal copy-snippets §1 — 'consent-v1', 'consent-v1b', 'consent-v2' …
+          && str(d.consent.version, 40) && d.consent.version.matches('^consent-v[0-9a-z]+$')
+          && d.consent.at == request.time
           && d.status == 'new'
           && (!('quoteId' in d) || d.quoteId == null)
           && d.createdAt == request.time
@@ -68,9 +126,11 @@ service cloud.firestore {
           && str(d.customer.name, 30) && d.customer.name.size() > 0
           && str(d.customer.phone, 20) && d.customer.phone.size() > 0
           && str(d.customer.region, 40)
-          && d.answers is map && d.answers.keys().size() <= 40
-          && (!('checklist' in d) || (d.checklist is map && d.checklist.keys().size() <= 40))
-          && (!('photos' in d) || (d.photos is list && d.photos.size() <= 10));
+          && d.answers is map && okAnswers(d.answers)
+          && (!('checklist' in d) || (d.checklist is map && d.checklist.keys().size() <= 20
+              && d.checklist.values().hasOnly(['yes', 'no', 'unknown'])))
+          // 사진: 요청 1건 최대 20장 (템플릿 photoLimit 상한)
+          && (!('photos' in d) || (d.photos is list && d.photos.size() <= 20));
       }
       allow create: if validNewRequest();
       allow read, delete: if isOwner(resource.data.shopId);
@@ -85,7 +145,8 @@ service cloud.firestore {
       allow create: if isOwner(request.resource.data.shopId)
         && !('payment' in request.resource.data)
         && get(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.shopId == request.auth.uid;
-      allow update: if (isOwner(resource.data.shopId) && request.resource.data.shopId == resource.data.shopId && keepsPayment())
+      allow update: if (isOwner(resource.data.shopId) && request.resource.data.shopId == resource.data.shopId
+          && keepsPayment() && keepsPaidQuote())
         || isCustomerBooking();
       // 결제가 기록된 견적서는 지우지 않는다 (환불·분쟁 증거)
       allow delete: if isOwner(resource.data.shopId) && !('payment' in resource.data);

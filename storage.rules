@@ -4,9 +4,11 @@ service firebase.storage {
   match /b/{bucket}/o {
 
     // 고객 현장 사진: 고객은 "올리기"만 (덮어쓰기·읽기 불가), 사장님만 보기
+    // 파일 이름: {칸}-{반복번호 1~6}-{컷}.jpg (2차) 또는 {칸}.jpg (1차 하위호환). 장수 상한(20장)은 Firestore photos 목록이 막는다.
     match /requests/{shopId}/{requestId}/{file} {
       allow create: if resource == null
         && request.resource.size < 3 * 1024 * 1024
+        && file.matches('^[A-Za-z0-9_]{1,40}(-[1-6]-[A-Za-z0-9_]{1,40})?[.]jpg$')
         && request.resource.contentType.matches('image/.*')
         && firestore.exists(/databases/(default)/documents/shops/$(shopId));
       allow read, delete: if request.auth != null && request.auth.uid == shopId;

@@ -37,6 +37,7 @@ const newRequest = (over = {}) => ({
   shopId: OWNER, templateId: 'move-in-cleaning', status: 'new', quoteId: null,
   customer: { name: '홍길동', phone: '010-1234-5678', region: '서울 송파구' },
   answers: { area: 34, isNew: true }, checklist: { mold: 'yes' }, photos: [{ slot: 'bath', path: 'x' }],
+  consent: { version: 'consent-v1', at: serverTimestamp() },
   createdAt: serverTimestamp(), ...over,
 });
 
@@ -119,4 +120,106 @@ test('Storage: 고객 사진 업로드 O, 읽기 X, 사장님 읽기 O', async (
   await assertFails(uploadBytes(ref(env.unauthenticatedContext().storage(), `requests/${OWNER}/n1/a.txt`), img, { contentType: 'text/plain' }));
   await assertFails(getBytes(ref(env.unauthenticatedContext().storage(), path)));
   await assertSucceeds(getBytes(ref(env.authenticatedContext(OWNER).storage(), path)));
+});
+
+
+// ===================== 2차 =====================
+
+test('동의(S3): consent 없거나 시각 위조면 요청 거부', async () => {
+  const { consent, ...noConsent } = newRequest();
+  await assertFails(setDoc(doc(guest(), 'requests', 'c1'), noConsent));
+  await assertFails(setDoc(doc(guest(), 'requests', 'c2'), newRequest({ consent: { version: 'consent-v1', at: new Date('2020-01-01') } })));
+  await assertFails(setDoc(doc(guest(), 'requests', 'c2b'), newRequest({ consent: { version: 'whatever', at: serverTimestamp() } })));
+  await assertFails(setDoc(doc(guest(), 'requests', 'c3'), newRequest({ consent: { version: '', at: serverTimestamp() } })));
+  await assertFails(setDoc(doc(guest(), 'requests', 'c4'), newRequest({ consent: { version: 'v1', at: serverTimestamp(), extra: 1 } })));
+  await assertSucceeds(setDoc(doc(guest(), 'requests', 'c5'), newRequest()));
+});
+
+test('다업종: 업체 업종(templateIds) 중 하나로만 요청, 기존 단일 업체는 templateId', async () => {
+  await assertFails(setDoc(doc(guest(), 'requests', 't1'), newRequest({ templateId: 'moving' })));
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'shops', OWNER), { templateIds: ['move-in-cleaning', 'moving'] });
+  });
+  await assertSucceeds(setDoc(doc(guest(), 'requests', 't2'), newRequest({ templateId: 'moving' })));
+  await assertFails(setDoc(doc(guest(), 'requests', 't3'), newRequest({ templateId: 'curtain' })));
+  // 사장님 업종 설정: 목록 첫 값 = templateId, 알려진 7개만
+  await assertSucceeds(updateDoc(doc(owner(), 'shops', OWNER), { templateId: 'moving', templateIds: ['moving', 'curtain'] }));
+  await assertFails(updateDoc(doc(owner(), 'shops', OWNER), { templateId: 'moving', templateIds: ['curtain', 'moving'] }));
+  await assertFails(updateDoc(doc(owner(), 'shops', OWNER), { templateId: 'moving', templateIds: ['moving', 'hack'] }));
+});
+
+test('L7: answers 문자열 길이·체크리스트 값·사진 장수 상한', async () => {
+  await assertFails(setDoc(doc(guest(), 'requests', 'l1'), newRequest({ answers: { memo: 'x'.repeat(200000) } })));
+  await assertFails(setDoc(doc(guest(), 'requests', 'l2'), newRequest({ answers: { extras: ['x'.repeat(500)] } })));
+  await assertFails(setDoc(doc(guest(), 'requests', 'l3'), newRequest({ answers: { windowSizes: 'x'.repeat(501) } })));
+  await assertFails(setDoc(doc(guest(), 'requests', 'l3b'), newRequest({ answers: Object.fromEntries(Array.from({ length: 41 }, (_, i) => [`k${i}`, 1])) })));
+  await assertFails(setDoc(doc(guest(), 'requests', 'l4'), newRequest({ checklist: { mold: 'hack' } })));
+  await assertFails(setDoc(doc(guest(), 'requests', 'l4b'), newRequest({ answers: { extras: Array.from({ length: 13 }, (_, i) => `o${i}`) } })));
+  const photos = Array.from({ length: 21 }, (_, i) => ({ slot: 'bath', index: 1, shot: `s${i}`, path: 'x' }));
+  await assertFails(setDoc(doc(guest(), 'requests', 'l5'), newRequest({ photos })));
+  // 최대 크기 정상 요청(답 40칸 + 추가서비스 12개 + 체크리스트 20개)도 규칙 계산 한도(1000식) 안에서 통과해야 한다
+  const big = Object.fromEntries(Array.from({ length: 39 }, (_, i) => [`k${i}`, i % 3 === 0 ? 'abc' : i % 3 === 1 ? i : true]));
+  big.extras = Array.from({ length: 12 }, (_, i) => `opt${i}`);
+  await assertSucceeds(setDoc(doc(guest(), 'requests', 'l7'), newRequest({ answers: big, checklist: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`c${i}`, 'no'])) })));
+  await assertSucceeds(setDoc(doc(guest(), 'requests', 'l6'), newRequest({
+    answers: { area: 34, isNew: true, memo: '오후 3시 이후', extras: ['window', 'sickHouse'], date: '2026-10-14', rooms: 3 },
+    photos: photos.slice(0, 20),
+  })));
+});
+
+test('신원: bizVerified 등은 클라이언트가 못 쓰고, 인증 후 상호·사업자번호는 못 바꾼다', async () => {
+  const db = owner();
+  // 인증 전: 상호·번호 수정 O, 인증 필드 위조 X
+  await assertSucceeds(updateDoc(doc(db, 'shops', OWNER), { name: '반짝2', bizNo: '124-81-00998' }));
+  await assertFails(updateDoc(doc(db, 'shops', OWNER), { bizVerified: true }));
+  await assertFails(updateDoc(doc(db, 'shops', OWNER), { identityHistory: [] }));
+  await assertFails(updateDoc(doc(db, 'shops', OWNER), { bizVerifiedAt: serverTimestamp() }));
+  await assertFails(setDoc(doc(other(), 'shops', OTHER), { ownerUid: OTHER, templateId: 'move-in-cleaning', bizVerified: true }));
+  // 서버가 인증 완료 기록
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'shops', OWNER), { bizVerified: true, bizVerifiedAt: new Date(), identityHistory: [] });
+  });
+  await assertFails(updateDoc(doc(db, 'shops', OWNER), { name: '바꿔치기' }));
+  await assertFails(updateDoc(doc(db, 'shops', OWNER), { bizNo: '220-81-62517' }));
+  await assertFails(updateDoc(doc(db, 'shops', OWNER), { bizVerified: false }));
+  // 다른 필드는 계속 수정 가능
+  await assertSucceeds(updateDoc(doc(db, 'shops', OWNER), { phone: '010-9999-0000', ownerName: '김사장' }));
+});
+
+test('bizNos: 클라이언트 읽기·쓰기 모두 불가', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'bizNos', '1248100998'), { uid: OWNER, verifiedAt: new Date() });
+  });
+  await assertFails(getDoc(doc(owner(), 'bizNos', '1248100998')));
+  await assertFails(getDoc(doc(guest(), 'bizNos', '1248100998')));
+  await assertFails(setDoc(doc(other(), 'bizNos', '2208162517'), { uid: OTHER }));
+  await assertFails(updateDoc(doc(owner(), 'bizNos', '1248100998'), { uid: OWNER }));
+});
+
+test('M9: 결제된 견적은 사장님도 금액·조건·규정을 못 바꾼다 (상태는 가능)', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'quotes', 'q1'), { payment: { deposit: { amount: 56000, status: 'paid' } }, status: 'paid_deposit' });
+  });
+  const db = owner();
+  for (const patch of [{ total: 1 }, { lines: [] }, { deposit: 0 }, { conditions: [] }, { included: [] },
+    { excluded: [] }, { cancelPolicy: '환불 불가' }, { depositPct: 50 }, { number: 'Q-HACK' }, { refundRules: [] }]) {
+    await assertFails(updateDoc(doc(db, 'quotes', 'q1'), patch));
+  }
+  await assertSucceeds(updateDoc(doc(db, 'quotes', 'q1'), { status: 'hold' }));
+  await assertSucceeds(updateDoc(doc(db, 'quotes', 'q1'), { status: 'paid_deposit' }));
+  // 결제 없는 견적은 기존처럼 수정 가능
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'quotes', 'q5'), { shopId: OWNER, requestId: 'r1', status: 'sent', total: 1000 });
+  });
+  await assertSucceeds(updateDoc(doc(db, 'quotes', 'q5'), { total: 2000, conditions: [{ label: 'a', text: 'b', amount: 1000 }], refundRules: [{ daysBefore: 3, pct: 100 }] }));
+});
+
+test('Storage: 사진 파일 이름은 {칸}-{1~6}-{컷}.jpg 또는 {칸}.jpg', async () => {
+  const img = new Uint8Array([1, 2, 3]);
+  const st = () => env.unauthenticatedContext().storage();
+  await assertSucceeds(uploadBytes(ref(st(), `requests/${OWNER}/n2/bath-2-wide.jpg`), img, { contentType: 'image/jpeg' }));
+  await assertSucceeds(uploadBytes(ref(st(), `requests/${OWNER}/n2/kitchen.jpg`), img, { contentType: 'image/jpeg' }));
+  await assertFails(uploadBytes(ref(st(), `requests/${OWNER}/n2/bath-9-wide.jpg`), img, { contentType: 'image/jpeg' }));
+  await assertFails(uploadBytes(ref(st(), `requests/${OWNER}/n2/../x.jpg`), img, { contentType: 'image/jpeg' }).catch((e) => { throw e; }));
+  await assertFails(uploadBytes(ref(st(), `requests/${OWNER}/n2/big.jpg`), new Uint8Array(3 * 1024 * 1024 + 1), { contentType: 'image/jpeg' }));
 });
