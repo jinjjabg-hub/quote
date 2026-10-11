@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // 고객 현장 사진: 고객은 "올리기"만 (덮어쓰기·읽기 불가), 사장님만 보기
+    match /requests/{shopId}/{requestId}/{file} {
+      allow create: if resource == null
+        && request.resource.size < 3 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*')
+        && firestore.exists(/databases/(default)/documents/shops/$(shopId));
+      allow read, delete: if request.auth != null && request.auth.uid == shopId;
+    }
+
+    // 업체 로고: 누구나 보기, 사장님만 올리기
+    match /shops/{shopId}/{file} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == shopId
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
