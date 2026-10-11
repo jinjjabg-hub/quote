@@ -1,13 +1,43 @@
 // 계약금 온라인 결제 (고객용) — 토스페이먼츠 결제창 SDK v2, 테스트 모드 골격
 //
-// 흐름: [계약금 결제] → 취소·환불 규정 + 약관 동의 → 서버 preparePayment(금액은 서버가 quotes 로 계산)
+// 흐름: [계약금 결제] → 취소·환불 규정 + (맞춤제작 별도 고지) + 약관 동의 → 서버 preparePayment(금액은 서버가 quotes 로 계산)
 //       → 토스 결제창 → pay-success.html → 서버 confirmPayment(금액 대조 후 승인) → 견적서 상태 '계약금완료'
 //
 // 이 파일은 금액을 정하지 않는다. 화면에 보이는 금액은 안내용이고, 실제 결제 금액은 서버 응답값만 쓴다.
 // 카드번호 등 결제수단 정보는 이 앱을 거치지 않는다(토스 결제창이 직접 받음).
-import { paymentConfig as PC } from './config.js';
+//
+// ★ 아래 CUSTOM_MADE_NOTICE·canonicalJson·quoteSnapshot·describeRefundRules·legalLinksReady 는
+//   functions/lib (consent.js, snapshot.js, rules.js) 와 같아야 한다. functions/test 가 두 구현을 비교한다.
+import { paymentConfig as PC, appConfig as AC } from './config.js';
 import { formatWon } from './calc.js';
 import { $, h, toast, pageUrl } from './util.js';
+
+// 맞춤제작(커튼·중문) 청약철회 제한 — 별도 박스 + 별도 체크(기본 해제). legal copy-snippets §3, quote-notice §4-5
+export const CUSTOM_MADE_NOTICE = {
+  version: 'custom-made-v1',
+  title: '맞춤 제작 상품 취소 안내',
+  lines: [
+    '이 상품은 고객님 치수에 맞춰 개별 제작하여 다른 곳에 쓸 수 없어요.',
+    '제작 시작 전: 취소할 수 있어요. (실측비가 있으면 위 취소·환불 규정에 따라 빼고 환불)',
+    '제작 시작 후: 단순 변심으로는 취소·환불이 안 돼요.',
+    '제품 하자나 주문과 다르게 만들어진 경우는 언제든 교환·환불받을 수 있어요.',
+  ],
+  checkbox: '[필수] 위 맞춤 제작 취소 제한 내용을 따로 확인했고 동의해요.',
+};
+
+/** 약관·처리방침 링크 (paymentConfig 우선, 없으면 appConfig) */
+function legalUrls() {
+  return {
+    termsUrl: String(PC?.termsUrl || AC?.termsUrl || '').trim(),
+    privacyUrl: String(PC?.privacyUrl || AC?.privacyUrl || '').trim(),
+  };
+}
+
+/** 둘 다 있어야 결제를 연다 (검수 S4①). https 주소 또는 같은 사이트 상대경로 */
+export function legalLinksReady({ termsUrl, privacyUrl } = {}) {
+  const ok = (u) => typeof u === 'string' && /^(https?:\/\/|\.{0,2}\/|[A-Za-z0-9_-]+\.html)\S*$/.test(u.trim());
+  return ok(termsUrl) && ok(privacyUrl);
+}
 
 const DONE_LABEL = {
   paid_deposit: '계약금 결제 완료 ✓',
@@ -17,10 +47,78 @@ const DONE_LABEL = {
   canceled: '취소된 예약입니다',
 };
 
-/** 결제 버튼을 보여줄 조건: 설정 켜짐 + 서버 주소 + 계약금 > 0 + 업체 취소 규정 있음(결제 전 고지 의무) */
+/**
+ * 결제 버튼을 보여줄 조건: 설정 켜짐 + 서버 주소 + 약관·처리방침 링크 둘 다 있음(S4) + 계약금 > 0
+ * + 업체 취소 규정 있음(결제 전 고지 의무). false 면 view.js 가 기존 "예약 요청" 버튼을 보여준다.
+ */
 export function paymentEnabled(quote) {
-  return !!(PC?.enabled && PC.provider === 'toss' && apiBase()
+  return !!(PC?.enabled && PC.provider === 'toss' && apiBase() && legalLinksReady(legalUrls())
     && Number(quote?.deposit) > 0 && String(quote?.cancelPolicy || '').trim());
+}
+
+/**
+ * 결제가 켜져 있는데 약관 준비가 안 돼 예약 요청으로 돌린 경우의 안내 한 줄 (view.js 가 예약 버튼 위에 붙임).
+ * 해당 없으면 null.
+ */
+export function paymentPendingNote(quote) {
+  if (!PC?.enabled || paymentEnabled(quote) || !(Number(quote?.deposit) > 0)) return null;
+  return h('p.muted.small', {}, '온라인 결제 준비 중이에요. 예약 요청을 남기시면 사장님이 계약금 안내를 드려요.');
+}
+
+// ───────── 견적 스냅샷 해시 (M9) — functions/lib/snapshot.js 와 같은 알고리즘 ─────────
+export const SNAPSHOT_FIELDS = [
+  'number', 'lines', 'total', 'deposit', 'depositPct',
+  'conditions', 'included', 'excluded', 'cancelPolicy', 'refundRules',
+];
+
+export function canonicalJson(v) {
+  if (v === undefined) return undefined;
+  if (v === null || typeof v === 'boolean' || typeof v === 'string') return JSON.stringify(v);
+  if (typeof v === 'number') return Number.isFinite(v) ? JSON.stringify(v) : 'null';
+  if (Array.isArray(v)) return `[${v.map((x) => canonicalJson(x) ?? 'null').join(',')}]`;
+  if (typeof v.toDate === 'function') return JSON.stringify(v.toDate().toISOString());
+  if (v instanceof Date) return JSON.stringify(v.toISOString());
+  const keys = Object.keys(v).filter((k) => v[k] !== undefined).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(v[k])}`).join(',')}}`;
+}
+
+export function quoteSnapshot(quote = {}) {
+  const q = quote || {};
+  const snap = {};
+  for (const k of SNAPSHOT_FIELDS) snap[k] = q[k] === undefined ? null : q[k];
+  return snap;
+}
+
+/** 고객이 보고 있는 견적의 SHA-256 (브라우저 crypto.subtle 이 없으면 null → 서버 해시만 기록) */
+export async function quoteSnapshotHash(quote) {
+  try {
+    const c = globalThis.crypto?.subtle;
+    if (!c) return null;
+    const buf = await c.digest('SHA-256', new TextEncoder().encode(canonicalJson(quoteSnapshot(quote))));
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    return null;
+  }
+}
+
+/** 환불 계산 규칙 → 문장 (functions/lib/rules.js describeRefundRules 와 같은 문장) */
+export function describeRefundRules(rules) {
+  if (!Array.isArray(rules)) return '';
+  const pct = (v) => Math.min(100, Math.max(0, Math.round(Number(v))));
+  const within = [];
+  const before = [];
+  for (const r of rules) {
+    if (r?.type === 'withinDaysOfPayment') {
+      if (Number.isInteger(r.days) && r.days > 0 && Number.isFinite(Number(r.pct))) within.push({ days: r.days, pct: pct(r.pct) });
+    } else if (Number.isInteger(r?.daysBefore) && r.daysBefore >= 0 && Number.isFinite(Number(r?.pct))) {
+      before.push({ daysBefore: r.daysBefore, pct: pct(r.pct) });
+    }
+  }
+  return [
+    ...within.map((r) => `결제 후 ${r.days}일 이내(작업일 전) 취소: 계약금 ${r.pct}% 환불`),
+    ...before.sort((a, b) => b.daysBefore - a.daysBefore)
+      .map((r) => `${r.daysBefore === 0 ? '작업 당일' : `작업 ${r.daysBefore}일 전까지`} 취소: 계약금 ${r.pct}% 환불`),
+  ].join('\n');
 }
 
 /** view.js bookingButton 대신 쓰는 계약금 결제 버튼 */
@@ -35,8 +133,11 @@ export function payButton(quote, quoteId, expired) {
 }
 
 function openPayDialog(quote, quoteId) {
+  const customMade = quote?.service?.customMade === true;
+  const { termsUrl, privacyUrl } = legalUrls();
   const checks = {
     cancelPolicy: h('input', { type: 'checkbox' }),
+    ...(customMade ? { customMade: h('input', { type: 'checkbox' }) } : {}), // 기본 해제, 별도 체크 (S4②)
     terms: h('input', { type: 'checkbox' }),
     privacy: h('input', { type: 'checkbox' }),
   };
@@ -47,10 +148,10 @@ function openPayDialog(quote, quoteId) {
   const agreeRow = (input, text, url) => h('label.field', { style: 'display:flex;gap:8px;align-items:flex-start;margin:10px 0' },
     input,
     h('span', {}, text, ' ',
-      url === undefined ? null // 링크가 필요 없는 항목(취소 규정은 바로 위에 원문 표시)
-        : url ? h('a', { href: url, target: '_blank', rel: 'noopener' }, '보기')
-          : h('span.muted.small', {}, '(문구 준비 중)')));
+      url ? h('a', { href: url, target: '_blank', rel: 'noopener' }, '보기') : null));
 
+  const rulesText = describeRefundRules(quote.refundRules);
+  const shopName = quote.shop?.name || '업체';
   const dlg = h('dialog.sheet', {},
     PC.mode !== 'live' ? h('div.warn-box', {}, '테스트 결제입니다. 실제 돈이 나가지 않아요.') : null,
     h('h2', {}, '계약금 결제'),
@@ -60,12 +161,18 @@ function openPayDialog(quote, quoteId) {
       h('dt', {}, '잔금'), h('dd', {}, `${formatWon(Number(quote.total) - Number(quote.deposit))} (작업 완료 후)`)),
     h('h3', {}, '취소·환불 규정'),
     h('p.msg', {}, quote.cancelPolicy),
+    // 환불 계산 규칙이 있으면 고객에게도 같은 문장을 보여준다 (사장님 환불 계산 근거와 일치, M13)
+    rulesText ? h('p.msg', { style: 'white-space:pre-line' }, rulesText) : null,
     h('p.muted.small', {},
       '현장 추가금은 견적서의 ⚠️조건에 해당할 때만 발생하며, 사장님이 사유와 금액을 보여드리고 고객님이 승인한 뒤에만 청구됩니다.'),
-    agreeRow(checks.cancelPolicy, '[필수] 위 취소·환불 규정을 확인했습니다.'),
-    agreeRow(checks.terms, '[필수] 이용약관에 동의합니다.', PC.termsUrl),
-    agreeRow(checks.privacy, '[필수] 개인정보 수집·이용 및 결제대행사(토스페이먼츠) 제공에 동의합니다.', PC.privacyUrl),
-    h('p.muted.small', {}, `결제는 토스페이먼츠 결제창에서 진행되며 카드 정보는 이 앱에 저장되지 않습니다. 결제 대금은 ${quote.shop?.name || '업체'}에 지급됩니다.`),
+    agreeRow(checks.cancelPolicy, "[필수] 견적서의 '추가요금 조건'과 위 '취소·환불 규정'을 확인했어요."),
+    customMade ? h('div.warn-box', { style: 'margin:12px 0' },
+      h('b', {}, CUSTOM_MADE_NOTICE.title),
+      h('ul', { style: 'margin:6px 0 0;padding-left:18px' }, ...CUSTOM_MADE_NOTICE.lines.map((l) => h('li', {}, l))),
+      agreeRow(checks.customMade, CUSTOM_MADE_NOTICE.checkbox)) : null,
+    agreeRow(checks.terms, '[필수] 이용약관에 동의합니다.', termsUrl),
+    agreeRow(checks.privacy, '[필수] 개인정보 수집·이용 및 결제대행사(토스페이먼츠) 제공에 동의합니다.', privacyUrl),
+    h('p.muted.small', {}, `계약 상대는 ${shopName}이에요. 계약금은 ${shopName}에 결제되며, 결제가 완료되면 예약(계약)이 성립해요. 결제는 토스페이먼츠 결제창에서 진행되며 카드 정보는 이 앱에 저장되지 않아요.`),
     h('div.btn-col', {},
       payBtn,
       h('button.btn.ghost', { onclick: () => dlg.close() }, '닫기')));
@@ -73,9 +180,8 @@ function openPayDialog(quote, quoteId) {
   payBtn.addEventListener('click', async () => {
     payBtn.disabled = true;
     try {
-      await startPayment(quote, quoteId, {
-        cancelPolicy: checks.cancelPolicy.checked, terms: checks.terms.checked, privacy: checks.privacy.checked,
-      });
+      const agreements = Object.fromEntries(Object.entries(checks).map(([k, c]) => [k, c.checked]));
+      await startPayment(quote, quoteId, agreements);
     } catch (e) {
       // 고객이 결제창을 닫은 경우(USER_CANCEL)는 조용히 안내
       toast(e?.code === 'USER_CANCEL' ? '결제를 취소했어요.' : (e?.message || '결제를 시작하지 못했어요. 전화로 문의해주세요.'), 4000);
@@ -89,7 +195,12 @@ function openPayDialog(quote, quoteId) {
 
 async function startPayment(quote, quoteId, agreements) {
   // 1) 서버가 금액을 계산하고 주문(orderId)을 만든다. 동의 내역도 여기서 서버에 기록된다.
-  const order = await api('preparePayment', { quoteId, kind: 'deposit', agreements, termsVersion: PC.termsVersion });
+  //    고객이 보고 있는 견적의 해시를 함께 보내 "본 화면 = 서버 스냅샷"을 증거로 남긴다 (M9)
+  const order = await api('preparePayment', {
+    quoteId, kind: 'deposit', agreements, termsVersion: PC.termsVersion,
+    quoteSnapshotHash: await quoteSnapshotHash(quote),
+    customMadeNoticeVersion: agreements.customMade ? CUSTOM_MADE_NOTICE.version : undefined,
+  });
   // 2) 토스 결제창. 금액은 서버 응답값만 사용한다.
   const TossPayments = await loadSdk();
   const tp = TossPayments(order.clientKey || PC.clientKey);

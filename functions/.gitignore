@@ -1,5 +1,9 @@
 node_modules/
 # 비밀값: 절대 커밋 금지 (에뮬레이터용 시크릿, 로컬 환경변수)
+# .env 도 무시한다 (검수 L10) — 공개값만 넣는 파일이지만 실수로 비밀값이 들어갈 위험. 예시는 .env.example 만 커밋.
+.env
+.env.*
+!.env.example
 .secret.local
 .env.local
 .env.*.local

@@ -6,7 +6,7 @@
   "main": "index.js",
   "engines": { "node": "22" },
   "scripts": {
-    "test": "node --test test/rules.test.mjs",
+    "test": "node --test test/*.test.mjs",
     "serve": "firebase emulators:start --only functions,firestore,auth",
     "deploy": "firebase deploy --only functions"
   },
