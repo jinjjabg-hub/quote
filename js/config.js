@@ -12,4 +12,6 @@ export const firebaseConfig = {
 // 앱 기본값
 export const appConfig = {
   defaultTemplateId: 'move-in-cleaning',
+  // 만두(번역 메신저) 게스트 채팅 주소. 만두 ID를 붙이면 고객이 가입 없이 바로 채팅한다.
+  manduBaseUrl: 'https://jinjjabg-hub.github.io/MANDU/',
 };

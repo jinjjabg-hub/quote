@@ -64,7 +64,7 @@ tests/emulator/           보안 규칙 테스트 + 완료 시나리오 E2E (Fir
 ## Firestore 구조
 | 경로 | 내용 | 권한 |
 |---|---|---|
-| `shops/{shopId}` | `ownerUid, templateId, name, ownerName, phone, bizNo, logoUrl` | 누구나 get, 본인만 쓰기 |
+| `shops/{shopId}` | `ownerUid, templateId, name, ownerName, phone, bizNo, logoUrl, manduId` | 누구나 get, 본인만 쓰기 |
 | `shops/{shopId}/private/pricing` | `priceTable` (아래) | 본인만 |
 | `templates/{templateId}` | 템플릿 JSON (선택. 없으면 저장소 JSON 사용) | 누구나 읽기, 콘솔에서만 쓰기 |
 | `requests/{requestId}` | `shopId, templateId, status, customer{name,phone,region}, answers{…}, checklist{key:'yes'\|'no'\|'unknown'}, photos[{slot,path}], quoteId, createdAt` | 누구나 생성(검증), 사장님만 읽기/수정 |
@@ -132,6 +132,7 @@ npm run e2e              # 지시문 7장 시나리오 1~5 를 Chromium 으로 �
 |---|---|
 | AI 사진 분석 → 추가요금 후보 표시 | 요청 생성 시 Cloud Function(onCreate `requests`) → `requests.aiHints[]` 저장 → `owner.js renderDetail` 에 표시, `calculateQuote` 의 `overrides.options` 제안값으로 사용 |
 | 통화 메모 요약 | `requests.notes[]` 필드 + 상세 화면 메모 입력 → Function 에서 요약 |
+| 만두(번역 메신저) 연동 | **1단계 완료**: 업체 정보의 `manduId` → 고객 화면·견적서에 `MANDU/?u=만두ID` 채팅 버튼 (`js/util.js manduHref`, `appConfig.manduBaseUrl`). 2단계: 만두 쪽에서 게스트 첫 메시지에 견적 링크 자동 안내(만두 저장소 수정 필요) |
 | 부재중 전화 자동문자 / 카카오 채널 자동응답 | 외부 webhook → Function 이 `q.html?shop=` 링크 발송. 앱 쪽 변경 없음 |
 | 계약금 온라인 결제 | `view.js bookingButton` 을 결제 위젯으로 교체 → 결제 완료 webhook(Function)이 `status=confirmed` 기록 (규칙상 고객은 confirmed 로 못 바꾸므로 서버에서 처리) |
 | 미응답 고객 자동 재연락 | 예약 Function: `status=sent` 이고 `updatedAt` 이 N일 지난 견적 → 문자 |

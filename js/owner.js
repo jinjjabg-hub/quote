@@ -12,7 +12,7 @@ import {
 } from './calc.js';
 import {
   $, h, toast, copyText, pageUrl, compressImage, STATUS, statusBadge, fmtDateTime, optionLabel, telHref,
-  registerSW, showFatal,
+  registerSW, showFatal, MANDU_ID_RE,
 } from './util.js';
 
 registerSW();
@@ -57,7 +57,7 @@ async function loadShop() {
   if (!snap.exists()) {
     await setDoc(shopRef, {
       ownerUid: uid, templateId: appConfig.defaultTemplateId,
-      name: '', ownerName: S.user.displayName || '', phone: '', bizNo: '', logoUrl: '',
+      name: '', ownerName: S.user.displayName || '', phone: '', bizNo: '', logoUrl: '', manduId: '',
       createdAt: serverTimestamp(),
     });
     snap = await getDoc(shopRef);
@@ -213,14 +213,18 @@ function renderShopForm() {
     text('ownerName', '대표자'),
     text('phone', '연락처', { type: 'tel', placeholder: '010-0000-0000' }),
     text('bizNo', '사업자번호', { optional: true, placeholder: '000-00-00000' }),
+    text('manduId', '만두 ID', { optional: true, placeholder: '예) banjjak (@ 없이)' }),
+    h('p.muted.small', {}, '넣으면 고객 화면·견적서에 "💬 만두로 채팅 문의" 버튼이 생깁니다. 외국인 고객과도 자동 번역으로 대화할 수 있어요.'),
     h('div.field', {}, h('span.label', {}, '로고', h('span.muted', {}, ' (선택)')),
       h('div.logo-row', {}, logoImg, h('button.btn.ghost', { onclick: () => logoInput.click() }, '로고 올리기'), logoInput)),
     h('button.btn.primary.block', {
       onclick: async (e) => {
         if (!f.name || !f.phone) { toast('상호와 연락처는 꼭 입력해주세요.'); return; }
+        f.manduId = (f.manduId || '').replace(/^@/, '').toLowerCase();
+        if (f.manduId && !MANDU_ID_RE.test(f.manduId)) { toast('만두 ID는 영문 소문자·숫자·_ 3~20자입니다.'); return; }
         e.target.disabled = true;
         try {
-          const data = { name: f.name, ownerName: f.ownerName || '', phone: f.phone, bizNo: f.bizNo || '', logoUrl: f.logoUrl || '', updatedAt: serverTimestamp() };
+          const data = { name: f.name, ownerName: f.ownerName || '', phone: f.phone, bizNo: f.bizNo || '', logoUrl: f.logoUrl || '', manduId: f.manduId || '', updatedAt: serverTimestamp() };
           await updateDoc(doc(db, 'shops', S.user.uid), data);
           S.shop = { ...S.shop, ...data };
           toast('저장했어요.');
@@ -434,7 +438,7 @@ async function sendQuote(req, btn) {
       templateId: S.tpl.id,
       templateName: S.tpl.name,
       number: `Q${today.replace(/-/g, '').slice(2)}-${quoteRef.id.slice(0, 4).toUpperCase()}`,
-      shop: { name: S.shop.name, ownerName: S.shop.ownerName || '', phone: S.shop.phone, bizNo: S.shop.bizNo || '', logoUrl: S.shop.logoUrl || '' },
+      shop: { name: S.shop.name, ownerName: S.shop.ownerName || '', phone: S.shop.phone, bizNo: S.shop.bizNo || '', logoUrl: S.shop.logoUrl || '', manduId: S.shop.manduId || '' },
       customer: { name: req.customer?.name || '', region: req.customer?.region || '' },
       service: {
         date: a.date || '', timeSlot: optionLabel(timeField, a.timeSlot) || '',
