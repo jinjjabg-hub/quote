@@ -59,6 +59,15 @@ export function parseNtsStatus(json, bizNo) {
   return { ok: false, code: 'nts_unregistered', message: '국세청에 등록되지 않은 사업자등록번호예요. 번호를 다시 확인해주세요.' };
 }
 
+// 오류 문구: docs/legal/copy-snippets.md §5 그대로
+export const BIZ_TAKEN_MESSAGE = '이 사업자번호는 이미 다른 계정에 등록되어 있어요. 본인 사업자인데 등록한 적이 없다면 고객센터로 알려주세요.';
+/** nextAt(ISO) → 'YYYY-MM-DD'(한국시간) 넣은 30일 제한 문구 */
+export function tooSoonMessage(nextAt) {
+  const d = toDate(nextAt);
+  const day = d ? new Date(d.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10) : '';
+  return `업체명·사업자번호는 30일에 한 번만 바꿀 수 있어요. ${day}부터 다시 바꿀 수 있어요.`;
+}
+
 /** 업체명 검사: 앞뒤 공백 제거, 1~60자 (owner.js 입력칸 maxLength 60 과 같게) */
 export function normalizeShopName(v) {
   const s = String(v ?? '').replace(/\s+/g, ' ').trim();
@@ -121,7 +130,7 @@ export function planIdentityUpdate(shop, input, now = new Date()) {
   if (!nameChanged && !bizNoChanged) return err(400, 'no_change', '바뀐 내용이 없어요.');
   const gate = canChangeIdentity(shop.identityChangedAt, now);
   if (!gate.ok) {
-    return { ...err(409, 'too_soon', `업체명·사업자번호는 30일에 한 번만 바꿀 수 있어요. ${gate.nextAt.slice(0, 10)} 이후에 다시 시도해주세요.`), nextAt: gate.nextAt };
+    return { ...err(409, 'too_soon', tooSoonMessage(gate.nextAt)), nextAt: gate.nextAt };
   }
   return { ok: true, name, bizNo, nameChanged, bizNoChanged };
 }

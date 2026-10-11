@@ -12,17 +12,16 @@ import { paymentConfig as PC, appConfig as AC } from './config.js';
 import { formatWon } from './calc.js';
 import { $, h, toast, pageUrl } from './util.js';
 
-// 맞춤제작(커튼·중문) 청약철회 제한 — 별도 박스 + 별도 체크(기본 해제). legal copy-snippets §3, quote-notice §4-5
+// 맞춤제작(커튼·중문) 청약철회 제한 — 별도 박스 + 별도 체크(기본 해제). 원문: docs/legal/cancel-policies.md §3 (custommade-v1)
 export const CUSTOM_MADE_NOTICE = {
-  version: 'custom-made-v1',
-  title: '맞춤 제작 상품 취소 안내',
-  lines: [
-    '이 상품은 고객님 치수에 맞춰 개별 제작하여 다른 곳에 쓸 수 없어요.',
-    '제작 시작 전: 취소할 수 있어요. (실측비가 있으면 위 취소·환불 규정에 따라 빼고 환불)',
-    '제작 시작 후: 단순 변심으로는 취소·환불이 안 돼요.',
-    '제품 하자나 주문과 다르게 만들어진 경우는 언제든 교환·환불받을 수 있어요.',
-  ],
-  checkbox: '[필수] 위 맞춤 제작 취소 제한 내용을 따로 확인했고 동의해요.',
+  version: 'custommade-v1',
+  title: '맞춤 제작 상품 취소 안내 (꼭 읽어 주세요)',
+  body: '이 상품은 고객님 현장 치수에 맞춰 개별 제작하므로 다른 곳에 다시 쓸 수 없습니다.\n'
+    + '· 제작은 방문 실측 후 확정 견적서를 보내드리고, 고객님이 동의하신 뒤에만 시작합니다.\n'
+    + '· 제작 시작 전: 언제 취소하셔도 계약금 전액을 돌려드립니다.\n'
+    + '· 제작 시작 후: 단순 변심에 의한 청약철회는 제한됩니다. 그래도 취소하시면 이미 들어간 자재·제작 비용을 발주서·영수증으로 보여드리고, 그 금액을 계약금에서 뺀 나머지를 돌려드립니다.\n'
+    + '· 제품 하자, 확정 견적서와 다르게 만들어진 경우, 업체가 잰 치수가 틀린 경우에는 이 제한과 관계없이 다시 만들어 드리거나 환불합니다.',
+  checkbox: '(필수) 맞춤 제작 상품은 제작 시작 후 단순 변심에 의한 청약철회가 제한된다는 위 안내를 따로 확인했고, 이에 동의합니다.',
 };
 
 /** 약관·처리방침 링크 (paymentConfig 우선, 없으면 appConfig) */
@@ -168,11 +167,15 @@ function openPayDialog(quote, quoteId) {
     agreeRow(checks.cancelPolicy, "[필수] 견적서의 '추가요금 조건'과 위 '취소·환불 규정'을 확인했어요."),
     customMade ? h('div.warn-box', { style: 'margin:12px 0' },
       h('b', {}, CUSTOM_MADE_NOTICE.title),
-      h('ul', { style: 'margin:6px 0 0;padding-left:18px' }, ...CUSTOM_MADE_NOTICE.lines.map((l) => h('li', {}, l))),
+      h('p', { style: 'white-space:pre-line;margin:6px 0 0' }, CUSTOM_MADE_NOTICE.body),
       agreeRow(checks.customMade, CUSTOM_MADE_NOTICE.checkbox)) : null,
     agreeRow(checks.terms, '[필수] 이용약관에 동의합니다.', termsUrl),
-    agreeRow(checks.privacy, '[필수] 개인정보 수집·이용 및 결제대행사(토스페이먼츠) 제공에 동의합니다.', privacyUrl),
-    h('p.muted.small', {}, `계약 상대는 ${shopName}이에요. 계약금은 ${shopName}에 결제되며, 결제가 완료되면 예약(계약)이 성립해요. 결제는 토스페이먼츠 결제창에서 진행되며 카드 정보는 이 앱에 저장되지 않아요.`),
+    // 결제대행사는 업체가 직접 맡긴 처리위탁 수탁자 (제3자 제공 아님 — legal privacy-policy A-6, 검수 M12)
+    agreeRow(checks.privacy, '[필수] 개인정보 수집·이용에 동의해요. (결제 처리는 업체가 맡긴 결제대행사에 위탁돼요)', privacyUrl),
+    h('p.muted.small', { style: 'white-space:pre-line' },
+      `· 계약 상대는 ${shopName}이에요. 계약금은 ${shopName}에게 결제돼요.\n`
+      + `· 결제는 ${shopName}이 계약한 결제대행사가 처리하며, 카드번호는 ${shopName}·T.M LINK에 저장되지 않아요.\n`
+      + '· 결제가 완료되면 예약(계약)이 확정돼요.'),
     h('div.btn-col', {},
       payBtn,
       h('button.btn.ghost', { onclick: () => dlg.close() }, '닫기')));

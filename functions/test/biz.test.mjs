@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalizeBizNo, isValidBizNo, formatBizNo, parseNtsStatus, canChangeIdentity, planVerify, planIdentityUpdate,
-  normalizeShopName, historyEntry, hasServiceKey, IDENTITY_CHANGE_DAYS,
+  normalizeShopName, historyEntry, hasServiceKey, IDENTITY_CHANGE_DAYS, BIZ_TAKEN_MESSAGE, tooSoonMessage,
 } from '../lib/biz.js';
 import { checkBusinessStatus, NtsError } from '../lib/nts.js';
 
@@ -128,4 +128,11 @@ test('이력 1줄 모양', () => {
     { kind: 'update', name: 'B', bizNo: VALID, prevName: 'A', prevBizNo: null, mode: null, at });
   assert.equal(normalizeShopName('  a   b '), 'a b');
   assert.equal(normalizeShopName(''), null);
+});
+
+test('오류 문구 = legal copy-snippets.md §5', () => {
+  assert.equal(BIZ_TAKEN_MESSAGE, '이 사업자번호는 이미 다른 계정에 등록되어 있어요. 본인 사업자인데 등록한 적이 없다면 고객센터로 알려주세요.');
+  assert.equal(tooSoonMessage('2026-10-31T16:00:00.000Z'), '업체명·사업자번호는 30일에 한 번만 바꿀 수 있어요. 2026-11-01부터 다시 바꿀 수 있어요.'); // KST
+  assert.equal(planIdentityUpdate({ name: 'A', bizNo: VALID, bizVerified: true, identityChangedAt: new Date('2026-10-01T00:00:00Z') }, { name: 'B' }, NOW).message,
+    tooSoonMessage('2026-10-31T00:00:00.000Z'));
 });

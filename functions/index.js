@@ -38,6 +38,7 @@ import {
 import { snapshotWithHash, isSnapshotHash } from './lib/snapshot.js';
 import {
   planVerify, planIdentityUpdate, canChangeIdentity, historyEntry, hasServiceKey, normalizeBizNo, formatBizNo,
+  BIZ_TAKEN_MESSAGE, tooSoonMessage,
 } from './lib/biz.js';
 import * as toss from './lib/toss.js';
 import * as nts from './lib/nts.js';
@@ -141,6 +142,9 @@ export const preparePayment = onRequest(OPTS, (req, res) => handle(req, res, { c
     agreements: {
       cancelPolicy: true, terms: true, privacy: true,
       customMade, // 맞춤제작 별도 동의 여부 (맞춤제작 견적이면 반드시 true)
+      // legal cancel-policies.md §3 저장 필드: 버전 + 원문(박스 본문 + 체크박스 문장)
+      customMadeVersion: customMade ? CUSTOM_MADE_NOTICE.version : null,
+      customMadeText: customMade ? customMadeNoticeText() : null,
       customMadeConsent: customMade ? {
         agreed: true,
         version: CUSTOM_MADE_NOTICE.version,
@@ -404,12 +408,12 @@ async function writeIdentity(uid, { kind, name, bizNo, mode, bizNoChanged = kind
     if (kind === 'update') {
       if (shop.bizVerified !== true) throw httpError(409, '인증 전에는 업체 정보 화면에서 바로 고칠 수 있어요.', 'not_verified');
       const gate = canChangeIdentity(shop.identityChangedAt, now);
-      if (!gate.ok) throw httpError(409, '업체명·사업자번호는 30일에 한 번만 바꿀 수 있어요.', 'too_soon', { nextAt: gate.nextAt });
+      if (!gate.ok) throw httpError(409, tooSoonMessage(gate.nextAt), 'too_soon', { nextAt: gate.nextAt });
     } else if (shop.bizVerified === true && prevBizNo !== bizNo) {
       throw httpError(409, '이미 인증된 업체예요. 사업자번호를 바꾸려면 "변경 요청"을 이용해주세요.', 'use_update');
     }
     if (claim?.exists && claim.data().uid !== uid) {
-      throw httpError(409, '이미 다른 계정에서 인증한 사업자번호예요. 본인 업체가 맞다면 고객센터로 문의해주세요.', 'biz_taken');
+      throw httpError(409, BIZ_TAKEN_MESSAGE, 'biz_taken');
     }
 
     const update = { updatedAt: FieldValue.serverTimestamp() };
@@ -539,7 +543,7 @@ function agreedBasis(pay) {
     cancelPolicyText: a.cancelPolicyText ?? pay.quoteSnapshot?.cancelPolicy ?? '',
     refundRulesText: a.refundRulesText || '',
     customMade: a.customMade === true,
-    customMadeText: a.customMadeConsent?.text || null,
+    customMadeText: a.customMadeText || a.customMadeConsent?.text || null,
     quoteSnapshotHash: pay.quoteSnapshotHash || null,
     agreedAt: a.agreedAt?.toDate ? a.agreedAt.toDate().toISOString() : (a.agreedAt || null),
   };

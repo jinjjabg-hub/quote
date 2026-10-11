@@ -5,6 +5,7 @@ import {
   checkAgreements, requiredAgreements, isCustomMade, legalLinksReady, CUSTOM_MADE_NOTICE, customMadeNoticeText,
 } from '../lib/consent.js';
 import { checkAgreements as legacyCheck } from '../lib/rules.js';
+import { readFileSync } from 'node:fs';
 
 const ALL = { cancelPolicy: true, terms: true, privacy: true };
 const curtain = { service: { templateId: 'curtain', customMade: true } };
@@ -23,17 +24,22 @@ test('맞춤제작 견적: customMade 별도 동의 + 현재 문구 버전 필�
   const r = checkAgreements(ALL, curtain, { customMadeNoticeVersion: CUSTOM_MADE_NOTICE.version });
   assert.deepEqual(r.missing, ['customMade']);
   assert.equal(checkAgreements({ ...ALL, customMade: true }, curtain, { customMadeNoticeVersion: CUSTOM_MADE_NOTICE.version }).ok, true);
-  assert.equal(checkAgreements({ ...ALL, customMade: true }, curtain, { customMadeNoticeVersion: 'custom-made-v0' }).code, 'NOTICE_OUTDATED');
+  assert.equal(checkAgreements({ ...ALL, customMade: true }, curtain, { customMadeNoticeVersion: 'custom-made-v1' }).code, 'NOTICE_OUTDATED');
   assert.equal(checkAgreements({ ...ALL, customMade: true }, curtain, {}).code, 'NOTICE_OUTDATED');
 });
 
-test('맞춤제작 고지 원문: legal 필수 요소(개별 제작·재판매 불가·제작 후 변심 불가·하자 예외)', () => {
+test('맞춤제작 고지 원문 = legal cancel-policies.md §3 custommade-v1 (정본, 한 글자도 다르면 실패)', () => {
+  assert.equal(CUSTOM_MADE_NOTICE.version, 'custommade-v1');
+  const md = readFileSync(new URL('../../../quote-agents/docs/legal/cancel-policies.md', import.meta.url), 'utf8');
+  const sec = md.slice(md.indexOf('## 3. 맞춤제작'), md.indexOf('## 4.'));
+  const json = JSON.parse(sec.match(/```json\n([\s\S]*?)\n```/)[1]);
+  assert.deepEqual({ ...CUSTOM_MADE_NOTICE }, json);
   const text = customMadeNoticeText();
-  assert.match(text, /치수에 맞춰 개별 제작/);
-  assert.match(text, /다른 곳에 쓸 수 없어요/);
-  assert.match(text, /제작 시작 후: 단순 변심으로는 취소·환불이 안 돼요/);
+  assert.equal(text, `${json.body}\n${json.checkbox}`); // 저장 필드 agreements.customMadeText
+  assert.match(text, /다른 곳에 다시 쓸 수 없습니다/);
+  assert.match(text, /제작 시작 후: 단순 변심에 의한 청약철회는 제한됩니다/);
   assert.match(text, /하자/);
-  assert.match(text, /\[필수\]/);
+  assert.doesNotMatch(text, /\[__\]|\{[^}]+\}/); // 빈칸 자리표시 없음
 });
 
 test('약관·처리방침 링크: 둘 다 있어야 결제 가능', () => {
