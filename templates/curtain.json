@@ -1,0 +1,204 @@
+{
+  "id": "curtain",
+  "name": "커튼·블라인드",
+  "version": 1,
+  "description": "맞춤 커튼·블라인드 제작 및 설치 (사진·고객 치수 = 가견적, 방문 실측 후 확정)",
+
+  "steps": [
+    {
+      "title": "연락처를 알려주세요",
+      "description": "견적이 나오면 이 번호로 안내드립니다.",
+      "fields": [
+        { "key": "name", "label": "성함", "type": "text", "required": true, "placeholder": "홍길동", "maxLength": 30 },
+        { "key": "phone", "label": "연락처", "type": "tel", "required": true, "placeholder": "010-0000-0000", "maxLength": 20 }
+      ]
+    },
+    {
+      "title": "어디에 설치하나요?",
+      "fields": [
+        { "key": "region", "label": "주소 (시/구까지만)", "type": "text", "required": true, "placeholder": "예) 서울 송파구", "maxLength": 40 },
+        { "key": "buildingType", "label": "구조", "type": "choice", "required": true,
+          "options": [
+            { "value": "apt", "label": "아파트" },
+            { "value": "villa", "label": "빌라" },
+            { "value": "officetel", "label": "오피스텔" },
+            { "value": "house", "label": "주택" },
+            { "value": "store", "label": "상가·사무실" }
+          ] }
+      ]
+    },
+    {
+      "title": "설치 희망 날짜",
+      "description": "맞춤 제작이라 방문 실측 후 보통 며칠이 걸립니다. 정확한 설치일은 실측 때 확정합니다.",
+      "fields": [
+        { "key": "date", "label": "설치 희망 날짜", "type": "date", "required": true },
+        { "key": "timeSlot", "label": "시간대", "type": "choice", "required": true,
+          "options": [
+            { "value": "am", "label": "오전" },
+            { "value": "pm", "label": "오후" },
+            { "value": "any", "label": "상관없음" }
+          ] }
+      ]
+    },
+    {
+      "title": "설치할 창은 몇 개인가요?",
+      "description": "커튼·블라인드를 다는 창(또는 칸)의 개수입니다. 거실 큰 창에 커튼 2겹(암막+쉬폰)을 달아도 1개로 세어 주세요.",
+      "fields": [
+        { "key": "windows", "label": "설치할 창 개수", "type": "stepper", "required": true, "min": 1, "max": 30, "default": 1 },
+        { "key": "mountSurface", "label": "설치 위치 (천장·벽 재질)", "type": "choice", "required": true,
+          "options": [
+            { "value": "box", "label": "커튼박스(천장 홈) 안" },
+            { "value": "gypsum", "label": "석고보드 천장·벽 (두드리면 통통 소리)" },
+            { "value": "concrete", "label": "콘크리트·대리석 벽 (딱딱함)" },
+            { "value": "unknown", "label": "모름 (사진 보고 판단해 주세요)" }
+          ] },
+        { "key": "ceiling", "label": "천장 높이", "type": "choice", "required": true,
+          "options": [
+            { "value": "normal", "label": "일반 (2.4m 안팎)" },
+            { "value": "high", "label": "높음 (2.7m 넘음·복층·고천장 거실)" }
+          ] }
+      ]
+    },
+    {
+      "title": "커튼 (원하시는 만큼만)",
+      "description": "창 가로(창틀 바깥 끝~끝) 길이를 m로 모두 더해서 적어 주세요. 예) 거실 3.2m + 안방 1.8m = 5.0. 커튼이 없으면 0으로 두세요.",
+      "fields": [
+        { "key": "curtainBlackoutM", "label": "암막·일반 커튼 — 창 가로 합계 (m)", "type": "number", "min": 0, "max": 60, "default": 0,
+          "placeholder": "예) 5.0", "hint": "cm로 재셨다면 ÷ 100 하세요. (320cm = 3.2m)" },
+        { "key": "curtainSheerM", "label": "쉬폰(속커튼) — 창 가로 합계 (m)", "type": "number", "min": 0, "max": 60, "default": 0,
+          "placeholder": "예) 3.2", "hint": "암막과 같은 창에 겹으로 달면 그 창 가로를 여기에도 적어 주세요." },
+        { "key": "tallCurtainWindows", "label": "바닥까지 2.4m가 넘는 커튼 창 개수", "type": "stepper", "min": 0, "max": 30, "default": 0 }
+      ]
+    },
+    {
+      "title": "블라인드·롤스크린 (원하시는 만큼만)",
+      "description": "창마다 가로(m) × 세로(m)를 곱해 종류별로 더해 주세요. 예) 1.2×1.4 + 1.0×1.2 = 2.88. 블라인드가 없으면 0으로 두세요.",
+      "fields": [
+        { "key": "combiM2", "label": "콤비 블라인드 — 면적 합계 (㎡)", "type": "number", "min": 0, "max": 100, "default": 0, "placeholder": "예) 2.88" },
+        { "key": "woodM2", "label": "우드 블라인드 — 면적 합계 (㎡)", "type": "number", "min": 0, "max": 100, "default": 0, "placeholder": "예) 0.72" },
+        { "key": "honeycombM2", "label": "허니콤(단열) 블라인드 — 면적 합계 (㎡)", "type": "number", "min": 0, "max": 100, "default": 0 },
+        { "key": "rollM2", "label": "롤스크린 — 면적 합계 (㎡)", "type": "number", "min": 0, "max": 100, "default": 0 },
+        { "key": "windowSizes", "label": "창별 치수 메모 (선택, 적어 주시면 더 정확해요)", "type": "textarea", "maxLength": 500,
+          "placeholder": "예) 거실 320×230 암막+쉬폰 / 안방 180×150 암막 / 작은방 120×140 콤비" }
+      ]
+    },
+    {
+      "title": "전동·철거",
+      "fields": [
+        { "key": "motors", "label": "전동(리모컨)으로 할 창 개수", "type": "stepper", "min": 0, "max": 30, "default": 0 },
+        { "key": "removeWindows", "label": "기존 커튼·블라인드 철거가 필요한 창 개수", "type": "stepper", "min": 0, "max": 30, "default": 0 }
+      ]
+    },
+    {
+      "title": "추가요금 체크",
+      "description": "현장에서 추가요금 다툼이 없도록 미리 확인합니다. 잘 모르시면 '모름'을 눌러주세요.",
+      "fields": [ { "key": "checklist", "type": "checklist", "required": true } ]
+    },
+    {
+      "title": "추가로 원하시는 것이 있나요?",
+      "description": "없으면 그냥 '다음'을 누르세요.",
+      "fields": [ { "key": "extras", "type": "extras" } ]
+    },
+    {
+      "title": "사진을 올려주세요",
+      "description": "창마다 줄자를 대고 찍어 주시면 가견적이 실측 금액과 거의 같아집니다. 아래 위치별로 1장씩 권장합니다.",
+      "fields": [ { "key": "photos", "type": "photos" } ]
+    },
+    {
+      "title": "남기실 말씀 (선택)",
+      "fields": [
+        { "key": "memo", "label": "요청사항", "type": "textarea", "maxLength": 500,
+          "placeholder": "예) 원하는 색상·분위기, 실측 방문 가능 시간, 입주 날짜 등" }
+      ]
+    }
+  ],
+
+  "checklist": [
+    { "key": "selfMeasured", "short": "고객 직접 실측", "label": "창 크기를 줄자로 직접 재셨나요?", "risk": "no",
+      "conditionText": "줄자 실측 없이 사진·대략 치수로 낸 가견적입니다. 방문 실측 치수로 같은 단가표를 다시 계산해 확정 금액을 드립니다." },
+    { "key": "curtainBox", "short": "커튼박스", "label": "커튼을 달 곳에 커튼박스(천장 홈)가 있나요?", "risk": "no", "optionKey": "boxlessBracket" },
+    { "key": "drillOk", "short": "타공 가능", "label": "벽·천장에 나사 구멍을 내도 되나요? (전세·월세는 집주인 확인)", "risk": "no",
+      "conditionText": "타공이 불가하면 무타공 브라켓·압축봉 등으로 제품과 설치 방식이 바뀌어 금액이 달라질 수 있습니다. 실측 때 확정합니다." },
+    { "key": "obstacle", "short": "창 주변 간섭물", "label": "창 주변에 몰딩·에어컨·붙박이장·손잡이 등 걸리는 것이 있나요?", "risk": "yes",
+      "conditionText": "간섭물이 있으면 제품 크기·설치 위치가 바뀔 수 있으며, 변경분은 실측 확정 견적에 반영합니다." },
+    { "key": "sampleSeen", "short": "원단 실물 확인", "label": "원단·색상을 실물 샘플로 보고 고르실 건가요?", "risk": "no",
+      "conditionText": "화면·사진의 색은 실제 원단과 다르게 보일 수 있습니다. 실측 방문 때 실물 샘플 확인을 권장하며, 제작 착수 후에는 색상 변경이 어렵습니다." },
+    { "key": "parking", "short": "주차", "label": "작업 차량 주차가 가능한가요?", "risk": "no",
+      "conditionText": "주차가 불가하면 주차비(실비)가 추가될 수 있습니다." }
+  ],
+
+  "photoSlots": [
+    { "key": "windowFull", "label": "창 전체 (줄자 대고, 창마다)" },
+    { "key": "mountArea", "label": "창 위 설치 자리 (커튼박스·천장)" },
+    { "key": "sideWall", "label": "창 양옆 벽 여유" },
+    { "key": "floorGap", "label": "창 아래~바닥 (커튼 길이)" },
+    { "key": "existing", "label": "기존 커튼·블라인드" }
+  ],
+
+  "pricing": {
+    "base": {
+      "label": "기본 출장·설치비",
+      "quantityField": "windows",
+      "unit": "창",
+      "unitPriceKey": "unitPrice",
+      "unitPriceLabel": "창당 설치비",
+      "minPriceKey": "minPrice",
+      "minPriceLabel": "최소 출장·설치비"
+    },
+    "surcharges": [
+      { "key": "weekend", "label": "주말·공휴일 설치",
+        "when": { "any": [ { "field": "$weekend", "equals": true }, { "field": "$holiday", "equals": true } ] } },
+      { "key": "concrete", "label": "콘크리트·대리석 타공", "when": { "field": "mountSurface", "equals": "concrete" } },
+      { "key": "highCeiling", "label": "고천장(2.7m 초과) 작업", "when": { "field": "ceiling", "equals": "high" } }
+    ],
+    "options": [
+      { "key": "curtainBlackout", "label": "암막·일반 커튼 (주름 2배·레일 포함)", "unit": "m", "quantityField": "curtainBlackoutM",
+        "priceLabel": "암막·일반 커튼 (창 가로 1m당)" },
+      { "key": "curtainSheer", "label": "쉬폰 커튼 (주름 2배·레일 포함)", "unit": "m", "quantityField": "curtainSheerM",
+        "priceLabel": "쉬폰 커튼 (창 가로 1m당)" },
+      { "key": "tallCurtain", "label": "2.4m 초과 커튼 원단 추가", "unit": "창", "quantityField": "tallCurtainWindows",
+        "priceLabel": "2.4m 초과 커튼 (창당)" },
+      { "key": "combi", "label": "콤비 블라인드", "unit": "㎡", "quantityField": "combiM2", "priceLabel": "콤비 블라인드 (㎡당)" },
+      { "key": "wood", "label": "우드 블라인드", "unit": "㎡", "quantityField": "woodM2", "priceLabel": "우드 블라인드 (㎡당)" },
+      { "key": "honeycomb", "label": "허니콤 블라인드", "unit": "㎡", "quantityField": "honeycombM2", "priceLabel": "허니콤 블라인드 (㎡당)" },
+      { "key": "roll", "label": "롤스크린", "unit": "㎡", "quantityField": "rollM2", "priceLabel": "롤스크린 (㎡당)" },
+      { "key": "motor", "label": "전동 모터·리모컨", "unit": "개", "quantityField": "motors", "priceLabel": "전동 모터 (창당)" },
+      { "key": "removal", "label": "기존 제품 철거", "unit": "창", "quantityField": "removeWindows", "priceLabel": "기존 제품 철거 (창당)" },
+      { "key": "boxlessBracket", "label": "커튼박스 없음 — 천장·벽 브라켓 시공", "priceLabel": "커튼박스 없음 브라켓 (건당)" },
+      { "key": "decoRod", "label": "레일 대신 장식봉", "customerSelectable": true, "priceLabel": "장식봉 변경 (건당)" },
+      { "key": "laundry", "label": "기존 커튼 세탁 대행", "customerSelectable": true }
+    ],
+    "warnings": [
+      { "key": "minPrice", "below": 40000,
+        "message": "최소 출장·설치비 4만원 미만은 실측 방문 1회 비용도 남지 않을 수 있습니다. (강제 아님)" }
+    ]
+  },
+
+  "defaults": {
+    "unitPrice": 15000,
+    "minPrice": 50000,
+    "surcharges": { "weekend": 10, "concrete": 20, "highCeiling": 30 },
+    "options": {
+      "curtainBlackout": 60000, "curtainSheer": 35000, "tallCurtain": 20000,
+      "combi": 25000, "wood": 45000, "honeycomb": 55000, "roll": 20000,
+      "motor": 250000, "removal": 5000, "boxlessBracket": 20000, "decoRod": 50000, "laundry": 30000
+    },
+    "policy": {
+      "validDays": 7,
+      "depositPct": 30,
+      "cancelPolicy": "이 견적은 고객님이 알려주신 치수·사진 기준 가견적입니다. 방문 실측 치수로 같은 단가표를 다시 계산한 금액이 확정 금액이며, 확정 금액이 가견적보다 15% 넘게 높으면 위약금 없이 취소하실 수 있습니다. 제작 착수 전 취소: 계약금 전액 환불. 커튼·블라인드는 고객 주문 치수로 개별 제작하는 맞춤 제품이므로, 확정 견적서로 별도 안내·동의 후 제작에 착수한 뒤에는 단순 변심 취소·환불이 제한됩니다. 제작 하자·주문과 다른 치수·색상(샘플 기준)은 무상 재제작합니다."
+    }
+  },
+
+  "included": [
+    "방문 실측 1회 (실측 후 확정 견적 재발행)",
+    "커튼: 기본 레일·주름 2배·바닥 2.4m 이하 기준",
+    "블라인드·롤스크린: 기본 브라켓·조작줄",
+    "설치 후 작동 확인 및 포장재 수거"
+  ],
+  "excluded": [
+    "고객 입력 치수와 실측 치수 차이에 따른 금액 (실측 확정 견적에서 같은 단가로 정산)",
+    "콘크리트·대리석 외 특수 재질(유리·타일·금속) 타공",
+    "창문·샷시 수리, 몰딩·전기 공사"
+  ]
+}

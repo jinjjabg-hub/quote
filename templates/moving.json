@@ -1,0 +1,208 @@
+{
+  "id": "moving",
+  "name": "이사",
+  "version": 1,
+  "description": "원룸·소형·가정이사 (일반 / 반포장 / 포장, 보관이사)",
+
+  "steps": [
+    {
+      "title": "연락처를 알려주세요",
+      "description": "견적이 나오면 이 번호로 안내드립니다.",
+      "fields": [
+        { "key": "name", "label": "성함", "type": "text", "required": true, "placeholder": "홍길동", "maxLength": 30 },
+        { "key": "phone", "label": "연락처", "type": "tel", "required": true, "placeholder": "010-0000-0000", "maxLength": 20 }
+      ]
+    },
+    {
+      "title": "어디에서 어디로 가시나요?",
+      "fields": [
+        { "key": "region", "label": "출발지 (시/구까지만)", "type": "text", "required": true, "placeholder": "예) 서울 송파구", "maxLength": 40 },
+        { "key": "toRegion", "label": "도착지 (시/구까지만)", "type": "text", "required": true, "placeholder": "예) 경기 성남시 분당구", "maxLength": 40 },
+        { "key": "distanceKm", "label": "출발지 → 도착지 거리 (km)", "type": "number", "required": true, "min": 0, "max": 600,
+          "placeholder": "예) 15", "hint": "지도 앱 자동차 길찾기에 나오는 km 를 그대로 적어주세요. 기본 20km 까지는 추가요금이 없습니다." }
+      ]
+    },
+    {
+      "title": "언제 이사하시나요?",
+      "fields": [
+        { "key": "date", "label": "이사 날짜", "type": "date", "required": true },
+        { "key": "timeSlot", "label": "시작 시간", "type": "choice", "required": true,
+          "options": [
+            { "value": "am", "label": "오전 (8~9시 시작)" },
+            { "value": "pm", "label": "오후 (13시 이후 시작)" },
+            { "value": "any", "label": "상관없음" }
+          ] }
+      ]
+    },
+    {
+      "title": "어떤 이사인가요?",
+      "fields": [
+        { "key": "moveType", "label": "이사 방식", "type": "choice", "required": true,
+          "options": [
+            { "value": "general", "label": "일반이사 — 운반만 (포장·정리는 직접)" },
+            { "value": "half", "label": "반포장이사 — 포장·운반 (풀어서 정리는 직접)" },
+            { "value": "full", "label": "포장이사 — 포장·운반·정리까지" }
+          ] },
+        { "key": "tons", "label": "집 크기 / 짐 양", "type": "choice", "required": true,
+          "hint": "잘 모르시면 가장 가까운 것을 고르고, 다음 단계 사진을 꼭 올려주세요. 사장님이 사진을 보고 차량을 확정합니다.",
+          "options": [
+            { "value": 1, "label": "원룸 · 짐 적음 (1톤)" },
+            { "value": 2.5, "label": "원룸 짐 많음 · 투룸 소형 (2.5톤)" },
+            { "value": 5, "label": "투룸~20평대 (5톤)" },
+            { "value": 7.5, "label": "30평대 (5톤 + 2.5톤)" },
+            { "value": 10, "label": "40평대 이상 (5톤 2대)" }
+          ] },
+        { "key": "storage", "label": "보관이사인가요? (짐을 창고에 맡겼다가 나중에 입주)", "type": "choice", "required": true,
+          "options": [
+            { "value": false, "label": "아니오, 바로 입주" },
+            { "value": true, "label": "예, 보관이사" }
+          ] },
+        { "key": "storageMonths", "label": "보관 기간 (개월, 보관이사 아니면 0)", "type": "stepper", "required": true, "min": 0, "max": 12, "default": 0 }
+      ]
+    },
+    {
+      "title": "층수와 엘리베이터",
+      "description": "사다리차·계단 운반비가 여기서 정해집니다.",
+      "fields": [
+        { "key": "fromFloor", "label": "출발지 층", "type": "number", "required": true, "min": -3, "max": 80, "placeholder": "예) 5" },
+        { "key": "toFloor", "label": "도착지 층", "type": "number", "required": true, "min": -3, "max": 80, "placeholder": "예) 12" },
+        { "key": "fromStairFloor", "label": "출발지: 엘리베이터·사다리차 없이 계단으로 옮기는 층", "type": "stepper", "required": true,
+          "min": 1, "max": 10, "default": 1, "hint": "엘리베이터나 사다리차를 쓰면, 또는 1층이면 1 그대로 두세요." },
+        { "key": "toStairFloor", "label": "도착지: 엘리베이터·사다리차 없이 계단으로 옮기는 층", "type": "stepper", "required": true,
+          "min": 1, "max": 10, "default": 1, "hint": "엘리베이터나 사다리차를 쓰면, 또는 1층이면 1 그대로 두세요." }
+      ]
+    },
+    {
+      "title": "특수 짐이 있나요?",
+      "description": "없으면 0 그대로 두세요.",
+      "fields": [
+        { "key": "airconUnits", "label": "에어컨 이전설치 (대)", "type": "stepper", "required": true, "min": 0, "max": 6, "default": 0 },
+        { "key": "heavyItems", "label": "돌침대·안마의자·금고·대형 수족관 (개)", "type": "stepper", "required": true, "min": 0, "max": 6, "default": 0 }
+      ]
+    },
+    {
+      "title": "추가요금 체크",
+      "description": "현장에서 추가요금 다툼이 없도록 미리 확인합니다. 잘 모르시면 '모름'을 눌러주세요.",
+      "fields": [ { "key": "checklist", "type": "checklist", "required": true } ]
+    },
+    {
+      "title": "추가로 원하시는 서비스가 있나요?",
+      "description": "없으면 그냥 '다음'을 누르세요.",
+      "fields": [ { "key": "extras", "type": "extras" } ]
+    },
+    {
+      "title": "사진을 올려주세요",
+      "description": "방마다 문 앞에서 방 전체가 나오게 찍어주세요. 장롱·수납장은 문을 열고 찍으면 짐 양을 정확히 볼 수 있어 당일 추가요금이 없습니다.",
+      "fields": [ { "key": "photos", "type": "photos" } ]
+    },
+    {
+      "title": "남기실 말씀 (선택)",
+      "fields": [
+        { "key": "memo", "label": "요청사항", "type": "textarea", "placeholder": "예) 잔금 시간 11시, 냉장고 양문형, 버릴 짐 따로 표시 등", "maxLength": 500 }
+      ]
+    }
+  ],
+
+  "checklist": [
+    { "key": "moreLoad", "short": "짐 양 초과", "label": "고르신 집 크기보다 짐이 많은 편인가요? (가구·가전·박스가 많음)", "risk": "yes", "optionKey": "extraTruck" },
+    { "key": "ladderFrom", "short": "출발지 사다리차", "label": "출발지에서 사다리차가 필요한가요? (엘리베이터 없음, 또는 냉장고·장롱이 엘리베이터에 안 들어감)", "risk": "yes", "optionKey": "ladderFrom" },
+    { "key": "ladderTo", "short": "도착지 사다리차", "label": "도착지에서 사다리차가 필요한가요?", "risk": "yes", "optionKey": "ladderTo" },
+    { "key": "parking", "short": "트럭 정차", "label": "출발지·도착지 모두 건물 바로 앞에 트럭을 댈 수 있나요?", "risk": "no",
+      "conditionText": "트럭에서 현관까지 운반 거리가 30m 를 넘으면 작업자 1명이 추가됩니다(견적서 '작업자 추가' 금액). 주차비는 실비입니다." },
+    { "key": "elevatorBooked", "short": "엘리베이터 예약", "label": "엘리베이터 사용(관리사무소) 예약이 가능한가요?", "risk": "no",
+      "conditionText": "엘리베이터 사용이 막혀 계단·사다리차로 바꾸면 해당 금액(계단 층당·사다리차)이 추가됩니다. 관리사무소 사용료는 고객 부담입니다." },
+    { "key": "builtIn", "short": "시스템가구 해체", "label": "시스템 행거·붙박이장·조립식 대형 가구 해체·재설치가 필요한가요?", "risk": "yes",
+      "conditionText": "일반 장롱·침대 분해조립은 포함이며, 브랜드 시스템가구·붙박이장 해체·재설치는 포함되지 않습니다(전문 업체 실비)." },
+    { "key": "valuables", "short": "고가품", "label": "귀금속·현금·미술품·고가 전자기기 등 고가품이 있나요?", "risk": "yes",
+      "conditionText": "고가품은 계약 전에 품목과 가격을 알려주셔야 배상 기준이 됩니다. 현금·귀금속·통장·중요 서류는 고객이 직접 운반해 주세요." }
+  ],
+
+  "photoSlots": [
+    { "key": "living", "label": "거실 전체" },
+    { "key": "masterRoom", "label": "안방 (장롱 문 열고)" },
+    { "key": "otherRooms", "label": "작은방" },
+    { "key": "kitchen", "label": "주방 (냉장고·수납장 문 열고)" },
+    { "key": "utility", "label": "베란다·다용도실" },
+    { "key": "entrance", "label": "현관·복도·엘리베이터 입구" },
+    { "key": "outside", "label": "건물 앞 (트럭 댈 자리)" }
+  ],
+
+  "pricing": {
+    "base": {
+      "label": "기본 이사 (차량·기사·기본 인원, 운반)",
+      "quantityField": "tons",
+      "unit": "톤",
+      "unitPriceKey": "unitPrice",
+      "unitPriceLabel": "톤당 단가 (일반이사 기준)",
+      "minPriceKey": "minPrice",
+      "minPriceLabel": "최소 금액 (1톤 일반이사)"
+    },
+    "surcharges": [
+      { "key": "halfPack", "label": "반포장 (포장 작업)", "when": { "field": "moveType", "equals": "half" } },
+      { "key": "fullPack", "label": "포장이사 (포장·정리 작업)", "when": { "field": "moveType", "equals": "full" } },
+      { "key": "storageMove", "label": "보관이사 (입고·출고 2회 운반)", "when": { "field": "storage", "equals": true } },
+      { "key": "weekend", "label": "주말·공휴일",
+        "when": { "any": [ { "field": "$weekend", "equals": true }, { "field": "$holiday", "equals": true } ] } },
+      { "key": "sonEomneun", "label": "손 없는 날", "when": { "field": "$sonEomneun", "equals": true } }
+    ],
+    "options": [
+      { "key": "distance", "label": "거리 추가", "unit": "km", "quantityField": "distanceKm", "includedQty": 20,
+        "priceLabel": "거리 (20km 초과 1km당)" },
+      { "key": "stairsFrom", "label": "출발지 계단 운반", "unit": "층", "quantityField": "fromStairFloor", "includedQty": 1,
+        "priceLabel": "계단 운반 (1층 초과 1층당, 출발지)" },
+      { "key": "stairsTo", "label": "도착지 계단 운반", "unit": "층", "quantityField": "toStairFloor", "includedQty": 1,
+        "priceLabel": "계단 운반 (1층 초과 1층당, 도착지)" },
+      { "key": "ladderFrom", "label": "사다리차 (출발지, 10층 이하)" },
+      { "key": "ladderTo", "label": "사다리차 (도착지, 10층 이하)" },
+      { "key": "extraTruck", "label": "차량 추가 (1톤 + 작업자 1명)" },
+      { "key": "extraWorker", "label": "작업자 추가 (1명)" },
+      { "key": "aircon", "label": "에어컨 이전설치 (기본 배관 포함)", "unit": "대", "quantityField": "airconUnits", "includedQty": 0,
+        "priceLabel": "에어컨 이전설치 (1대당)" },
+      { "key": "heavyItem", "label": "중량물 운반", "unit": "개", "quantityField": "heavyItems", "includedQty": 0,
+        "priceLabel": "중량물 (돌침대·안마의자·금고 등 1개당)" },
+      { "key": "storageFee", "label": "보관료", "unit": "개월", "quantityField": "storageMonths", "includedQty": 0,
+        "priceLabel": "보관료 (컨테이너 1개, 1개월당)" },
+      { "key": "piano", "label": "피아노 운반 (업라이트, 1층·엘리베이터)", "customerSelectable": true },
+      { "key": "waste", "label": "버릴 짐 운반 (1톤 이내, 대형폐기물 신고비 별도)", "customerSelectable": true },
+      { "key": "wallTv", "label": "벽걸이 TV 탈거·재설치", "customerSelectable": true }
+    ],
+    "warnings": [
+      { "key": "minPrice", "below": 150000,
+        "message": "최소 금액 15만원 미만은 1톤·2인 인건비도 안 나오는 가격대라 당일 추가요금 분쟁이 생기기 쉽습니다. (강제 아님)" }
+    ]
+  },
+
+  "defaults": {
+    "unitPrice": 130000,
+    "minPrice": 200000,
+    "surcharges": { "halfPack": 35, "fullPack": 70, "storageMove": 80, "weekend": 10, "sonEomneun": 20 },
+    "options": {
+      "distance": 2000, "stairsFrom": 20000, "stairsTo": 20000,
+      "ladderFrom": 150000, "ladderTo": 150000,
+      "extraTruck": 250000, "extraWorker": 150000,
+      "aircon": 150000, "heavyItem": 50000, "storageFee": 200000,
+      "piano": 200000, "waste": 100000, "wallTv": 50000
+    },
+    "policy": {
+      "validDays": 7,
+      "depositPct": 10,
+      "cancelPolicy": "고객 사정으로 취소 시: 이사 전날까지 알리면 계약금만 공제, 당일 취소는 계약금의 2배 배상. 업체 사정으로 취소 시: 2일 전까지 계약금 2배, 전날 4배, 당일 6배, 연락 없이 불이행 시 10배 배상. (이사화물 표준약관 기준 — 업체가 원문 확인 후 확정)"
+    }
+  },
+
+  "included": [
+    "선택한 톤수 차량 + 기사 + 기본 작업 인원",
+    "상차·운반·하차, 출발지→도착지 20km 까지",
+    "일반 장롱·침대 분해·조립",
+    "가구·가전 보호 덮개(담요·랩핑)",
+    "반포장: 포장재 제공 및 포장 / 포장이사: 포장·풀기·제자리 정리까지",
+    "적재물 배상책임보험 가입 업체 기준 파손 배상"
+  ],
+  "excluded": [
+    "엘리베이터 사용료·주차비 (관리사무소·실비)",
+    "브랜드 시스템가구·붙박이장 해체·재설치",
+    "에어컨 배관 추가 연장·냉매 충전·벽 타공 (현장 실비)",
+    "대형폐기물 신고비",
+    "입주청소·도배"
+  ]
+}

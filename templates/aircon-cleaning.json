@@ -1,0 +1,169 @@
+{
+  "id": "aircon-cleaning",
+  "name": "에어컨 청소",
+  "version": 1,
+  "description": "가정용 에어컨 분해 세척 (벽걸이·스탠드·2in1·천장형 1way/4way, 실외기 선택)",
+
+  "steps": [
+    {
+      "title": "연락처를 알려주세요",
+      "description": "견적이 나오면 이 번호로 안내드립니다.",
+      "fields": [
+        { "key": "name", "label": "성함", "type": "text", "required": true, "placeholder": "홍길동", "maxLength": 30 },
+        { "key": "phone", "label": "연락처", "type": "tel", "required": true, "placeholder": "010-0000-0000", "maxLength": 20 }
+      ]
+    },
+    {
+      "title": "어디에 있는 에어컨인가요?",
+      "fields": [
+        { "key": "region", "label": "주소 (시/구까지만)", "type": "text", "required": true, "placeholder": "예) 서울 송파구", "maxLength": 40 },
+        { "key": "buildingType", "label": "장소", "type": "choice", "required": true,
+          "options": [
+            { "value": "apt", "label": "아파트" },
+            { "value": "villa", "label": "빌라" },
+            { "value": "officetel", "label": "오피스텔" },
+            { "value": "house", "label": "주택" },
+            { "value": "store", "label": "상가·사무실" }
+          ] }
+      ]
+    },
+    {
+      "title": "언제 원하시나요?",
+      "fields": [
+        { "key": "date", "label": "희망 날짜", "type": "date", "required": true },
+        { "key": "timeSlot", "label": "시간대", "type": "choice", "required": true,
+          "options": [
+            { "value": "am", "label": "오전" },
+            { "value": "pm", "label": "오후" },
+            { "value": "any", "label": "상관없음" }
+          ] }
+      ]
+    },
+    {
+      "title": "어떤 에어컨이 몇 대인가요?",
+      "description": "청소할 실내기만 세어주세요. 스탠드+벽걸이가 한 실외기에 연결된 2in1은 '2in1 세트'에 1로 넣고, 벽걸이·스탠드 칸에는 다시 세지 마세요. 천장에 매립된 시스템에어컨은 바람 나오는 방향 수(1방향/4방향)로 골라주세요. 헷갈리면 사진만 올려주셔도 됩니다.",
+      "fields": [
+        { "key": "wallUnits", "label": "벽걸이", "type": "stepper", "required": true, "min": 0, "max": 20, "default": 1 },
+        { "key": "standUnits", "label": "스탠드", "type": "stepper", "required": true, "min": 0, "max": 10, "default": 0 },
+        { "key": "twoInOneSets", "label": "2in1 세트 (스탠드+벽걸이)", "type": "stepper", "required": true, "min": 0, "max": 5, "default": 0 },
+        { "key": "ceiling1wayUnits", "label": "천장형 1방향(1way·2way)", "type": "stepper", "required": true, "min": 0, "max": 20, "default": 0 },
+        { "key": "ceiling4wayUnits", "label": "천장형 4방향(4way·원형)", "type": "stepper", "required": true, "min": 0, "max": 20, "default": 0 }
+      ]
+    },
+    {
+      "title": "세척 범위를 골라주세요",
+      "description": "기본은 '일반 분해세척'(커버·필터·날개 분리 후 열교환기·송풍팬 세척)입니다. 송풍팬·드레인판까지 모두 떼어내는 '완전분해'를 원하는 대수만 넣어주세요(2in1 세트 안의 벽걸이·스탠드 포함). 모델에 따라 완전분해가 안 되는 제품이 있으며, 그 경우 완전분해 추가금은 빼고 청구합니다. 실외기 청소를 원하시면 대수를 넣어주세요.",
+      "fields": [
+        { "key": "fullWallUnits", "label": "완전분해 — 벽걸이", "type": "stepper", "required": true, "min": 0, "max": 20, "default": 0 },
+        { "key": "fullStandUnits", "label": "완전분해 — 스탠드", "type": "stepper", "required": true, "min": 0, "max": 10, "default": 0 },
+        { "key": "outdoorUnits", "label": "실외기 청소", "type": "stepper", "required": true, "min": 0, "max": 10, "default": 0 }
+      ]
+    },
+    {
+      "title": "추가요금 체크",
+      "description": "현장에서 추가요금 다툼이 없도록 미리 확인합니다. 잘 모르시면 '모름'을 눌러주세요.",
+      "fields": [ { "key": "checklist", "type": "checklist", "required": true } ]
+    },
+    {
+      "title": "사진을 올려주세요",
+      "description": "사진이 있으면 기종·모델을 정확히 확인해 현장 금액 변경 없이 견적을 드릴 수 있어요. 에어컨이 여러 대면 대표 1대를 찍고, 나머지는 요청사항에 적어주세요.",
+      "fields": [ { "key": "photos", "type": "photos" } ]
+    },
+    {
+      "title": "남기실 말씀 (선택)",
+      "fields": [
+        { "key": "memo", "label": "요청사항", "type": "textarea", "placeholder": "예) 안방 벽걸이는 삼성 2015년식, 거실 스탠드 LG 휘센 / 오후 2시 이후 가능", "maxLength": 500 }
+      ]
+    }
+  ],
+
+  "checklist": [
+    { "key": "nameplate", "short": "모델명 확인", "label": "에어컨 옆면·아래 모델명 스티커(명판) 사진을 올릴 수 있나요?", "risk": "no",
+      "conditionText": "모델명이 확인되지 않아 완전분해 가능 여부는 현장에서 판단합니다. 완전분해가 불가한 모델은 해당 대수의 완전분해 추가금을 빼고 청구하며, 이 사유로 금액이 올라가지 않습니다." },
+    { "key": "oldUnit", "short": "10년 이상 노후 제품", "label": "설치한 지 10년이 넘었거나 연식을 모르는 제품이 있나요?", "risk": "yes",
+      "conditionText": "10년 이상 노후 제품은 플라스틱 걸쇠·날개·배수호스가 삭아 정상 분해·조립 중에도 부러질 수 있습니다. 작업 전 상태를 사진으로 함께 확인하며, 노후로 인한 부품 파손·자연 고장·제조사 부품 단종은 책임지지 않습니다. 작업자 과실(무리한 분해, 조립 누락)로 인한 파손은 업체가 책임집니다." },
+    { "key": "existingFault", "short": "기존 이상 증상", "label": "지금 에러 표시·소음·물 떨어짐·냉방 약함 같은 이상이 있나요?", "risk": "yes",
+      "conditionText": "작업 전 전원을 켜서 기존 증상을 함께 확인하고 기록합니다. 청소 전부터 있던 증상(냉매 부족, 기판·센서 고장 등)은 청소로 해결되지 않으며 수리는 제조사 A/S 대상입니다." },
+    { "key": "heavyDirt", "short": "심한 곰팡이·오염", "label": "곰팡이 냄새가 심하거나 3년 넘게 청소하지 않았나요?", "risk": "yes",
+      "conditionText": "오염이 심해 1회 세척으로 냄새·곰팡이가 남는 경우, 재세척 필요 여부와 금액을 작업 전 사진과 함께 먼저 안내하고 동의하실 때만 진행합니다. 동의 없이 추가 청구하지 않습니다." },
+    { "key": "highCeiling", "short": "높은 설치 위치", "label": "에어컨이 바닥에서 2.7m보다 높거나(복층·높은 천장) 계단·가구 위처럼 사다리 놓기 어려운 곳에 있나요?", "risk": "yes", "optionKey": "highPlace" },
+    { "key": "workSpace", "short": "작업 공간", "label": "에어컨 앞·아래에 사람이 서서 작업할 공간(약 1m)이 비어 있나요?", "risk": "no",
+      "conditionText": "에어컨 앞 가구·짐은 작업 전에 비워주셔야 합니다. 현장에서 대신 옮겨야 하는 경우 가구 손상 책임은 지지 않으며, 옮기기 어려우면 해당 대수는 작업하지 못할 수 있습니다." },
+    { "key": "outdoorAccess", "short": "실외기 위치", "label": "(실외기 청소를 신청한 경우) 실외기가 베란다 안이나 바닥처럼 사람이 서서 닿는 곳에 있나요?", "risk": "no",
+      "conditionText": "외벽 앵글·난간 밖에 걸린 실외기는 안전상 작업하지 않으며, 그 경우 실외기 청소 금액을 빼고 청구합니다." },
+    { "key": "parking", "short": "주차", "label": "작업 차량 주차가 가능한가요?", "risk": "no",
+      "conditionText": "주차가 불가하면 주차비(실비)가 추가될 수 있습니다." }
+  ],
+
+  "photoSlots": [
+    { "key": "front", "label": "에어컨 전체 정면" },
+    { "key": "nameplate", "label": "모델명 스티커(명판)" },
+    { "key": "inside", "label": "앞 커버 열고 필터·바람구멍" },
+    { "key": "position", "label": "바닥~천장 설치 위치" },
+    { "key": "outdoor", "label": "실외기 위치 (신청 시)" }
+  ],
+
+  "pricing": {
+    "base": {
+      "label": "벽걸이 일반 분해세척",
+      "quantityField": "wallUnits",
+      "unit": "대",
+      "unitPriceKey": "unitPrice",
+      "unitPriceLabel": "벽걸이 1대당 (일반 분해세척)",
+      "minPriceKey": "minPrice",
+      "minPriceLabel": "벽걸이 최소 금액 (보통 0 — 벽걸이 줄에만 적용됨)"
+    },
+    "surcharges": [],
+    "options": [
+      { "key": "stand", "label": "스탠드 일반 분해세척", "unit": "대", "quantityField": "standUnits", "priceLabel": "스탠드 1대당 (일반 분해세척)" },
+      { "key": "twoInOne", "label": "2in1 세트 일반 분해세척", "unit": "세트", "quantityField": "twoInOneSets", "priceLabel": "2in1 1세트당 (스탠드+벽걸이)" },
+      { "key": "ceiling1way", "label": "천장형 1방향 분해세척", "unit": "대", "quantityField": "ceiling1wayUnits", "priceLabel": "천장형 1way·2way 1대당" },
+      { "key": "ceiling4way", "label": "천장형 4방향 분해세척", "unit": "대", "quantityField": "ceiling4wayUnits", "priceLabel": "천장형 4way·원형 1대당" },
+      { "key": "fullWall", "label": "완전분해 추가 — 벽걸이", "unit": "대", "quantityField": "fullWallUnits", "priceLabel": "완전분해 추가금 — 벽걸이 1대당" },
+      { "key": "fullStand", "label": "완전분해 추가 — 스탠드", "unit": "대", "quantityField": "fullStandUnits", "priceLabel": "완전분해 추가금 — 스탠드 1대당" },
+      { "key": "outdoor", "label": "실외기 청소", "unit": "대", "quantityField": "outdoorUnits", "priceLabel": "실외기 1대당" },
+      { "key": "highPlace", "label": "높은 곳 사다리 작업", "priceLabel": "높은 곳 사다리 작업 (방문 1회당)" }
+    ],
+    "warnings": [
+      { "key": "unitPrice", "below": 50000,
+        "message": "벽걸이 5만원 미만은 필터·외부만 닦는 '간이세척'으로 오해받기 쉬운 가격대입니다. 분해 범위를 포함 항목에 분명히 적어주세요. (강제 아님)" }
+    ]
+  },
+
+  "defaults": {
+    "unitPrice": 70000,
+    "minPrice": 0,
+    "surcharges": {},
+    "options": {
+      "stand": 110000,
+      "twoInOne": 170000,
+      "ceiling1way": 90000,
+      "ceiling4way": 130000,
+      "fullWall": 30000,
+      "fullStand": 40000,
+      "outdoor": 40000,
+      "highPlace": 20000
+    },
+    "policy": {
+      "validDays": 7,
+      "depositPct": 0,
+      "cancelPolicy": "작업 전날까지 취소·변경 무료. 당일 취소 또는 방문 후 고객 사정으로 작업하지 못한 경우 출장비가 청구될 수 있습니다."
+    }
+  },
+
+  "included": [
+    "앞 커버·필터·날개 분리 후 세척",
+    "열교환기(냉각핀) 약품 세척 및 고압 헹굼",
+    "송풍팬·바람구멍 세척 (완전분해 신청 대수는 송풍팬·드레인판 분리 세척)",
+    "배수 상태 확인",
+    "작업 전후 사진 제공 및 전원·냉방 작동 확인",
+    "작업 주변 비닐 보양 및 뒷정리"
+  ],
+  "excluded": [
+    "고장 수리·부품 교체·냉매 충전 (제조사 A/S 대상)",
+    "노후로 인한 부품 파손·자연 고장·단종 부품 수급",
+    "입력과 다른 기종·추가 대수 (현장에서 이 견적의 같은 단가표로 정정하고, 작업 전 금액을 알려드립니다)",
+    "실외기 청소 (신청하지 않은 경우)",
+    "에어컨 앞 가구·짐 이동"
+  ]
+}
