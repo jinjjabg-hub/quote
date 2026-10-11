@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>촬영 예시 일러스트</title>
+<meta name="description" content="고객 사진 화면 바텀시트에 쓰는 촬영 예시 일러스트 10종 미리보기 (라이트/다크).">
+<style>
+/* 토큰: docs/design/design-system.md 2장 값. 이 파일은 미리보기용이며 앱 화면에 쓰이지 않는다. */
+:root {
+  --bg: #f3f5f8; --surface: #ffffff; --line: #dce1e8; --text: #14181e; --text-2: #555e6b;
+  --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #0e1115; --surface: #171b21; --line: #2c333d; --text: #e9ecf1; --text-2: #a7b0bd; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #0e1115; --surface: #171b21; --line: #2c333d; --text: #e9ecf1; --text-2: #a7b0bd; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 var(--font); word-break: keep-all; }
+.wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px; letter-spacing: -.01em; }
+.lead { color: var(--text-2); margin: 0 0 16px; font-size: .9375rem; }
+.bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.bar button { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.bar button[aria-pressed="true"] { border-color: currentColor; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; }
+.pane { position: relative; padding: 24px 10px 10px; }
+.pane svg { display: block; width: 100%; height: auto; }
+.pane.light { background: #ffffff; color: #14181e; }
+.pane.dark { background: #171b21; color: #e9ecf1; }
+.tag { position: absolute; top: 6px; left: 10px; font-size: .75rem; font-weight: 700; opacity: .7; }
+.meta { padding: 12px 16px 16px; border-top: 1px solid var(--line); }
+.meta h2 { font-size: 1.0625rem; margin: 0; }
+.meta code { font-size: .8125rem; color: var(--text-2); font-weight: 500; margin-left: 4px; }
+.tip { margin: 6px 0 0; font-weight: 600; }
+.use { margin: 4px 0 0; font-size: .875rem; color: var(--text-2); }
+.big { margin-top: 32px; }
+.big h2 { font-size: 1.125rem; margin: 0 0 8px; }
+.sheet { max-width: 380px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px 24px 0 0; padding: 12px 16px 16px; }
+.sheet .grab { width: 40px; height: 5px; border-radius: 99px; background: var(--line); margin: 0 auto 12px; }
+.sheet .ill { color: var(--text); background: var(--bg); border-radius: 12px; padding: 8px; }
+.sheet .ill svg { display: block; width: 100%; height: auto; }
+.sheet h3 { margin: 12px 0 2px; font-size: 1.25rem; }
+.sheet p { margin: 0 0 12px; }
+.sheet .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sheet .btns span { min-height: 52px; border-radius: 12px; display: grid; place-items: center; font-weight: 700; background: #1f6feb; color: #fff; }
+.sheet .btns span + span { background: transparent; border: 1.5px solid var(--line); color: var(--text); }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>촬영 예시 일러스트 10종</h1>
+  <p class="lead">왼쪽 = 어디에 서는지(거리), 오른쪽 = 폰 화면에 담길 구도. 단색 선, <code>stroke="currentColor"</code>, viewBox 0 0 240 160.
+  문구는 기본 예시이고 실제 문구는 템플릿 <code>shots[].tip</code>이 정한다. 설계: <code>quote-agents/docs/design/photo-guide.md</code></p>
+  <div class="bar" role="group" aria-label="화면 밝기">
+    <button type="button" data-t="system" aria-pressed="true">시스템</button>
+    <button type="button" data-t="light" aria-pressed="false">밝게</button>
+    <button type="button" data-t="dark" aria-pressed="false">어둡게</button>
+  </div>
+  <div class="grid">
+<article class="card">
+  <div class="pair">
+    <div class="pane light"><span class="tag">라이트</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-room-wide-l" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-room-wide-l">방 전체 촬영 예시: 문 앞에 서서 바닥부터 천장까지 한 화면에</title><path d="M6 130H140" opacity=".45"/><path d="M8 130V48h14v82" opacity=".45"/><path d="M22 48H140M136 48v82" opacity=".45"/><circle cx="30" cy="76" r="7"/><path d="M30 84v22M24 130l6-24 6 24"/><path d="M30 92l10-6"/><path d="M43 79v12" stroke-width="3.5"/><path d="M45 85L136 50M45 85L136 128" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><text x="46" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">문 앞에 서서</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><rect x="180" y="50" width="34" height="50" stroke-width="1.5"/><path d="M157 15l23 35M227 15l-13 35M157 145l23-45M227 145l-13-45" stroke-width="1.5"/><rect x="187" y="58" width="20" height="16" stroke-width="1.2" opacity=".7"/><path d="M166 120l10 4M168 112l10 3" stroke-width="1.2" opacity=".6"/><path d="M163 24V136M160 28l3-4 3 4M160 132l3 4 3-4" stroke-width="1.5"/></svg></div>
+    <div class="pane dark"><span class="tag">다크</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-room-wide-d" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-room-wide-d">방 전체 촬영 예시: 문 앞에 서서 바닥부터 천장까지 한 화면에</title><path d="M6 130H140" opacity=".45"/><path d="M8 130V48h14v82" opacity=".45"/><path d="M22 48H140M136 48v82" opacity=".45"/><circle cx="30" cy="76" r="7"/><path d="M30 84v22M24 130l6-24 6 24"/><path d="M30 92l10-6"/><path d="M43 79v12" stroke-width="3.5"/><path d="M45 85L136 50M45 85L136 128" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><text x="46" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">문 앞에 서서</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><rect x="180" y="50" width="34" height="50" stroke-width="1.5"/><path d="M157 15l23 35M227 15l-13 35M157 145l23-45M227 145l-13-45" stroke-width="1.5"/><rect x="187" y="58" width="20" height="16" stroke-width="1.2" opacity=".7"/><path d="M166 120l10 4M168 112l10 3" stroke-width="1.2" opacity=".6"/><path d="M163 24V136M160 28l3-4 3 4M160 132l3 4 3-4" stroke-width="1.5"/></svg></div>
+  </div>
+  <div class="meta">
+    <h2>방 전체 <code>room-wide</code></h2>
+    <p class="tip">문 앞에 서서 바닥부터 천장까지 나오게 찍어 주세요</p>
+    <p class="use">쓰는 곳: 청소 전 공간, 이사 방·거실, 에어컨 설치 위치 · 1,445 B</p>
+  </div>
+</article>
+<article class="card">
+  <div class="pair">
+    <div class="pane light"><span class="tag">라이트</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-closeup-l" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-closeup-l">가까이 촬영 예시: 30cm 앞에서 곰팡이·물때가 또렷하게</title><path d="M6 130H140" opacity=".45"/><path d="M124 30v100" /><path d="M124 50h14M124 75h14M124 100h14" stroke-width="1.2" opacity=".5"/><circle cx="128" cy="86" r="2.5" fill="currentColor" stroke="none"/><circle cx="84" cy="76" r="7"/><path d="M84 84v22M78 130l6-24 6 24"/><path d="M84 92l10-6"/><path d="M97 79v12" stroke-width="3.5"/><path d="M99 85L124 74M99 85L124 96" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><path d="M97 142H124M97 138v8M124 138v8M102 139l-5 3 5 3M119 139l5 3-5 3" stroke-width="1.5"/><text x="110.5" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">30cm</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><path d="M157 48h70M157 82h70M157 116h70M181 15v130M205 15v130" stroke-width="1.2" opacity=".5"/><path d="M157 134q35-6 70 0" stroke-width="2.5"/><circle cx="186" cy="92" r="3" fill="currentColor" stroke="none"/><circle cx="194" cy="98" r="2.2" fill="currentColor" stroke="none"/><circle cx="182" cy="102" r="2" fill="currentColor" stroke="none"/><circle cx="199" cy="90" r="1.6" fill="currentColor" stroke="none"/><circle cx="190" cy="106" r="1.6" fill="currentColor" stroke="none"/><circle cx="200" cy="104" r="2.4" fill="currentColor" stroke="none"/><circle cx="178" cy="94" r="1.4" fill="currentColor" stroke="none"/><circle cx="190" cy="98" r="22" stroke-width="1.5" stroke-dasharray="4 3"/></svg></div>
+    <div class="pane dark"><span class="tag">다크</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-closeup-d" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-closeup-d">가까이 촬영 예시: 30cm 앞에서 곰팡이·물때가 또렷하게</title><path d="M6 130H140" opacity=".45"/><path d="M124 30v100" /><path d="M124 50h14M124 75h14M124 100h14" stroke-width="1.2" opacity=".5"/><circle cx="128" cy="86" r="2.5" fill="currentColor" stroke="none"/><circle cx="84" cy="76" r="7"/><path d="M84 84v22M78 130l6-24 6 24"/><path d="M84 92l10-6"/><path d="M97 79v12" stroke-width="3.5"/><path d="M99 85L124 74M99 85L124 96" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><path d="M97 142H124M97 138v8M124 138v8M102 139l-5 3 5 3M119 139l5 3-5 3" stroke-width="1.5"/><text x="110.5" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">30cm</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><path d="M157 48h70M157 82h70M157 116h70M181 15v130M205 15v130" stroke-width="1.2" opacity=".5"/><path d="M157 134q35-6 70 0" stroke-width="2.5"/><circle cx="186" cy="92" r="3" fill="currentColor" stroke="none"/><circle cx="194" cy="98" r="2.2" fill="currentColor" stroke="none"/><circle cx="182" cy="102" r="2" fill="currentColor" stroke="none"/><circle cx="199" cy="90" r="1.6" fill="currentColor" stroke="none"/><circle cx="190" cy="106" r="1.6" fill="currentColor" stroke="none"/><circle cx="200" cy="104" r="2.4" fill="currentColor" stroke="none"/><circle cx="178" cy="94" r="1.4" fill="currentColor" stroke="none"/><circle cx="190" cy="98" r="22" stroke-width="1.5" stroke-dasharray="4 3"/></svg></div>
+  </div>
+  <div class="meta">
+    <h2>가까이 <code>closeup</code></h2>
+    <p class="tip">얼룩·곰팡이가 있으면 30cm 앞에서 찍어 주세요</p>
+    <p class="use">쓰는 곳: 욕실 실리콘, 창틀 하단, 후드 기름때, 에어컨 내부 · 1,923 B</p>
+  </div>
+</article>
+<article class="card">
+  <div class="pair">
+    <div class="pane light"><span class="tag">라이트</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-label-sticker-l" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-label-sticker-l">모델명 스티커 촬영 예시: 20cm 앞에서 글자가 읽히게</title><path d="M6 130H140" opacity=".45"/><rect x="110" y="40" width="26" height="90" rx="3"/><path d="M110 56h26" opacity=".5"/><rect x="114" y="92" width="10" height="14" stroke-width="1.5"/><circle cx="76" cy="76" r="7"/><path d="M76 84v22M70 130l6-24 6 24"/><path d="M76 92l10-6"/><path d="M89 79v12" stroke-width="3.5"/><path d="M91 85L113 92M91 85L113 106" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><path d="M91 142H112M91 138v8M112 138v8M96 139l-5 3 5 3M107 139l5 3-5 3" stroke-width="1.5"/><text x="101.5" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">20cm</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><rect x="164" y="30" width="56" height="96" rx="3"/><rect x="168" y="36" width="48" height="16" rx="2" stroke-width="1.5" stroke-dasharray="3 2"/><path d="M172 44h32" stroke-width="3"/><path d="M171 62h38M171 70h30M171 78h40M171 86h24" stroke-width="1.5" opacity=".7"/><path d="M172 98v18M175 98v18M179 98v18M181 98v18M186 98v18M189 98v18M193 98v18M195 98v18M200 98v18M204 98v18M207 98v18M211 98v18" stroke-width="1.5"/></svg></div>
+    <div class="pane dark"><span class="tag">다크</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-label-sticker-d" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-label-sticker-d">모델명 스티커 촬영 예시: 20cm 앞에서 글자가 읽히게</title><path d="M6 130H140" opacity=".45"/><rect x="110" y="40" width="26" height="90" rx="3"/><path d="M110 56h26" opacity=".5"/><rect x="114" y="92" width="10" height="14" stroke-width="1.5"/><circle cx="76" cy="76" r="7"/><path d="M76 84v22M70 130l6-24 6 24"/><path d="M76 92l10-6"/><path d="M89 79v12" stroke-width="3.5"/><path d="M91 85L113 92M91 85L113 106" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><path d="M91 142H112M91 138v8M112 138v8M96 139l-5 3 5 3M107 139l5 3-5 3" stroke-width="1.5"/><text x="101.5" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">20cm</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><rect x="164" y="30" width="56" height="96" rx="3"/><rect x="168" y="36" width="48" height="16" rx="2" stroke-width="1.5" stroke-dasharray="3 2"/><path d="M172 44h32" stroke-width="3"/><path d="M171 62h38M171 70h30M171 78h40M171 86h24" stroke-width="1.5" opacity=".7"/><path d="M172 98v18M175 98v18M179 98v18M181 98v18M186 98v18M189 98v18M193 98v18M195 98v18M200 98v18M204 98v18M207 98v18M211 98v18" stroke-width="1.5"/></svg></div>
+  </div>
+  <div class="meta">
+    <h2>모델명 스티커 <code>label-sticker</code></h2>
+    <p class="tip">모델명 글자가 읽히게 가까이 찍어 주세요</p>
+    <p class="use">쓰는 곳: 에어컨 청소·설치(이전), 이사 가전 · 1,627 B</p>
+  </div>
+</article>
+<article class="card">
+  <div class="pair">
+    <div class="pane light"><span class="tag">라이트</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-outdoor-unit-l" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-outdoor-unit-l">실외기 촬영 예시: 1~2m 떨어져 실외기와 받침대·난간까지 함께</title><path d="M6 130H140" opacity=".45"/><path d="M98 96h40M98 96v34M110 96v34M122 96v34M134 96v34" stroke-width="1.5" opacity=".6"/><rect x="104" y="66" width="30" height="24" rx="2"/><circle cx="114" cy="78" r="7" stroke-width="1.5"/><path d="M100 92h38" stroke-width="1.5"/><circle cx="44" cy="76" r="7"/><path d="M44 84v22M38 130l6-24 6 24"/><path d="M44 92l10-6"/><path d="M57 79v12" stroke-width="3.5"/><path d="M59 85L104 64M59 85L100 100" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><path d="M57 142H100M57 138v8M100 138v8M62 139l-5 3 5 3M95 139l5 3-5 3" stroke-width="1.5"/><text x="78.5" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">1~2m</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><rect x="166" y="44" width="54" height="42" rx="3"/><circle cx="184" cy="65" r="14"/><circle cx="184" cy="65" r="3" stroke-width="1.5"/><path d="M184 51v28M170 65h28M174 55l20 20M194 55l-20 20" stroke-width="1" opacity=".6"/><path d="M204 54h10M204 60h10M204 66h10M204 72h10M204 78h10" stroke-width="1.5"/><path d="M160 90h66M166 90l14 16M220 90l-14 16" stroke-width="1.5"/><path d="M157 118h70M165 118v27M181 118v27M197 118v27M213 118v27" stroke-width="1.5" opacity=".6"/></svg></div>
+    <div class="pane dark"><span class="tag">다크</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-outdoor-unit-d" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-outdoor-unit-d">실외기 촬영 예시: 1~2m 떨어져 실외기와 받침대·난간까지 함께</title><path d="M6 130H140" opacity=".45"/><path d="M98 96h40M98 96v34M110 96v34M122 96v34M134 96v34" stroke-width="1.5" opacity=".6"/><rect x="104" y="66" width="30" height="24" rx="2"/><circle cx="114" cy="78" r="7" stroke-width="1.5"/><path d="M100 92h38" stroke-width="1.5"/><circle cx="44" cy="76" r="7"/><path d="M44 84v22M38 130l6-24 6 24"/><path d="M44 92l10-6"/><path d="M57 79v12" stroke-width="3.5"/><path d="M59 85L104 64M59 85L100 100" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><path d="M57 142H100M57 138v8M100 138v8M62 139l-5 3 5 3M95 139l5 3-5 3" stroke-width="1.5"/><text x="78.5" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">1~2m</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><rect x="166" y="44" width="54" height="42" rx="3"/><circle cx="184" cy="65" r="14"/><circle cx="184" cy="65" r="3" stroke-width="1.5"/><path d="M184 51v28M170 65h28M174 55l20 20M194 55l-20 20" stroke-width="1" opacity=".6"/><path d="M204 54h10M204 60h10M204 66h10M204 72h10M204 78h10" stroke-width="1.5"/><path d="M160 90h66M166 90l14 16M220 90l-14 16" stroke-width="1.5"/><path d="M157 118h70M165 118v27M181 118v27M197 118v27M213 118v27" stroke-width="1.5" opacity=".6"/></svg></div>
+  </div>
+  <div class="meta">
+    <h2>실외기 <code>outdoor-unit</code></h2>
+    <p class="tip">실외기와 받침대·난간이 같이 나오게 찍어 주세요</p>
+    <p class="use">쓰는 곳: 에어컨 청소(실외기), 에어컨 설치 · 1,777 B</p>
+  </div>
+</article>
+<article class="card">
+  <div class="pair">
+    <div class="pane light"><span class="tag">라이트</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-window-measure-l" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-window-measure-l">창 촬영 예시: 정면에서 창 전체가 들어오게, 줄자를 가로로 대고</title><path d="M6 130H140" opacity=".45"/><path d="M132 30v100" opacity=".45"/><rect x="128" y="50" width="8" height="52" stroke-width="1.5"/><path d="M126 104h12" stroke-width="3"/><circle cx="52" cy="76" r="7"/><path d="M52 84v22M46 130l6-24 6 24"/><path d="M52 92l10-6"/><path d="M65 79v12" stroke-width="3.5"/><path d="M67 85L128 46M67 85L128 108" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><path d="M67 142H126M67 138v8M126 138v8M72 139l-5 3 5 3M121 139l5 3-5 3" stroke-width="1.5"/><text x="96.5" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">창 정면 2m</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><rect x="164" y="30" width="56" height="74" rx="2"/><path d="M192 30v74M164 104h56" stroke-width="1.5"/><path d="M168 34h20v66h-20zM196 34h20v66h-20z" stroke-width="1" opacity=".5"/><rect x="159" y="110" width="12" height="12" rx="2"/><path d="M171 112h50v6h-50" stroke-width="1.5"/><path d="M177 112v3M183 112v3M189 112v5M195 112v3M201 112v3M207 112v5M213 112v3M219 112v3" stroke-width="1"/><path d="M164 132H220M168 129l-4 3 4 3M216 129l4 3-4 3" stroke-width="1.5"/></svg></div>
+    <div class="pane dark"><span class="tag">다크</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-window-measure-d" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-window-measure-d">창 촬영 예시: 정면에서 창 전체가 들어오게, 줄자를 가로로 대고</title><path d="M6 130H140" opacity=".45"/><path d="M132 30v100" opacity=".45"/><rect x="128" y="50" width="8" height="52" stroke-width="1.5"/><path d="M126 104h12" stroke-width="3"/><circle cx="52" cy="76" r="7"/><path d="M52 84v22M46 130l6-24 6 24"/><path d="M52 92l10-6"/><path d="M65 79v12" stroke-width="3.5"/><path d="M67 85L128 46M67 85L128 108" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><path d="M67 142H126M67 138v8M126 138v8M72 139l-5 3 5 3M121 139l5 3-5 3" stroke-width="1.5"/><text x="96.5" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">창 정면 2m</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><rect x="164" y="30" width="56" height="74" rx="2"/><path d="M192 30v74M164 104h56" stroke-width="1.5"/><path d="M168 34h20v66h-20zM196 34h20v66h-20z" stroke-width="1" opacity=".5"/><rect x="159" y="110" width="12" height="12" rx="2"/><path d="M171 112h50v6h-50" stroke-width="1.5"/><path d="M177 112v3M183 112v3M189 112v5M195 112v3M201 112v3M207 112v5M213 112v3M219 112v3" stroke-width="1"/><path d="M164 132H220M168 129l-4 3 4 3M216 129l4 3-4 3" stroke-width="1.5"/></svg></div>
+  </div>
+  <div class="meta">
+    <h2>창 + 줄자 <code>window-measure</code></h2>
+    <p class="tip">줄자를 창 가로에 대고 창 전체가 나오게 찍어 주세요</p>
+    <p class="use">쓰는 곳: 커튼, 중문(정면), 입주청소 창틀 · 1,689 B</p>
+  </div>
+</article>
+<article class="card">
+  <div class="pair">
+    <div class="pane light"><span class="tag">라이트</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-ceiling-molding-l" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-ceiling-molding-l">천장 촬영 예시: 위로 비스듬히 들어 벽과 천장이 만나는 곳이 보이게</title><path d="M6 130H140" opacity=".45"/><path d="M6 36H138M134 36v94" opacity=".45"/><path d="M122 36v6h6v6h6" stroke-width="1.5"/><circle cx="70" cy="76" r="7"/><path d="M70 84v22M64 130l6-24 6 24"/><path d="M70 92l10-8"/><path d="M79 79l8 8" stroke-width="3.5"/><path d="M83 80L124 36M83 80L134 60" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><text x="70" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">위로 비스듬히</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><circle cx="192" cy="30" r="5" stroke-width="1.5"/><path d="M157 52h70M157 58h70M157 66h70" stroke-width="1.5"/><path d="M168 66v14h48V66" stroke-width="1.5" stroke-dasharray="3 2"/><rect x="172" y="92" width="40" height="53" stroke-width="1.5" opacity=".6"/><path d="M192 92v53" stroke-width="1" opacity=".6"/></svg></div>
+    <div class="pane dark"><span class="tag">다크</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-ceiling-molding-d" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-ceiling-molding-d">천장 촬영 예시: 위로 비스듬히 들어 벽과 천장이 만나는 곳이 보이게</title><path d="M6 130H140" opacity=".45"/><path d="M6 36H138M134 36v94" opacity=".45"/><path d="M122 36v6h6v6h6" stroke-width="1.5"/><circle cx="70" cy="76" r="7"/><path d="M70 84v22M64 130l6-24 6 24"/><path d="M70 92l10-8"/><path d="M79 79l8 8" stroke-width="3.5"/><path d="M83 80L124 36M83 80L134 60" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><text x="70" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">위로 비스듬히</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><circle cx="192" cy="30" r="5" stroke-width="1.5"/><path d="M157 52h70M157 58h70M157 66h70" stroke-width="1.5"/><path d="M168 66v14h48V66" stroke-width="1.5" stroke-dasharray="3 2"/><rect x="172" y="92" width="40" height="53" stroke-width="1.5" opacity=".6"/><path d="M192 92v53" stroke-width="1" opacity=".6"/></svg></div>
+  </div>
+  <div class="meta">
+    <h2>천장 몰딩 <code>ceiling-molding</code></h2>
+    <p class="tip">폰을 위로 들어 천장과 벽이 만나는 곳을 찍어 주세요</p>
+    <p class="use">쓰는 곳: 커튼 설치 자리, 중문 상부 · 1,400 B</p>
+  </div>
+</article>
+<article class="card">
+  <div class="pair">
+    <div class="pane light"><span class="tag">라이트</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-floor-rail-l" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-floor-rail-l">바닥 촬영 예시: 아래로 비스듬히 들어 바닥 경계와 턱이 보이게</title><path d="M6 130H100v-10H140" opacity=".6"/><circle cx="56" cy="76" r="7"/><path d="M56 84v22M50 130l6-24 6 24"/><path d="M56 92l11-3"/><path d="M65 92l8-8" stroke-width="3.5"/><path d="M70 90L92 130M70 90L126 120" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><text x="56" y="150" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">아래로 비스듬히</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><path d="M157 40h70M157 64h70M178 15l-3 49M205 15l3 49" stroke-width="1.2" opacity=".6"/><path d="M157 76h70M157 84h70" stroke-width="2.5"/><path d="M170 84l-13 22M185 84l-8 61M199 84l8 61M214 84l13 22" stroke-width="1.2" opacity=".6"/><path d="M222 66V94M219 70l3-4 3 4M219 90l3 4 3-4" stroke-width="1.5"/></svg></div>
+    <div class="pane dark"><span class="tag">다크</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-floor-rail-d" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-floor-rail-d">바닥 촬영 예시: 아래로 비스듬히 들어 바닥 경계와 턱이 보이게</title><path d="M6 130H100v-10H140" opacity=".6"/><circle cx="56" cy="76" r="7"/><path d="M56 84v22M50 130l6-24 6 24"/><path d="M56 92l11-3"/><path d="M65 92l8-8" stroke-width="3.5"/><path d="M70 90L92 130M70 90L126 120" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><text x="56" y="150" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">아래로 비스듬히</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><path d="M157 40h70M157 64h70M178 15l-3 49M205 15l3 49" stroke-width="1.2" opacity=".6"/><path d="M157 76h70M157 84h70" stroke-width="2.5"/><path d="M170 84l-13 22M185 84l-8 61M199 84l8 61M214 84l13 22" stroke-width="1.2" opacity=".6"/><path d="M222 66V94M219 70l3-4 3 4M219 90l3 4 3-4" stroke-width="1.5"/></svg></div>
+  </div>
+  <div class="meta">
+    <h2>바닥 경계 <code>floor-rail</code></h2>
+    <p class="tip">폰을 아래로 기울여 바닥 경계와 턱을 찍어 주세요</p>
+    <p class="use">쓰는 곳: 중문 바닥·현관 턱, 커튼 창 아래~바닥 · 1,309 B</p>
+  </div>
+</article>
+<article class="card">
+  <div class="pair">
+    <div class="pane light"><span class="tag">라이트</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-entrance-l" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-entrance-l">엘리베이터·입구 촬영 예시: 2m 뒤에서 문 전체가 들어오게</title><path d="M6 130H140" opacity=".45"/><path d="M132 30v100" opacity=".45"/><path d="M126 50v80M130 46h6" stroke-width="1.5"/><circle cx="40" cy="76" r="7"/><path d="M40 84v22M34 130l6-24 6 24"/><path d="M40 92l10-6"/><path d="M53 79v12" stroke-width="3.5"/><path d="M55 85L126 44M55 85L126 128" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><path d="M55 142H124M55 138v8M124 138v8M60 139l-5 3 5 3M119 139l5 3-5 3" stroke-width="1.5"/><text x="89.5" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">2m 뒤에서</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><rect x="166" y="34" width="52" height="96"/><path d="M192 34v96" stroke-width="1.5"/><rect x="182" y="22" width="20" height="7" rx="2" stroke-width="1.5"/><circle cx="223" cy="78" r="2.5" stroke-width="1.5"/><circle cx="223" cy="86" r="2.5" stroke-width="1.5"/><path d="M157 130h70" stroke-width="1.5" opacity=".6"/><path d="M166 139H218M170 136l-4 3 4 3M214 136l4 3-4 3" stroke-width="1.5"/></svg></div>
+    <div class="pane dark"><span class="tag">다크</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-entrance-d" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-entrance-d">엘리베이터·입구 촬영 예시: 2m 뒤에서 문 전체가 들어오게</title><path d="M6 130H140" opacity=".45"/><path d="M132 30v100" opacity=".45"/><path d="M126 50v80M130 46h6" stroke-width="1.5"/><circle cx="40" cy="76" r="7"/><path d="M40 84v22M34 130l6-24 6 24"/><path d="M40 92l10-6"/><path d="M53 79v12" stroke-width="3.5"/><path d="M55 85L126 44M55 85L126 128" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><path d="M55 142H124M55 138v8M124 138v8M60 139l-5 3 5 3M119 139l5 3-5 3" stroke-width="1.5"/><text x="89.5" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">2m 뒤에서</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><rect x="166" y="34" width="52" height="96"/><path d="M192 34v96" stroke-width="1.5"/><rect x="182" y="22" width="20" height="7" rx="2" stroke-width="1.5"/><circle cx="223" cy="78" r="2.5" stroke-width="1.5"/><circle cx="223" cy="86" r="2.5" stroke-width="1.5"/><path d="M157 130h70" stroke-width="1.5" opacity=".6"/><path d="M166 139H218M170 136l-4 3 4 3M214 136l4 3-4 3" stroke-width="1.5"/></svg></div>
+  </div>
+  <div class="meta">
+    <h2>입구·엘리베이터 <code>entrance</code></h2>
+    <p class="tip">2m 뒤에서 엘리베이터 문 전체가 나오게 찍어 주세요</p>
+    <p class="use">쓰는 곳: 이사 현관·복도·엘리베이터 · 1,552 B</p>
+  </div>
+</article>
+<article class="card">
+  <div class="pair">
+    <div class="pane light"><span class="tag">라이트</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-furniture-l" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-furniture-l">큰 가구 촬영 예시: 1~2m 떨어져 장롱·수납장 문을 열고 안까지</title><path d="M6 130H140" opacity=".45"/><rect x="110" y="44" width="26" height="86"/><path d="M110 44l-14 8v74l14 4" stroke-width="1.5"/><circle cx="44" cy="76" r="7"/><path d="M44 84v22M38 130l6-24 6 24"/><path d="M44 92l10-6"/><path d="M57 79v12" stroke-width="3.5"/><path d="M59 85L98 46M59 85L98 128" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><path d="M57 142H96M57 138v8M96 138v8M62 139l-5 3 5 3M91 139l5 3-5 3" stroke-width="1.5"/><text x="76.5" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">1~2m</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><rect x="168" y="26" width="48" height="110"/><path d="M192 26v110" stroke-width="1.5"/><path d="M168 26l-10 6v98l10 6M216 26l10 6v98l-10 6" stroke-width="1.5"/><path d="M168 56h24M168 84h24M168 110h24" stroke-width="1.5"/><path d="M194 38h20" stroke-width="1.5"/><path d="M198 38v4l-4 4h8l-4-4M207 38v4l-4 4h8l-4-4" stroke-width="1.2"/><path d="M196 48v30M200 48v36M204 48v26M209 48v32M213 48v28" stroke-width="1.2" opacity=".7"/><rect x="172" y="66" width="14" height="14" stroke-width="1.2" opacity=".7"/><rect x="172" y="94" width="16" height="12" stroke-width="1.2" opacity=".7"/></svg></div>
+    <div class="pane dark"><span class="tag">다크</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-furniture-d" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-furniture-d">큰 가구 촬영 예시: 1~2m 떨어져 장롱·수납장 문을 열고 안까지</title><path d="M6 130H140" opacity=".45"/><rect x="110" y="44" width="26" height="86"/><path d="M110 44l-14 8v74l14 4" stroke-width="1.5"/><circle cx="44" cy="76" r="7"/><path d="M44 84v22M38 130l6-24 6 24"/><path d="M44 92l10-6"/><path d="M57 79v12" stroke-width="3.5"/><path d="M59 85L98 46M59 85L98 128" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><path d="M57 142H96M57 138v8M96 138v8M62 139l-5 3 5 3M91 139l5 3-5 3" stroke-width="1.5"/><text x="76.5" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">1~2m</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><rect x="168" y="26" width="48" height="110"/><path d="M192 26v110" stroke-width="1.5"/><path d="M168 26l-10 6v98l10 6M216 26l10 6v98l-10 6" stroke-width="1.5"/><path d="M168 56h24M168 84h24M168 110h24" stroke-width="1.5"/><path d="M194 38h20" stroke-width="1.5"/><path d="M198 38v4l-4 4h8l-4-4M207 38v4l-4 4h8l-4-4" stroke-width="1.2"/><path d="M196 48v30M200 48v36M204 48v26M209 48v32M213 48v28" stroke-width="1.2" opacity=".7"/><rect x="172" y="66" width="14" height="14" stroke-width="1.2" opacity=".7"/><rect x="172" y="94" width="16" height="12" stroke-width="1.2" opacity=".7"/></svg></div>
+  </div>
+  <div class="meta">
+    <h2>큰 가구 <code>furniture</code></h2>
+    <p class="tip">장롱·수납장 문을 열고 안까지 나오게 찍어 주세요</p>
+    <p class="use">쓰는 곳: 이사 안방 장롱·주방 수납장 · 1,745 B</p>
+  </div>
+</article>
+<article class="card">
+  <div class="pair">
+    <div class="pane light"><span class="tag">라이트</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-wall-route-l" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-wall-route-l">배관 경로 촬영 예시: 문간에서 넓게, 실내기 자리부터 창까지 한 화면에</title><path d="M6 130H140" opacity=".45"/><path d="M8 130V48h14v82" opacity=".45"/><path d="M22 48H140M136 48v82" opacity=".45"/><circle cx="30" cy="76" r="7"/><path d="M30 84v22M24 130l6-24 6 24"/><path d="M30 92l10-6"/><path d="M43 79v12" stroke-width="3.5"/><path d="M45 85L136 50M45 85L136 128" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><text x="48" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">문간에서 넓게</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><path d="M157 128h70" stroke-width="1.5" opacity=".6"/><rect x="161" y="30" width="34" height="12" rx="3"/><path d="M165 38h26" stroke-width="1" opacity=".6"/><rect x="166" y="54" width="8" height="10" rx="1" stroke-width="1.5"/><rect x="204" y="62" width="20" height="44" stroke-width="1.5"/><path d="M214 62v44" stroke-width="1" opacity=".6"/><path d="M195 36h14v20" stroke-width="2" stroke-dasharray="4 3"/><path d="M205 51l4 5 4-5" stroke-width="2"/></svg></div>
+    <div class="pane dark"><span class="tag">다크</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-wall-route-d" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-wall-route-d">배관 경로 촬영 예시: 문간에서 넓게, 실내기 자리부터 창까지 한 화면에</title><path d="M6 130H140" opacity=".45"/><path d="M8 130V48h14v82" opacity=".45"/><path d="M22 48H140M136 48v82" opacity=".45"/><circle cx="30" cy="76" r="7"/><path d="M30 84v22M24 130l6-24 6 24"/><path d="M30 92l10-6"/><path d="M43 79v12" stroke-width="3.5"/><path d="M45 85L136 50M45 85L136 128" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><text x="48" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">문간에서 넓게</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><path d="M157 128h70" stroke-width="1.5" opacity=".6"/><rect x="161" y="30" width="34" height="12" rx="3"/><path d="M165 38h26" stroke-width="1" opacity=".6"/><rect x="166" y="54" width="8" height="10" rx="1" stroke-width="1.5"/><rect x="204" y="62" width="20" height="44" stroke-width="1.5"/><path d="M214 62v44" stroke-width="1" opacity=".6"/><path d="M195 36h14v20" stroke-width="2" stroke-dasharray="4 3"/><path d="M205 51l4 5 4-5" stroke-width="2"/></svg></div>
+  </div>
+  <div class="meta">
+    <h2>배관 지나갈 벽 <code>wall-route</code></h2>
+    <p class="tip">문간에서 실내기 자리부터 창까지 한 화면에 찍어 주세요</p>
+    <p class="use">쓰는 곳: 에어컨 설치 배관 경로 · 1,543 B</p>
+  </div>
+</article>
+  </div>
+  <section class="big">
+    <h2>바텀시트에 들어간 모습 (페이지 테마를 따름)</h2>
+    <div class="sheet" role="presentation">
+      <div class="grab"></div>
+      <div class="ill"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="t-room-wide-s" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><title id="t-room-wide-s">방 전체 촬영 예시: 문 앞에 서서 바닥부터 천장까지 한 화면에</title><path d="M6 130H140" opacity=".45"/><path d="M8 130V48h14v82" opacity=".45"/><path d="M22 48H140M136 48v82" opacity=".45"/><circle cx="30" cy="76" r="7"/><path d="M30 84v22M24 130l6-24 6 24"/><path d="M30 92l10-6"/><path d="M43 79v12" stroke-width="3.5"/><path d="M45 85L136 50M45 85L136 128" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/><text x="46" y="157" font-size="11" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">문 앞에 서서</text><rect x="152" y="5" width="80" height="150" rx="12"/><path d="M184 10h16" stroke-width="1.5"/><rect x="180" y="50" width="34" height="50" stroke-width="1.5"/><path d="M157 15l23 35M227 15l-13 35M157 145l23-45M227 145l-13-45" stroke-width="1.5"/><rect x="187" y="58" width="20" height="16" stroke-width="1.2" opacity=".7"/><path d="M166 120l10 4M168 112l10 3" stroke-width="1.2" opacity=".6"/><path d="M163 24V136M160 28l3-4 3 4M160 132l3 4 3-4" stroke-width="1.5"/></svg></div>
+      <h3>욕실 2 · 전체</h3>
+      <p>문 앞에 서서 바닥부터 천장까지 나오게 찍어 주세요</p>
+      <div class="btns"><span>촬영하기</span><span>앨범에서 고르기</span></div>
+    </div>
+  </section>
+</main>
+<script>
+document.querySelectorAll('[data-t]').forEach((b) => b.addEventListener('click', () => {
+  const t = b.dataset.t;
+  if (t === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = t;
+  document.querySelectorAll('[data-t]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+}));
+</script>
+</body>
+</html>
