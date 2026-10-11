@@ -1,0 +1,10 @@
+{
+  "name": "quote",
+  "private": true,
+  "type": "module",
+  "description": "견적 자동화 앱 (정적 PWA + Firebase). 빌드 과정 없음.",
+  "scripts": {
+    "test": "node --test tests/calc.test.mjs",
+    "serve": "npx --yes http-server -p 8080 -c-1 ."
+  }
+}

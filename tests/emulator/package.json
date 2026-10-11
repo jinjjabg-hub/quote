@@ -1,0 +1,15 @@
+{
+  "name": "quote-emulator-test",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "firebase --config ../../firebase.json emulators:exec --only firestore,storage --project demo-quote \"node --test rules.test.mjs\"",
+    "e2e": "firebase --config ../../firebase.json emulators:exec --only auth,firestore,storage --project demo-quote \"node e2e.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase": "10.14.1",
+    "firebase-tools": "^13.35.1",
+    "playwright-core": "^1.48.0"
+  }
+}

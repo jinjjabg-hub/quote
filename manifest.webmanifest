@@ -1,0 +1,16 @@
+{
+  "name": "견적 자동화",
+  "short_name": "견적",
+  "description": "고객 입력 → 내 단가표로 자동 계산 → 1탭 승인 발송",
+  "lang": "ko",
+  "start_url": "./owner.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#1f6feb",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

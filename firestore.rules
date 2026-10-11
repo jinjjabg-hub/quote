@@ -1,0 +1,88 @@
+rules_version = '2';
+
+// 원칙
+// - 사장님: 자기 shop(shops/{내 uid}) 과 그 shop 의 requests·quotes 만 읽기/쓰기
+// - 고객(로그인 없음): requests 생성, 견적서 단건 읽기(get), 예약 요청(상태 1칸만 변경)
+// - 견적서 ID(20자 랜덤)는 추측이 불가능하므로 "링크를 받은 사람만 읽기"가 된다. 목록 조회(list)는 막는다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isOwner(shopId) { return signedIn() && request.auth.uid == shopId; }
+    function shopPath(shopId) { return /databases/$(database)/documents/shops/$(shopId); }
+    function str(v, max) { return v is string && v.size() <= max; }
+
+    // 고객이 견적서에서 "예약 요청"을 누를 때: sent → booking_requested 만 허용
+    function isCustomerBooking() {
+      return resource.data.status == 'sent'
+        && request.resource.data.status == 'booking_requested'
+        && request.resource.data.bookingRequestedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'bookingRequestedAt']);
+    }
+
+    // 업종 템플릿: 누구나 읽기, 쓰기는 Firebase 콘솔(관리자)에서만
+    match /templates/{templateId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 업체 공개 정보 (shopId = 사장님 uid)
+    match /shops/{shopId} {
+      function validShop() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['ownerUid', 'templateId', 'name', 'ownerName', 'phone', 'bizNo', 'logoUrl', 'createdAt', 'updatedAt'])
+          && d.ownerUid == shopId
+          && str(d.templateId, 60)
+          && (!('name' in d) || str(d.name, 60))
+          && (!('phone' in d) || str(d.phone, 30))
+          && (!('logoUrl' in d) || str(d.logoUrl, 1000));
+      }
+      allow get: if true;            // 고객 화면에 상호·연락처 표시
+      allow list: if false;
+      allow create, update: if isOwner(shopId) && validShop();
+      allow delete: if false;
+
+      // 단가표 등 비공개 설정 (경쟁업체가 링크로 단가를 볼 수 없게 분리)
+      match /private/{docId} {
+        allow read, write: if isOwner(shopId);
+      }
+    }
+
+    // 고객 견적 요청
+    match /requests/{requestId} {
+      function validNewRequest() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['shopId', 'templateId', 'status', 'customer', 'answers', 'checklist', 'photos', 'quoteId', 'createdAt'])
+          && d.keys().hasAll(['shopId', 'templateId', 'status', 'customer', 'answers', 'createdAt'])
+          && d.shopId is string
+          && exists(shopPath(d.shopId))
+          && d.templateId == get(shopPath(d.shopId)).data.templateId
+          && d.status == 'new'
+          && (!('quoteId' in d) || d.quoteId == null)
+          && d.createdAt == request.time
+          && d.customer.keys().hasOnly(['name', 'phone', 'region'])
+          && str(d.customer.name, 30) && d.customer.name.size() > 0
+          && str(d.customer.phone, 20) && d.customer.phone.size() > 0
+          && str(d.customer.region, 40)
+          && d.answers is map && d.answers.keys().size() <= 40
+          && (!('checklist' in d) || (d.checklist is map && d.checklist.keys().size() <= 40))
+          && (!('photos' in d) || (d.photos is list && d.photos.size() <= 10));
+      }
+      allow create: if validNewRequest();
+      allow read, delete: if isOwner(resource.data.shopId);
+      allow update: if (isOwner(resource.data.shopId) && request.resource.data.shopId == resource.data.shopId)
+        || isCustomerBooking();
+    }
+
+    // 견적서
+    match /quotes/{quoteId} {
+      allow get: if true;
+      allow list: if signedIn() && resource.data.shopId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.shopId)
+        && get(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.shopId == request.auth.uid;
+      allow update: if (isOwner(resource.data.shopId) && request.resource.data.shopId == resource.data.shopId)
+        || isCustomerBooking();
+      allow delete: if isOwner(resource.data.shopId);
+    }
+  }
+}
