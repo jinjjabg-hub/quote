@@ -82,8 +82,16 @@ export const STATUS = {
   hold: { label: '보류', cls: 'st-hold' },
 };
 
+// 결제 관련 상태 (서버만 기록). 목록 필터 칩은 늘리지 않으려고 STATUS 와 분리했다.
+export const PAYMENT_STATUS = {
+  paid_deposit: { label: '계약금완료', cls: 'st-ok' },
+  done: { label: '작업완료', cls: 'st-sent' },
+  paid_full: { label: '잔금완료', cls: 'st-ok' },
+  canceled: { label: '취소', cls: 'st-hold' },
+};
+
 export function statusBadge(status) {
-  const s = STATUS[status] || { label: status, cls: '' };
+  const s = STATUS[status] || PAYMENT_STATUS[status] || { label: status, cls: '' };
   return h(`span.badge.${s.cls}`, {}, s.label);
 }
 

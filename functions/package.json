@@ -1,0 +1,17 @@
+{
+  "name": "quote-functions",
+  "private": true,
+  "type": "module",
+  "description": "결제 Cloud Functions (토스페이먼츠 테스트 모드 골격). 실키 금지.",
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "scripts": {
+    "test": "node --test test/rules.test.mjs",
+    "serve": "firebase emulators:start --only functions,firestore,auth",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.3.0"
+  }
+}

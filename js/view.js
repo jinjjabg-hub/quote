@@ -3,6 +3,7 @@
 import { db, doc, getDoc, writeBatch, serverTimestamp, isConfigured } from './firebase.js';
 import { formatWon, toDateStr } from './calc.js';
 import { $, h, toast, registerSW, showFatal, telHref } from './util.js';
+import { paymentEnabled, payButton } from './payment.js';
 
 registerSW();
 
@@ -73,7 +74,9 @@ function section(title, items, cls) {
 }
 
 function bookingButton(expired) {
-  if (quote.status === 'booking_requested' || quote.status === 'confirmed') {
+  // 온라인 결제가 켜져 있으면(js/config.js paymentConfig) 계약금 결제 버튼, 아니면 기존 예약 요청
+  if (paymentEnabled(quote)) return payButton(quote, quoteId, expired);
+  if (['booking_requested', 'confirmed', 'paid_deposit', 'done', 'paid_full'].includes(quote.status)) {
     return h('button.btn.primary', { disabled: true }, '예약 요청 완료 ✓');
   }
   if (expired) return h('button.btn.primary', { disabled: true }, '유효기간이 지났어요 · 전화 문의');

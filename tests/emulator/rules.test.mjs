@@ -87,6 +87,25 @@ test('사장님: 견적 발송(배치) O, 남의 요청으로 견적 생성 X', 
   await assertFails(setDoc(doc(other(), 'quotes', 'q3'), { shopId: OTHER, requestId: 'r1', status: 'sent' }));
 });
 
+test('결제: payment 필드·payments 컬렉션은 서버만 쓴다 (고객·사장님 모두 X)', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'payments', 'D-q1-abc'), { shopId: OWNER, quoteId: 'q1', amount: 112000, status: 'paid' });
+  });
+  // 고객: 결제완료 상태·결제 기록 위조 X
+  await assertFails(updateDoc(doc(guest(), 'quotes', 'q1'), { status: 'paid_deposit' }));
+  await assertFails(updateDoc(doc(guest(), 'quotes', 'q1'), { payment: { deposit: { amount: 1 } } }));
+  await assertFails(setDoc(doc(guest(), 'payments', 'D-q1-xyz'), { shopId: OWNER, status: 'paid' }));
+  await assertFails(getDoc(doc(guest(), 'payments', 'D-q1-abc')));
+  // 사장님: 자기 결제 기록 읽기 O, 쓰기 X, quotes.payment 수정 X, 일반 상태 변경은 그대로 O
+  await assertSucceeds(getDoc(doc(owner(), 'payments', 'D-q1-abc')));
+  await assertSucceeds(getDocs(query(collection(owner(), 'payments'), where('shopId', '==', OWNER))));
+  await assertFails(getDoc(doc(other(), 'payments', 'D-q1-abc')));
+  await assertFails(updateDoc(doc(owner(), 'payments', 'D-q1-abc'), { status: 'canceled' }));
+  await assertFails(updateDoc(doc(owner(), 'quotes', 'q1'), { payment: { deposit: { amount: 1 } } }));
+  await assertFails(setDoc(doc(owner(), 'quotes', 'q9'), { shopId: OWNER, requestId: 'r1', status: 'sent', payment: {} }));
+  await assertSucceeds(updateDoc(doc(owner(), 'quotes', 'q1'), { status: 'hold' }));
+});
+
 test('사장님: 업체 최초 생성은 본인 uid 로만', async () => {
   await assertSucceeds(setDoc(doc(other(), 'shops', OTHER), { ownerUid: OTHER, templateId: 'move-in-cleaning', name: '' }));
   await assertFails(setDoc(doc(other(), 'shops', 'someoneElse'), { ownerUid: OTHER, templateId: 'move-in-cleaning' }));

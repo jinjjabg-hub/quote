@@ -11,6 +11,10 @@ service cloud.firestore {
     function isOwner(shopId) { return signedIn() && request.auth.uid == shopId; }
     function shopPath(shopId) { return /databases/$(database)/documents/shops/$(shopId); }
     function str(v, max) { return v is string && v.size() <= max; }
+    // 결제 기록(payment)은 서버(Cloud Functions, Admin SDK)만 쓴다. 사장님·고객 모두 직접 못 바꾼다.
+    function keepsPayment() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['payment']);
+    }
 
     // 고객이 견적서에서 "예약 요청"을 누를 때: sent → booking_requested 만 허용
     function isCustomerBooking() {
@@ -70,7 +74,7 @@ service cloud.firestore {
       }
       allow create: if validNewRequest();
       allow read, delete: if isOwner(resource.data.shopId);
-      allow update: if (isOwner(resource.data.shopId) && request.resource.data.shopId == resource.data.shopId)
+      allow update: if (isOwner(resource.data.shopId) && request.resource.data.shopId == resource.data.shopId && keepsPayment())
         || isCustomerBooking();
     }
 
@@ -79,10 +83,18 @@ service cloud.firestore {
       allow get: if true;
       allow list: if signedIn() && resource.data.shopId == request.auth.uid;
       allow create: if isOwner(request.resource.data.shopId)
+        && !('payment' in request.resource.data)
         && get(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.shopId == request.auth.uid;
-      allow update: if (isOwner(resource.data.shopId) && request.resource.data.shopId == resource.data.shopId)
+      allow update: if (isOwner(resource.data.shopId) && request.resource.data.shopId == resource.data.shopId && keepsPayment())
         || isCustomerBooking();
-      allow delete: if isOwner(resource.data.shopId);
+      // 결제가 기록된 견적서는 지우지 않는다 (환불·분쟁 증거)
+      allow delete: if isOwner(resource.data.shopId) && !('payment' in resource.data);
+    }
+
+    // 결제 기록: 사장님은 자기 업체 것만 읽기. 쓰기는 서버(Admin SDK)만 — 규칙으로는 아무도 못 쓴다.
+    match /payments/{orderId} {
+      allow read: if signedIn() && resource.data.shopId == request.auth.uid;
+      allow write: if false;
     }
   }
 }
