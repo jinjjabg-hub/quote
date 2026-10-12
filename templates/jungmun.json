@@ -3,6 +3,14 @@
   "name": "중문",
   "version": 1,
   "description": "현관 중문 맞춤 제작·설치 (3연동/원슬라이딩/스윙/폴딩). 사진·입력 치수 기준 예상 견적 → 실측 후 확정.",
+  "customMade": true,
+  "summaryFields": [
+    { "key": "doorType" },
+    { "key": "doorCount", "unit": "세트" },
+    { "key": "width", "label": "가로", "unit": "cm" },
+    { "key": "height", "label": "세로", "unit": "cm" }
+  ],
+  "photoLimit": 20,
 
   "steps": [
     {
@@ -38,7 +46,9 @@
             { "value": "swing", "label": "스윙·여닫이 (앞뒤로 밀어 여는 문)" },
             { "value": "folding", "label": "폴딩 (접히는 문)" }
           ] },
-        { "key": "doorCount", "label": "설치 개수 (세트)", "type": "stepper", "required": true, "min": 1, "max": 5, "default": 1 }
+        { "key": "doorCount", "label": "설치 개수 (세트)", "type": "stepper", "required": true, "min": 1, "max": 5, "default": 1 },
+        { "key": "removeDoors", "label": "떼어낼 기존 중문 (세트)", "type": "stepper", "required": true, "min": 0, "max": 5, "default": 0,
+          "maxField": "doorCount", "hint": "지금 중문(또는 문틀)이 있어서 떼어내야 하면 그 개수, 없으면 0. 설치 개수보다 많을 수 없어요." }
       ]
     },
     {
@@ -67,12 +77,9 @@
             { "value": "standard", "label": "일반 알루미늄" },
             { "value": "slim", "label": "슬림 프레임" }
           ] },
-        { "key": "railEmbed", "label": "바닥 레일", "type": "choice", "required": true,
-          "hint": "매립은 바닥을 파서 레일을 묻어 걸림이 없지만 바닥 절단 작업이 추가됩니다. 스윙이거나 잘 모르시면 '노출'을 고르세요.",
-          "options": [
-            { "value": 0, "label": "바닥 위에 노출 (기본)" },
-            { "value": 1, "label": "바닥에 매립" }
-          ] }
+        { "key": "railEmbed", "label": "바닥 레일을 매립할 세트 수", "type": "stepper", "required": true, "min": 0, "max": 5, "default": 0,
+          "maxField": "doorCount",
+          "hint": "기본은 바닥 위 노출 레일(0)입니다. 매립은 바닥을 파서 레일을 묻어 걸림이 없지만 바닥 절단 작업이 세트마다 추가됩니다. 스윙이거나 잘 모르시면 0으로 두세요." }
       ]
     },
     {
@@ -87,7 +94,7 @@
     },
     {
       "title": "사진을 올려주세요",
-      "description": "줄자를 대고 찍어주시면 실측 전에도 정확한 견적을 드릴 수 있어요. 위치별로 1장씩 권장합니다.",
+      "description": "칸을 누르면 찍는 방법이 나와요. 현관문을 등지고 줄자를 대고 찍어 주시면 실측 전에도 정확한 견적을 드릴 수 있어요.",
       "fields": [ { "key": "photos", "type": "photos" } ]
     },
     {
@@ -102,28 +109,33 @@
   "checklist": [
     { "key": "measured", "short": "치수 실측 여부", "label": "입력하신 가로·세로는 줄자로 직접 잰 치수인가요?", "risk": "no",
       "conditionText": "눈대중 치수 기준 견적입니다. 실측 결과 크기 구간(가로 160cm, 세로 240cm 기준)이 바뀌는 경우에만 그 구간의 '크기 초과 할증'이 붙거나 빠집니다. 구간이 같으면 금액은 바뀌지 않습니다." },
-    { "key": "existingDoor", "short": "기존 중문 철거", "label": "지금 중문(또는 문틀)이 있어서 떼어내야 하나요?", "risk": "yes", "optionKey": "demolition" },
     { "key": "ceilingStep", "short": "천장 단차·몰딩", "label": "중문 위 천장에 몰딩, 우물천장(움푹 들어간 천장), 등박스 같은 단차가 있나요?", "risk": "yes", "optionKey": "ceilingWork" },
     { "key": "wallLevel", "short": "벽·바닥 기울기", "label": "벽이 기울어 보이거나 바닥이 한쪽으로 기울어져 있나요?", "risk": "yes", "optionKey": "levelFix" },
     { "key": "stoneFloor", "short": "대리석·타일 바닥", "label": "중문이 놓일 바닥이 대리석이나 타일인가요?", "risk": "yes",
-      "conditionText": "대리석·타일 바닥에 레일을 매립하거나 고정할 때 절단·타공 부위 주변에 미세한 깨짐이 생길 수 있습니다. 작업 전 사진으로 상태를 함께 확인하고, 절단선 밖의 파손만 업체가 책임집니다. 여분 타일이 있으면 보관해 주세요." },
+      "conditionText": "대리석·타일 바닥에 레일을 매립·고정하면 절단·타공 부위(절단선 안쪽)에 미세한 깨짐이 생기며, 이 부분은 배상 대상이 아닙니다. 작업 전 사진으로 상태를 함께 확인하고, 절단선 밖의 파손과 작업자 과실로 생긴 파손은 업체가 배상합니다. 여분 타일이 있으면 보관해 주세요." },
     { "key": "obstacle", "short": "스위치·센서·신발장 간섭", "label": "중문 자리에 스위치·인터폰·센서등이 있거나 신발장 문과 겹치나요?", "risk": "yes",
-      "conditionText": "스위치·인터폰·센서등 이설 등 전기 작업과 신발장 가공은 견적에 포함되지 않습니다. 필요하면 별도 업체 또는 별도 금액으로 안내드립니다." },
+      "conditionText": "스위치·인터폰·센서등 이설 같은 전기 작업과 신발장 가공은 이 견적에 포함되지 않습니다. 필요하면 실비(영수증 기준)로 하며, 작업 전 금액을 알려드리고 동의하실 때만 진행합니다." },
     { "key": "elevator", "short": "엘리베이터", "label": "엘리베이터가 있나요? (중문 유리가 커서 계단 운반이 어렵습니다)", "risk": "no", "optionKey": "carry" }
   ],
 
   "photoSlots": [
-    { "key": "front", "label": "중문 자리 정면 전체 (줄자 가로로 대고)" },
-    { "key": "heightTape", "label": "바닥~천장 세로 (줄자 대고)" },
-    { "key": "ceiling", "label": "천장 윗부분 (몰딩·단차)" },
-    { "key": "floor", "label": "바닥 경계·현관 턱" },
-    { "key": "sides", "label": "좌우 벽 끝 (스위치·신발장 포함)" },
-    { "key": "existing", "label": "기존 중문 (있으면)" }
+    { "key": "door", "label": "중문 자리", "repeatField": "doorCount",
+      "shots": [
+        { "key": "front", "label": "정면", "required": true, "illustration": "window-measure", "tip": "현관문을 등지고 줄자를 가로로 대고 정면을 찍어 주세요" },
+        { "key": "height", "label": "세로", "required": false, "illustration": "window-measure", "tip": "줄자를 바닥부터 천장까지 세로로 대고 찍어 주세요" },
+        { "key": "ceiling", "label": "위쪽", "required": true, "illustration": "ceiling-molding", "tip": "폰을 위로 들어 천장 몰딩과 단차를 찍어 주세요" },
+        { "key": "floor", "label": "아래쪽", "required": true, "illustration": "floor-rail", "tip": "폰을 아래로 기울여 바닥 경계와 현관 턱을 찍어 주세요" },
+        { "key": "sides", "label": "양옆", "required": false, "illustration": "room-wide", "tip": "좌우 벽 끝의 스위치·신발장이 나오게 찍어 주세요" }
+      ] },
+    { "key": "existing", "label": "기존 중문",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": false, "illustration": "room-wide", "tip": "지금 있는 중문이 있으면 전체가 나오게 찍어 주세요" }
+      ] }
   ],
 
   "pricing": {
     "base": {
-      "label": "중문 제작·설치 (3연동·일반 프레임·투명유리 기준)",
+      "label": "중문 기본 제작·설치 (세트당)",
       "quantityField": "doorCount",
       "unit": "세트",
       "unitPriceKey": "unitPrice",
@@ -145,9 +157,10 @@
         "when": { "any": [ { "field": "$weekend", "equals": true }, { "field": "$holiday", "equals": true } ] } }
     ],
     "options": [
-      { "key": "railEmbed", "label": "하부 레일 매립 (바닥 절단·마감)", "unit": "식", "quantityField": "railEmbed", "includedQty": 0,
-        "priceLabel": "하부 레일 매립 (1식)" },
-      { "key": "demolition", "label": "기존 중문 철거·폐기" },
+      { "key": "railEmbed", "label": "하부 레일 매립 (바닥 절단·마감)", "unit": "세트", "quantityField": "railEmbed", "includedQty": 0,
+        "priceLabel": "하부 레일 매립 (세트당)" },
+      { "key": "demolition", "label": "기존 중문 철거·폐기", "unit": "세트", "quantityField": "removeDoors", "includedQty": 0,
+        "priceLabel": "기존 중문 철거·폐기 (세트당)" },
       { "key": "ceilingWork", "label": "상부 보강 (몰딩·우물천장 단차 처리)" },
       { "key": "levelFix", "label": "벽 수직·바닥 수평 보정" },
       { "key": "carry", "label": "엘리베이터 없음 계단 운반" },
@@ -177,7 +190,7 @@
     "policy": {
       "validDays": 14,
       "depositPct": 10,
-      "cancelPolicy": "[실측 후 확정] 이 견적은 사진과 고객이 입력한 치수 기준 예상 금액이며, 실측 방문 후 최종 금액을 확정합니다. 실측 결과가 견적서의 크기 구간(가로 160cm·세로 240cm)과 체크 항목을 벗어나지 않으면 금액은 바뀌지 않습니다. 실측 후 금액이 바뀌었는데 동의하지 않으시면 계약금 전액 환불합니다(실측 출장비 없음). [맞춤 제작 취소 제한] 중문은 현장 치수에 맞춰 개별 제작해 다른 곳에 재사용할 수 없습니다. 실측 확정 금액에 서면(문자·전자서명 포함)으로 동의하여 제작이 시작된 뒤에는 고객 사정에 의한 취소 시 계약금은 환불되지 않으며, 이미 발주된 자재·제작비가 계약금을 넘으면 그 실비를 청구할 수 있습니다. 제작 시작 전 취소는 계약금 전액 환불합니다. 업체의 실측 오류로 크기가 맞지 않으면 업체 비용으로 재제작합니다."
+      "cancelPolicy": "■ 이 견적은 사진과 입력하신 치수로 계산한 예상 금액입니다. 실측 방문 후 확정 견적서를 보내드리며, 실측 결과가 견적서에 적힌 크기 구간과 체크 항목을 벗어나지 않으면 금액은 바뀌지 않습니다. 제작은 고객님이 확정 견적에 동의(문자 회신 포함)하신 뒤에만 시작합니다.\n■ 확정 견적에 동의하지 않으시면 계약금 전액을 돌려드립니다.\n■ 제작 시작 전에는 언제 취소하셔도 계약금 전액을 돌려드립니다.\n■ 제작 시작 후(맞춤 제작 취소 제한): 중문은 현장 치수에 맞춰 개별 제작하므로 다른 곳에 다시 쓸 수 없습니다. 그래서 제작을 시작한 뒤에는 단순 변심에 의한 청약철회가 제한되며, 이 내용은 결제 전에 따로 안내하고 따로 동의를 받습니다. 그래도 고객님 사정으로 취소하시면, 이미 들어간 자재·제작 비용을 발주서·영수증으로 보여드리고 그 금액을 계약금에서 뺀 나머지를 돌려드립니다. 비용이 계약금보다 많으면 그 차액만 청구합니다.\n■ 제품 하자, 확정 견적서와 다르게 만들어진 경우, 업체가 잰 치수가 틀려 맞지 않는 경우에는 위 제한과 관계없이 고객님이 원하시는 대로 다시 만들어 드리거나 환불합니다. 받으신 날부터 3개월 안, 또는 그 사실을 아신 날부터 30일 안에 알려주세요.\n■ 업체 사정으로 취소할 때: 계약금 전액을 돌려드리고, 계약금과 같은 금액을 추가로 배상합니다.\n■ 환불은 취소 요청을 받은 날부터 3영업일 안에 결제하신 수단(계좌로 입금하셨다면 그 계좌)으로 해드립니다.\n■ 관련 법령이 이 규정보다 고객님께 유리하면 법령을 따릅니다."
     }
   },
 
@@ -186,8 +199,7 @@
     "현장 실측 방문 1회",
     "설치 시공 및 실리콘 마감",
     "하부 레일 (노출형 기본, 매립은 별도 항목)",
-    "설치 후 작동 점검 및 유리 클리닝",
-    "업체 실측 오류로 인한 재제작"
+    "설치 후 작동 점검 및 유리 클리닝"
   ],
   "excluded": [
     "스위치·인터폰·센서등 이설 등 전기 작업",

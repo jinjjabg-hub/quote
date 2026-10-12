@@ -78,7 +78,7 @@ try {
   const uid = await owner.evaluate(async () => (await import('./js/firebase.js')).auth.currentUser.uid);
 
   // 2) 고객 입력
-  step('2) 고객: 34평, 신축, 곰팡이 예, 붙박이장 모름, 사진 2장');
+  step('2) 고객: 34평, 신축, 곰팡이 예, 붙박이장 모름, 필수 사진 전부');
   const cust = await newPage();
   await cust.goto(`${BASE}q.html?shop=${uid}&emulator=1`);
   const next = () => cust.locator('.nav-row .btn.primary').click();
@@ -112,9 +112,11 @@ try {
   await shot(cust, '3-customer-checklist');
   await next();
   await next(); // 추가 서비스 없음
-  // 칸을 누르면 촬영 안내 바텀시트 → [앨범에서 고르기]
-  for (const i of [0, 1]) {
-    await cust.locator('.photo-slot').nth(i).click();
+  // 칸을 누르면 촬영 안내 바텀시트 → [앨범에서 고르기]. 필수 컷(“(선택)” 표시 없음)을 모두 채운다.
+  const emptyRequired = cust.locator('.photo-slot:not(:has(img)):not(:has(.photo-label .muted))');
+  for (let i = 0; (await emptyRequired.count()) > 0; i++) {
+    assert.ok(i < 20, '필수 사진 칸이 줄지 않음');
+    await emptyRequired.first().click();
     const sheet = cust.locator('dialog.sheet[open]');
     await sheet.waitFor();
     if (i === 0) await shot(cust, '4a-customer-photo-sheet');
@@ -123,8 +125,6 @@ try {
   }
   await shot(cust, '4-customer-photos');
   await next();
-  // 필수 사진이 비면 화면 안 안내 → 사진 없이 다음
-  await cust.getByRole('button', { name: '사진 없이 다음' }).click();
   await next(); // 요청사항 → 제출
   await cust.getByText('요청이 접수되었습니다').waitFor({ timeout: 15000 });
   await shot(cust, '5-customer-done');

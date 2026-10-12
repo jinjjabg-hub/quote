@@ -1,8 +1,14 @@
 {
   "id": "move-in-cleaning",
-  "name": "입주청소",
+  "name": "입주·이사청소",
   "version": 1,
-  "description": "입주 전 빈집 전체 청소",
+  "description": "입주 전·이사 나간 뒤 빈집 전체 청소 (신축 입주청소 / 구축 이사청소)",
+  "summaryFields": [
+    { "key": "area", "unit": "평" },
+    { "key": "buildingType" },
+    { "key": "baths", "label": "욕실", "unit": "개" }
+  ],
+  "photoLimit": 20,
 
   "steps": [
     {
@@ -43,7 +49,8 @@
       "title": "집 크기를 알려주세요",
       "fields": [
         { "key": "area", "label": "공급면적 (평)", "type": "number", "required": true, "min": 1, "max": 200,
-          "placeholder": "예) 34", "hint": "분양 평수 기준입니다. ㎡만 아시면 ÷ 3.3 하세요. (84㎡ ≈ 34평)" },
+          "placeholder": "예) 34",
+          "hint": "관리비 고지서·분양계약서의 '공급면적(㎡)' ÷ 3.3 입니다. 전용면적이 아닙니다. 참고: 아파트 전용 59㎡ ≈ 공급 24~25평, 전용 84㎡ ≈ 공급 32~35평." },
         { "key": "isNew", "label": "신축(첫 입주)인가요?", "type": "choice", "required": true,
           "options": [
             { "value": true, "label": "예, 신축" },
@@ -71,37 +78,57 @@
     },
     {
       "title": "사진을 올려주세요",
-      "description": "사진이 있으면 현장 추가요금 없이 정확한 견적을 드릴 수 있어요. 아래 위치별로 1장씩 권장합니다.",
+      "description": "칸을 누르면 찍는 방법이 나와요. 같은 곳도 멀리 한 장, 가까이 한 장이면 현장 추가요금이 줄어요.",
       "fields": [ { "key": "photos", "type": "photos" } ]
     },
     {
       "title": "남기실 말씀 (선택)",
       "fields": [
-        { "key": "memo", "label": "요청사항", "type": "textarea", "placeholder": "예) 비밀번호 현관 출입, 오후 3시 이후 입주 등", "maxLength": 500 }
+        { "key": "memo", "label": "요청사항", "type": "textarea", "placeholder": "예) 오후 3시 이후 입주, 주차 공간 없음", "maxLength": 500 }
       ]
     }
   ],
 
   "checklist": [
-    { "key": "mold", "short": "곰팡이", "label": "곰팡이가 있나요?", "risk": "yes", "optionKey": "mold" },
+    { "key": "areaChecked", "short": "면적 확인", "label": "입력하신 평수를 관리비 고지서·분양계약서의 '공급면적'으로 확인하셨나요?", "risk": "no",
+      "conditionText": "현장에서 공급면적이 입력값과 다르면 '실제 공급면적 × 평당 단가'로 다시 계산하고, 작업 전에 금액을 알려드립니다. (다른 금액 변경 없음)" },
+    { "key": "leftover", "short": "남은 가구·짐", "label": "청소 당일 집 안에 가구·짐이 남아 있나요?", "risk": "yes",
+      "conditionText": "남아 있는 가구·짐은 옮기지 않으며, 그 자리와 가구 뒤·아래는 청소 범위에서 제외됩니다. 금액은 변하지 않습니다." },
+    { "key": "mold", "short": "곰팡이", "label": "욕실·베란다·창틀 실리콘에 검은 곰팡이가 있나요?", "risk": "yes", "optionKey": "mold" },
     { "key": "closet", "short": "붙박이장", "label": "붙박이장 내부 청소가 필요한가요?", "risk": "yes", "optionKey": "closet" },
     { "key": "sticker", "short": "스티커·시트지 자국", "label": "스티커·시트지·페인트 자국이 있나요?", "risk": "yes", "optionKey": "sticker" },
-    { "key": "pet", "short": "애완동물", "label": "애완동물을 키웠던 집인가요?", "risk": "yes",
-      "conditionText": "애완동물 털·냄새·배변 흔적이 심한 경우 추가 작업비가 발생할 수 있습니다." },
-    { "key": "grease", "short": "심한 기름때", "label": "주방에 심한 기름때가 있나요?", "risk": "yes",
-      "conditionText": "찌든 기름때가 심한 경우 추가 작업비가 발생할 수 있습니다." },
+    { "key": "pet", "short": "애완동물 흔적", "label": "애완동물을 키웠던 집인가요? (털·냄새·배변 흔적)", "risk": "yes", "optionKey": "pet" },
+    { "key": "grease", "short": "주방 찌든 기름때", "label": "가스레인지 주변 벽·후드에 손으로 닦아도 안 지워지는 끈적한 기름때가 있나요?", "risk": "yes", "optionKey": "grease" },
+    { "key": "nicotine", "short": "담배 찌든 때", "label": "벽지·천장이 담배 때문에 누렇게 변했나요?", "risk": "yes", "optionKey": "nicotine" },
     { "key": "parking", "short": "주차", "label": "작업 차량 주차가 가능한가요?", "risk": "no",
-      "conditionText": "주차가 불가하면 주차비(실비)가 추가될 수 있습니다." },
-    { "key": "elevator", "short": "엘리베이터", "label": "엘리베이터가 있나요?", "risk": "no",
-      "conditionText": "엘리베이터가 없으면 장비 운반비가 추가될 수 있습니다." }
+      "conditionText": "건물 안에 작업 차량을 댈 수 없으면 근처 유료주차장 주차비가 영수증 실비로 추가됩니다. 작업 전에 예상 금액을 알려드립니다." },
+    { "key": "elevator", "short": "엘리베이터", "label": "엘리베이터가 있나요? (1층·주택 1층이면 '예')", "risk": "no", "optionKey": "noElevator" }
   ],
 
   "photoSlots": [
-    { "key": "window", "label": "창틀" },
-    { "key": "bath", "label": "욕실" },
-    { "key": "balcony", "label": "베란다" },
-    { "key": "kitchen", "label": "주방" },
-    { "key": "living", "label": "거실" }
+    { "key": "living", "label": "거실",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": true, "illustration": "room-wide", "tip": "현관 쪽에 서서 거실 전체가 나오게 찍어 주세요" }
+      ] },
+    { "key": "kitchen", "label": "주방",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": true, "illustration": "room-wide", "tip": "싱크대와 가스레인지가 한 화면에 나오게 찍어 주세요" },
+        { "key": "close", "label": "가까이", "required": false, "illustration": "closeup", "tip": "후드·가스레인지 기름때를 30cm 앞에서 찍어 주세요" }
+      ] },
+    { "key": "bath", "label": "욕실", "repeatField": "baths",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": true, "illustration": "room-wide", "tip": "문 앞에 서서 바닥부터 천장까지 나오게 찍어 주세요" },
+        { "key": "close", "label": "가까이", "required": false, "illustration": "closeup", "tip": "곰팡이·물때가 있으면 30cm 앞에서 찍어 주세요" }
+      ] },
+    { "key": "balcony", "label": "베란다", "repeatField": "balconies",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": true, "illustration": "room-wide", "tip": "베란다 문 앞에서 바닥과 창이 다 나오게 찍어 주세요" },
+        { "key": "close", "label": "가까이", "required": false, "illustration": "closeup", "tip": "곰팡이·결로 자국이 있으면 30cm 앞에서 찍어 주세요" }
+      ] },
+    { "key": "window", "label": "창틀",
+      "shots": [
+        { "key": "close", "label": "가까이", "required": true, "illustration": "closeup", "tip": "먼지가 가장 많은 창틀 아래쪽을 30cm 앞에서 찍어 주세요" }
+      ] }
   ],
 
   "pricing": {
@@ -128,7 +155,11 @@
       { "key": "closet", "label": "붙박이장 내부" },
       { "key": "sickHouse", "label": "새집증후군 시공", "customerSelectable": true },
       { "key": "window", "label": "외창 청소", "customerSelectable": true },
-      { "key": "sticker", "label": "스티커·페인트 자국 제거" }
+      { "key": "sticker", "label": "스티커·페인트 자국 제거" },
+      { "key": "pet", "label": "애완동물 털·냄새·배변 흔적 제거" },
+      { "key": "grease", "label": "주방 찌든 기름때 집중 제거" },
+      { "key": "nicotine", "label": "담배 찌든 때(니코틴) 제거" },
+      { "key": "noElevator", "label": "계단 장비 운반 (엘리베이터 없는 경우)", "listInExcluded": false }
     ],
     "warnings": [
       { "key": "unitPrice", "below": 9000,
@@ -140,11 +171,12 @@
     "unitPrice": 12000,
     "minPrice": 250000,
     "surcharges": { "newBuild": 20, "weekend": 10, "sonEomneun": 10, "firstSlot": 5 },
-    "options": { "mold": 30000, "balcony": 20000, "closet": 30000, "sickHouse": 150000, "window": 50000, "sticker": 30000 },
+    "options": { "mold": 30000, "balcony": 20000, "closet": 30000, "sickHouse": 150000, "window": 50000, "sticker": 30000,
+                 "pet": 30000, "grease": 30000, "nicotine": 50000, "noElevator": 30000 },
     "policy": {
       "validDays": 7,
       "depositPct": 10,
-      "cancelPolicy": "작업 3일 전까지 취소 시 계약금 전액 환불, 2일 전~전날 50% 환불, 당일 취소 시 환불 불가."
+      "cancelPolicy": "■ 7일 안 취소: 계약 확정 안내(온라인 결제는 계약금 결제 완료 안내)를 받은 날부터 7일 이내이고 작업 시작 전이면, 언제 취소하셔도 계약금 전액을 돌려드립니다.\n■ 7일이 지난 뒤 고객님 사정으로 취소하실 때 (작업일 기준)\n · 3일 전 자정까지: 계약금 전액 환불\n · 2일 전 0시부터 전날 자정까지: 계약금의 50%를 공제하고 나머지 환불\n · 작업 당일 취소, 또는 방문했으나 고객님 사정으로 작업하지 못한 경우: 계약금 전액 공제 (잔금은 청구하지 않습니다)\n■ 업체 사정으로 취소할 때: 계약금 전액을 돌려드리고, 계약금과 같은 금액을 추가로 배상합니다.\n■ 천재지변 등 누구의 잘못도 아닌 사유로 작업할 수 없게 되면 날짜를 다시 잡아 드리고, 원하시면 계약금 전액을 돌려드립니다.\n■ 환불은 취소 요청을 받은 날부터 3영업일 안에 결제하신 수단(계좌로 입금하셨다면 그 계좌)으로 해드립니다.\n■ 관련 법령이 이 규정보다 고객님께 유리하면 법령을 따릅니다."
     }
   },
 
@@ -157,7 +189,7 @@
     "현관·신발장 청소"
   ],
   "excluded": [
-    "가구·가전 이동 및 내부 청소",
+    "가구·가전 이동 및 내부 청소 (남아 있는 가구·짐의 자리와 뒤·아래 포함)",
     "외벽·고층 외창 (요청 시 별도)",
     "폐기물 처리"
   ]

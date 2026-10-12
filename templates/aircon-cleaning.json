@@ -3,6 +3,20 @@
   "name": "에어컨 청소",
   "version": 1,
   "description": "가정용 에어컨 분해 세척 (벽걸이·스탠드·2in1·천장형 1way/4way, 실외기 선택)",
+  "summaryFields": [
+    { "key": "wallUnits", "label": "벽걸이", "unit": "대" },
+    { "key": "standUnits", "label": "스탠드", "unit": "대" },
+    { "key": "twoInOneSets", "label": "2in1", "unit": "세트" },
+    { "key": "ceiling1wayUnits", "label": "천장형 1방향", "unit": "대" },
+    { "key": "ceiling4wayUnits", "label": "천장형 4방향", "unit": "대" },
+    { "key": "outdoorUnits", "label": "실외기", "unit": "대" }
+  ],
+  "validation": {
+    "requireAny": ["wallUnits", "standUnits", "twoInOneSets", "ceiling1wayUnits", "ceiling4wayUnits"],
+    "minTotal": 1,
+    "message": "청소할 에어컨을 1대 이상 넣어주세요."
+  },
+  "photoLimit": 20,
 
   "steps": [
     {
@@ -52,10 +66,14 @@
     },
     {
       "title": "세척 범위를 골라주세요",
-      "description": "기본은 '일반 분해세척'(커버·필터·날개 분리 후 열교환기·송풍팬 세척)입니다. 송풍팬·드레인판까지 모두 떼어내는 '완전분해'를 원하는 대수만 넣어주세요(2in1 세트 안의 벽걸이·스탠드 포함). 모델에 따라 완전분해가 안 되는 제품이 있으며, 그 경우 완전분해 추가금은 빼고 청구합니다. 실외기 청소를 원하시면 대수를 넣어주세요.",
+      "description": "기본은 '일반 분해세척'(커버·필터·날개 분리 후 열교환기·송풍팬 세척)입니다. 송풍팬·드레인판까지 모두 떼어내는 '완전분해'를 원하는 대수만 넣어주세요. 2in1은 '완전분해 — 2in1 세트' 칸에 세트 수로 넣어주세요. 모델에 따라 완전분해가 안 되는 제품이 있으며, 그 경우 완전분해 추가금은 빼고 청구합니다. 실외기 청소를 원하시면 대수를 넣어주세요.",
       "fields": [
-        { "key": "fullWallUnits", "label": "완전분해 — 벽걸이", "type": "stepper", "required": true, "min": 0, "max": 20, "default": 0 },
-        { "key": "fullStandUnits", "label": "완전분해 — 스탠드", "type": "stepper", "required": true, "min": 0, "max": 10, "default": 0 },
+        { "key": "fullWallUnits", "label": "완전분해 — 벽걸이", "type": "stepper", "required": true, "min": 0, "max": 20, "default": 0,
+          "maxField": "wallUnits", "hint": "위에서 넣은 벽걸이 대수보다 많을 수 없어요." },
+        { "key": "fullStandUnits", "label": "완전분해 — 스탠드", "type": "stepper", "required": true, "min": 0, "max": 10, "default": 0,
+          "maxField": "standUnits", "hint": "위에서 넣은 스탠드 대수보다 많을 수 없어요." },
+        { "key": "fullTwoInOneSets", "label": "완전분해 — 2in1 세트", "type": "stepper", "required": true, "min": 0, "max": 5, "default": 0,
+          "maxField": "twoInOneSets", "hint": "세트 안의 스탠드·벽걸이를 모두 완전분해합니다. 2in1 세트 수보다 많을 수 없어요." },
         { "key": "outdoorUnits", "label": "실외기 청소", "type": "stepper", "required": true, "min": 0, "max": 10, "default": 0 }
       ]
     },
@@ -66,7 +84,7 @@
     },
     {
       "title": "사진을 올려주세요",
-      "description": "사진이 있으면 기종·모델을 정확히 확인해 현장 금액 변경 없이 견적을 드릴 수 있어요. 에어컨이 여러 대면 대표 1대를 찍고, 나머지는 요청사항에 적어주세요.",
+      "description": "칸을 누르면 찍는 방법이 나와요. 에어컨마다 모델명 스티커 한 장이면 완전분해 가능 여부까지 미리 확인할 수 있어요.",
       "fields": [ { "key": "photos", "type": "photos" } ]
     },
     {
@@ -81,26 +99,53 @@
     { "key": "nameplate", "short": "모델명 확인", "label": "에어컨 옆면·아래 모델명 스티커(명판) 사진을 올릴 수 있나요?", "risk": "no",
       "conditionText": "모델명이 확인되지 않아 완전분해 가능 여부는 현장에서 판단합니다. 완전분해가 불가한 모델은 해당 대수의 완전분해 추가금을 빼고 청구하며, 이 사유로 금액이 올라가지 않습니다." },
     { "key": "oldUnit", "short": "10년 이상 노후 제품", "label": "설치한 지 10년이 넘었거나 연식을 모르는 제품이 있나요?", "risk": "yes",
-      "conditionText": "10년 이상 노후 제품은 플라스틱 걸쇠·날개·배수호스가 삭아 정상 분해·조립 중에도 부러질 수 있습니다. 작업 전 상태를 사진으로 함께 확인하며, 노후로 인한 부품 파손·자연 고장·제조사 부품 단종은 책임지지 않습니다. 작업자 과실(무리한 분해, 조립 누락)로 인한 파손은 업체가 책임집니다." },
+      "conditionText": "10년 이상 된 제품은 플라스틱 걸쇠·날개·배수호스가 삭아 정상적으로 분해·조립해도 부러질 수 있어, 작업 전 상태를 사진으로 함께 확인합니다. 작업자 과실 없이 노후 때문에 생긴 부품 파손·자연 고장·단종 부품 수급은 업체가 배상하지 않습니다. 작업자 과실(무리한 분해, 조립 누락)로 생긴 파손은 업체가 배상합니다." },
     { "key": "existingFault", "short": "기존 이상 증상", "label": "지금 에러 표시·소음·물 떨어짐·냉방 약함 같은 이상이 있나요?", "risk": "yes",
       "conditionText": "작업 전 전원을 켜서 기존 증상을 함께 확인하고 기록합니다. 청소 전부터 있던 증상(냉매 부족, 기판·센서 고장 등)은 청소로 해결되지 않으며 수리는 제조사 A/S 대상입니다." },
     { "key": "heavyDirt", "short": "심한 곰팡이·오염", "label": "곰팡이 냄새가 심하거나 3년 넘게 청소하지 않았나요?", "risk": "yes",
       "conditionText": "오염이 심해 1회 세척으로 냄새·곰팡이가 남는 경우, 재세척 필요 여부와 금액을 작업 전 사진과 함께 먼저 안내하고 동의하실 때만 진행합니다. 동의 없이 추가 청구하지 않습니다." },
     { "key": "highCeiling", "short": "높은 설치 위치", "label": "에어컨이 바닥에서 2.7m보다 높거나(복층·높은 천장) 계단·가구 위처럼 사다리 놓기 어려운 곳에 있나요?", "risk": "yes", "optionKey": "highPlace" },
     { "key": "workSpace", "short": "작업 공간", "label": "에어컨 앞·아래에 사람이 서서 작업할 공간(약 1m)이 비어 있나요?", "risk": "no",
-      "conditionText": "에어컨 앞 가구·짐은 작업 전에 비워주셔야 합니다. 현장에서 대신 옮겨야 하는 경우 가구 손상 책임은 지지 않으며, 옮기기 어려우면 해당 대수는 작업하지 못할 수 있습니다." },
+      "conditionText": "에어컨 앞·아래 약 1m를 작업 전에 비워 주세요. 비워지지 않아 작업할 수 없는 에어컨은 작업하지 않고 그 대수의 금액을 빼고 청구합니다. 업체가 가구를 옮기다가 과실로 손상하면 업체가 배상합니다." },
     { "key": "outdoorAccess", "short": "실외기 위치", "label": "(실외기 청소를 신청한 경우) 실외기가 베란다 안이나 바닥처럼 사람이 서서 닿는 곳에 있나요?", "risk": "no",
       "conditionText": "외벽 앵글·난간 밖에 걸린 실외기는 안전상 작업하지 않으며, 그 경우 실외기 청소 금액을 빼고 청구합니다." },
     { "key": "parking", "short": "주차", "label": "작업 차량 주차가 가능한가요?", "risk": "no",
-      "conditionText": "주차가 불가하면 주차비(실비)가 추가될 수 있습니다." }
+      "conditionText": "건물 안에 작업 차량을 댈 수 없으면 근처 유료주차장 주차비가 영수증 실비로 추가됩니다. 작업 전에 예상 금액을 알려드립니다." }
   ],
 
   "photoSlots": [
-    { "key": "front", "label": "에어컨 전체 정면" },
-    { "key": "nameplate", "label": "모델명 스티커(명판)" },
-    { "key": "inside", "label": "앞 커버 열고 필터·바람구멍" },
-    { "key": "position", "label": "바닥~천장 설치 위치" },
-    { "key": "outdoor", "label": "실외기 위치 (신청 시)" }
+    { "key": "wall", "label": "벽걸이", "repeatField": "wallUnits",
+      "shots": [
+        { "key": "label", "label": "명판", "required": true, "illustration": "label-sticker", "tip": "오른쪽 옆면 모델명 스티커를 글자가 읽히게 찍어 주세요" },
+        { "key": "front", "label": "전체", "required": false, "illustration": "room-wide", "tip": "에어컨 전체와 아래 바닥이 같이 나오게 찍어 주세요" },
+        { "key": "inside", "label": "안쪽", "required": false, "illustration": "closeup", "tip": "앞 커버를 열고 필터를 뺀 바람구멍을 찍어 주세요" }
+      ] },
+    { "key": "stand", "label": "스탠드", "repeatField": "standUnits",
+      "shots": [
+        { "key": "label", "label": "명판", "required": true, "illustration": "label-sticker", "tip": "옆면이나 뒷면 아래 모델명 스티커를 가까이 찍어 주세요" },
+        { "key": "front", "label": "전체", "required": false, "illustration": "room-wide", "tip": "에어컨 전체와 주변 바닥이 같이 나오게 찍어 주세요" }
+      ] },
+    { "key": "twoInOne", "label": "2in1", "repeatField": "twoInOneSets",
+      "shots": [
+        { "key": "label", "label": "명판", "required": true, "illustration": "label-sticker", "tip": "스탠드 옆면 모델명 스티커를 글자가 읽히게 찍어 주세요" },
+        { "key": "front", "label": "전체", "required": false, "illustration": "room-wide", "tip": "스탠드와 벽걸이가 한 화면에 나오게 찍어 주세요" }
+      ] },
+    { "key": "ceiling1", "label": "천장형 1·2방향", "repeatField": "ceiling1wayUnits",
+      "shots": [
+        { "key": "front", "label": "전체", "required": true, "illustration": "ceiling-molding", "tip": "폰을 위로 들어 천장 에어컨 전체를 찍어 주세요" }
+      ] },
+    { "key": "ceiling4", "label": "천장형 4방향", "repeatField": "ceiling4wayUnits",
+      "shots": [
+        { "key": "front", "label": "전체", "required": true, "illustration": "ceiling-molding", "tip": "폰을 위로 들어 천장 에어컨 전체를 찍어 주세요" }
+      ] },
+    { "key": "position", "label": "설치 위치",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": false, "illustration": "room-wide", "tip": "바닥부터 에어컨까지 한 화면에 나오게 찍어 주세요" }
+      ] },
+    { "key": "outdoor", "label": "실외기", "repeatField": "outdoorUnits",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": true, "illustration": "outdoor-unit", "tip": "실외기와 받침대·난간이 같이 나오게 찍어 주세요" }
+      ] }
   ],
 
   "pricing": {
@@ -121,6 +166,7 @@
       { "key": "ceiling4way", "label": "천장형 4방향 분해세척", "unit": "대", "quantityField": "ceiling4wayUnits", "priceLabel": "천장형 4way·원형 1대당" },
       { "key": "fullWall", "label": "완전분해 추가 — 벽걸이", "unit": "대", "quantityField": "fullWallUnits", "priceLabel": "완전분해 추가금 — 벽걸이 1대당" },
       { "key": "fullStand", "label": "완전분해 추가 — 스탠드", "unit": "대", "quantityField": "fullStandUnits", "priceLabel": "완전분해 추가금 — 스탠드 1대당" },
+      { "key": "fullTwoInOne", "label": "완전분해 추가 — 2in1", "unit": "세트", "quantityField": "fullTwoInOneSets", "priceLabel": "완전분해 추가금 — 2in1 1세트당 (스탠드+벽걸이)" },
       { "key": "outdoor", "label": "실외기 청소", "unit": "대", "quantityField": "outdoorUnits", "priceLabel": "실외기 1대당" },
       { "key": "highPlace", "label": "높은 곳 사다리 작업", "priceLabel": "높은 곳 사다리 작업 (방문 1회당)" }
     ],
@@ -141,13 +187,14 @@
       "ceiling4way": 130000,
       "fullWall": 30000,
       "fullStand": 40000,
+      "fullTwoInOne": 70000,
       "outdoor": 40000,
       "highPlace": 20000
     },
     "policy": {
       "validDays": 7,
       "depositPct": 0,
-      "cancelPolicy": "작업 전날까지 취소·변경 무료. 당일 취소 또는 방문 후 고객 사정으로 작업하지 못한 경우 출장비가 청구될 수 있습니다."
+      "cancelPolicy": "■ 이 예약은 계약금 없이 진행하며, 취소·일정 변경 수수료를 받지 않습니다.\n■ 취소·변경은 되도록 작업 전날 자정까지 견적서의 업체 연락처로 알려주세요. 그래야 그 시간을 기다리는 다른 고객님께 드리려고 합니다.\n■ 업체 사정으로 약속한 날 작업하지 못하게 되면 알게 된 즉시 연락드리고, 원하시는 날짜로 다시 잡아 드립니다. 다시 잡지 않고 취소하셔도 비용은 없습니다.\n■ 관련 법령이 이 규정보다 고객님께 유리하면 법령을 따릅니다."
     }
   },
 
@@ -161,7 +208,7 @@
   ],
   "excluded": [
     "고장 수리·부품 교체·냉매 충전 (제조사 A/S 대상)",
-    "노후로 인한 부품 파손·자연 고장·단종 부품 수급",
+    "작업자 과실 없이 노후로 생긴 부품 파손·자연 고장, 단종 부품 수급",
     "입력과 다른 기종·추가 대수 (현장에서 이 견적의 같은 단가표로 정정하고, 작업 전 금액을 알려드립니다)",
     "실외기 청소 (신청하지 않은 경우)",
     "에어컨 앞 가구·짐 이동"

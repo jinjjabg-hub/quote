@@ -3,6 +3,12 @@
   "name": "이사",
   "version": 1,
   "description": "원룸·소형·가정이사 (일반 / 반포장 / 포장, 보관이사)",
+  "summaryFields": [
+    { "key": "tons" },
+    { "key": "distanceKm", "unit": "km" },
+    { "key": "storage", "label": "보관이사" }
+  ],
+  "photoLimit": 20,
 
   "steps": [
     {
@@ -52,12 +58,15 @@
             { "value": 7.5, "label": "30평대 (5톤 + 2.5톤)" },
             { "value": 10, "label": "40평대 이상 (5톤 2대)" }
           ] },
+        { "key": "otherRooms", "label": "안방 말고 방 개수 (작은방)", "type": "stepper", "required": true, "min": 0, "max": 6, "default": 1,
+          "hint": "사진 단계에서 방마다 한 칸씩 나와요. 원룸이면 0으로 두세요." },
         { "key": "storage", "label": "보관이사인가요? (짐을 창고에 맡겼다가 나중에 입주)", "type": "choice", "required": true,
           "options": [
             { "value": false, "label": "아니오, 바로 입주" },
             { "value": true, "label": "예, 보관이사" }
           ] },
-        { "key": "storageMonths", "label": "보관 기간 (개월, 보관이사 아니면 0)", "type": "stepper", "required": true, "min": 0, "max": 12, "default": 0 }
+        { "key": "storageMonths", "label": "보관 기간 (개월, 보관이사 아니면 0)", "type": "stepper", "required": true, "min": 0, "max": 12, "default": 0,
+          "hint": "보관료는 보관이사를 '예'로 고른 경우에만 계산됩니다." }
       ]
     },
     {
@@ -67,9 +76,9 @@
         { "key": "fromFloor", "label": "출발지 층", "type": "number", "required": true, "min": -3, "max": 80, "placeholder": "예) 5" },
         { "key": "toFloor", "label": "도착지 층", "type": "number", "required": true, "min": -3, "max": 80, "placeholder": "예) 12" },
         { "key": "fromStairFloor", "label": "출발지: 엘리베이터·사다리차 없이 계단으로 옮기는 층", "type": "stepper", "required": true,
-          "min": 1, "max": 10, "default": 1, "hint": "엘리베이터나 사다리차를 쓰면, 또는 1층이면 1 그대로 두세요." },
+          "min": 1, "max": 10, "default": 1, "hint": "엘리베이터나 사다리차를 쓰면, 또는 1층이면 1 그대로 두세요. 다음 체크에서 그쪽 사다리차를 '예'로 고르면 계단 운반비는 자동으로 빠집니다." },
         { "key": "toStairFloor", "label": "도착지: 엘리베이터·사다리차 없이 계단으로 옮기는 층", "type": "stepper", "required": true,
-          "min": 1, "max": 10, "default": 1, "hint": "엘리베이터나 사다리차를 쓰면, 또는 1층이면 1 그대로 두세요." }
+          "min": 1, "max": 10, "default": 1, "hint": "엘리베이터나 사다리차를 쓰면, 또는 1층이면 1 그대로 두세요. 다음 체크에서 그쪽 사다리차를 '예'로 고르면 계단 운반비는 자동으로 빠집니다." }
       ]
     },
     {
@@ -92,7 +101,7 @@
     },
     {
       "title": "사진을 올려주세요",
-      "description": "방마다 문 앞에서 방 전체가 나오게 찍어주세요. 장롱·수납장은 문을 열고 찍으면 짐 양을 정확히 볼 수 있어 당일 추가요금이 없습니다.",
+      "description": "칸을 누르면 찍는 방법이 나와요. 장롱·수납장은 문을 열고 찍으면 짐 양을 정확히 볼 수 있어 당일 추가요금이 줄어요.",
       "fields": [ { "key": "photos", "type": "photos" } ]
     },
     {
@@ -108,23 +117,46 @@
     { "key": "ladderFrom", "short": "출발지 사다리차", "label": "출발지에서 사다리차가 필요한가요? (엘리베이터 없음, 또는 냉장고·장롱이 엘리베이터에 안 들어감)", "risk": "yes", "optionKey": "ladderFrom" },
     { "key": "ladderTo", "short": "도착지 사다리차", "label": "도착지에서 사다리차가 필요한가요?", "risk": "yes", "optionKey": "ladderTo" },
     { "key": "parking", "short": "트럭 정차", "label": "출발지·도착지 모두 건물 바로 앞에 트럭을 댈 수 있나요?", "risk": "no",
-      "conditionText": "트럭에서 현관까지 운반 거리가 30m 를 넘으면 작업자 1명이 추가됩니다(견적서 '작업자 추가' 금액). 주차비는 실비입니다." },
+      "conditionText": "트럭에서 현관까지 운반 거리가 30m 를 넘으면 작업자 1명이 추가됩니다(견적서 '작업자 추가' 금액). 주차비는 영수증 실비이며, 작업 전에 예상 금액을 알려드립니다." },
     { "key": "elevatorBooked", "short": "엘리베이터 예약", "label": "엘리베이터 사용(관리사무소) 예약이 가능한가요?", "risk": "no",
-      "conditionText": "엘리베이터 사용이 막혀 계단·사다리차로 바꾸면 해당 금액(계단 층당·사다리차)이 추가됩니다. 관리사무소 사용료는 고객 부담입니다." },
+      "conditionText": "엘리베이터 사용이 막혀 계단·사다리차로 바꾸면 해당 금액(계단 층당·사다리차)이 추가됩니다. 관리사무소에 내는 엘리베이터 사용료는 고객님이 직접 부담합니다(이 견적에 포함되지 않음)." },
     { "key": "builtIn", "short": "시스템가구 해체", "label": "시스템 행거·붙박이장·조립식 대형 가구 해체·재설치가 필요한가요?", "risk": "yes",
-      "conditionText": "일반 장롱·침대 분해조립은 포함이며, 브랜드 시스템가구·붙박이장 해체·재설치는 포함되지 않습니다(전문 업체 실비)." },
+      "conditionText": "일반 장롱·침대 분해·조립은 포함입니다. 브랜드 시스템가구·붙박이장 해체·재설치는 포함되지 않으며, 필요하면 전문 업체 실비(영수증 기준)로 하고 작업 전 금액을 알려드린 뒤 동의하실 때만 진행합니다." },
     { "key": "valuables", "short": "고가품", "label": "귀금속·현금·미술품·고가 전자기기 등 고가품이 있나요?", "risk": "yes",
       "conditionText": "고가품은 계약 전에 품목과 가격을 알려주셔야 배상 기준이 됩니다. 현금·귀금속·통장·중요 서류는 고객이 직접 운반해 주세요." }
   ],
 
   "photoSlots": [
-    { "key": "living", "label": "거실 전체" },
-    { "key": "masterRoom", "label": "안방 (장롱 문 열고)" },
-    { "key": "otherRooms", "label": "작은방" },
-    { "key": "kitchen", "label": "주방 (냉장고·수납장 문 열고)" },
-    { "key": "utility", "label": "베란다·다용도실" },
-    { "key": "entrance", "label": "현관·복도·엘리베이터 입구" },
-    { "key": "outside", "label": "건물 앞 (트럭 댈 자리)" }
+    { "key": "living", "label": "거실",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": true, "illustration": "room-wide", "tip": "문 앞에 서서 소파·TV장·책장이 다 나오게 찍어 주세요" }
+      ] },
+    { "key": "masterRoom", "label": "안방",
+      "shots": [
+        { "key": "open", "label": "장롱 안", "required": true, "illustration": "furniture", "tip": "장롱 문을 모두 열고 안까지 나오게 찍어 주세요" },
+        { "key": "wide", "label": "전체", "required": false, "illustration": "room-wide", "tip": "문 앞에 서서 침대와 가구가 다 나오게 찍어 주세요" }
+      ] },
+    { "key": "otherRooms", "label": "작은방", "repeatField": "otherRooms",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": true, "illustration": "room-wide", "tip": "문 앞에 서서 방 전체가 나오게 찍어 주세요" }
+      ] },
+    { "key": "kitchen", "label": "주방",
+      "shots": [
+        { "key": "open", "label": "수납장 안", "required": true, "illustration": "furniture", "tip": "냉장고 옆 수납장 문을 열고 안까지 나오게 찍어 주세요" },
+        { "key": "wide", "label": "전체", "required": false, "illustration": "room-wide", "tip": "냉장고와 김치냉장고가 다 나오게 찍어 주세요" }
+      ] },
+    { "key": "utility", "label": "베란다·다용도실",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": true, "illustration": "room-wide", "tip": "창고 박스·세탁기까지 다 나오게 찍어 주세요" }
+      ] },
+    { "key": "entrance", "label": "현관·엘리베이터",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": true, "illustration": "entrance", "tip": "2m 뒤에서 엘리베이터 문 전체가 나오게 찍어 주세요" }
+      ] },
+    { "key": "outside", "label": "건물 앞",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": false, "illustration": "entrance", "tip": "건물 입구에서 트럭 댈 자리가 나오게 찍어 주세요" }
+      ] }
   ],
 
   "pricing": {
@@ -149,9 +181,11 @@
       { "key": "distance", "label": "거리 추가", "unit": "km", "quantityField": "distanceKm", "includedQty": 20,
         "priceLabel": "거리 (20km 초과 1km당)" },
       { "key": "stairsFrom", "label": "출발지 계단 운반", "unit": "층", "quantityField": "fromStairFloor", "includedQty": 1,
-        "priceLabel": "계단 운반 (1층 초과 1층당, 출발지)" },
+        "priceLabel": "계단 운반 (1층 초과 1층당, 출발지)",
+        "offWhen": { "field": "checklist.ladderFrom", "equals": "yes" } },
       { "key": "stairsTo", "label": "도착지 계단 운반", "unit": "층", "quantityField": "toStairFloor", "includedQty": 1,
-        "priceLabel": "계단 운반 (1층 초과 1층당, 도착지)" },
+        "priceLabel": "계단 운반 (1층 초과 1층당, 도착지)",
+        "offWhen": { "field": "checklist.ladderTo", "equals": "yes" } },
       { "key": "ladderFrom", "label": "사다리차 (출발지, 10층 이하)" },
       { "key": "ladderTo", "label": "사다리차 (도착지, 10층 이하)" },
       { "key": "extraTruck", "label": "차량 추가 (1톤 + 작업자 1명)" },
@@ -161,7 +195,8 @@
       { "key": "heavyItem", "label": "중량물 운반", "unit": "개", "quantityField": "heavyItems", "includedQty": 0,
         "priceLabel": "중량물 (돌침대·안마의자·금고 등 1개당)" },
       { "key": "storageFee", "label": "보관료", "unit": "개월", "quantityField": "storageMonths", "includedQty": 0,
-        "priceLabel": "보관료 (컨테이너 1개, 1개월당)" },
+        "priceLabel": "보관료 (컨테이너 1개, 1개월당)",
+        "requires": { "field": "storage", "equals": true } },
       { "key": "piano", "label": "피아노 운반 (업라이트, 1층·엘리베이터)", "customerSelectable": true },
       { "key": "waste", "label": "버릴 짐 운반 (1톤 이내, 대형폐기물 신고비 별도)", "customerSelectable": true },
       { "key": "wallTv", "label": "벽걸이 TV 탈거·재설치", "customerSelectable": true }
@@ -186,7 +221,7 @@
     "policy": {
       "validDays": 7,
       "depositPct": 10,
-      "cancelPolicy": "고객 사정으로 취소 시: 이사 전날까지 알리면 계약금만 공제, 당일 취소는 계약금의 2배 배상. 업체 사정으로 취소 시: 2일 전까지 계약금 2배, 전날 4배, 당일 6배, 연락 없이 불이행 시 10배 배상. (이사화물 표준약관 기준 — 업체가 원문 확인 후 확정)"
+      "cancelPolicy": "■ 7일 안 취소: 계약 확정 안내(온라인 결제는 계약금 결제 완료 안내)를 받은 날부터 7일 이내이고 이사 시작 전이면, 언제 취소하셔도 계약금 전액을 돌려드립니다.\n■ 7일이 지난 뒤 고객님 사정으로 취소하시면 계약금을 공제합니다. 그 밖의 위약금이나 잔금은 청구하지 않습니다.\n■ 업체 사정으로 취소할 때: 계약금은 언제나 전액 돌려드리고, 아래 금액을 추가로 배상합니다.\n · 이사 2일 전 자정까지 알린 경우: 계약금의 2배\n · 이사 전날 알린 경우: 계약금의 4배\n · 이사 당일 알린 경우: 계약금의 6배\n · 알리지 않고 오지 않은 경우: 계약금의 10배\n■ 약속한 시각보다 2시간 이상 늦게 도착하면 고객님은 계약을 해제하실 수 있으며, 이때 계약금을 돌려드리고 계약금의 6배를 배상합니다.\n■ 짐 파손·분실: 업체가 짐을 맡은 동안 생긴 파손·분실은, 업체에 잘못이 없음을 업체가 증명하지 못하면 업체가 배상합니다. 짐을 받으신 날부터 30일 안에 알려주시면 빠르게 확인해 드립니다.\n■ 현금·유가증권·귀금속·통장·중요 서류는 고객님이 직접 옮겨 주세요. 미술품·고가 전자기기 같은 고가품은 계약 전에 품목과 가격을 알려주시면 그 가격을 배상 기준으로 삼습니다.\n■ 천재지변 등 누구의 잘못도 아닌 사유로 이사할 수 없게 되면 날짜를 다시 잡아 드리고, 원하시면 계약금 전액을 돌려드립니다.\n■ 환불은 취소 요청을 받은 날부터 3영업일 안에 결제하신 수단(계좌로 입금하셨다면 그 계좌)으로 해드립니다.\n■ 이 규정에 없는 사항은 공정거래위원회 「이사화물 표준약관」을 따릅니다. 표준약관이나 법령이 이 규정보다 고객님께 유리하면 그것을 따릅니다."
     }
   },
 
@@ -195,13 +230,12 @@
     "상차·운반·하차, 출발지→도착지 20km 까지",
     "일반 장롱·침대 분해·조립",
     "가구·가전 보호 덮개(담요·랩핑)",
-    "반포장: 포장재 제공 및 포장 / 포장이사: 포장·풀기·제자리 정리까지",
-    "적재물 배상책임보험 가입 업체 기준 파손 배상"
+    "반포장: 포장재 제공 및 포장 / 포장이사: 포장·풀기·제자리 정리까지"
   ],
   "excluded": [
     "엘리베이터 사용료·주차비 (관리사무소·실비)",
     "브랜드 시스템가구·붙박이장 해체·재설치",
-    "에어컨 배관 추가 연장·냉매 충전·벽 타공 (현장 실비)",
+    "에어컨 배관 추가 연장·냉매 충전·벽 타공 (실비, 작업 전 금액 안내 후 동의 시에만)",
     "대형폐기물 신고비",
     "입주청소·도배"
   ]

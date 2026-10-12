@@ -3,6 +3,12 @@
   "name": "에어컨 설치",
   "version": 1,
   "description": "가정용 벽걸이·스탠드·2in1 신규 설치 및 이전 설치 (시스템·천장형 제외)",
+  "summaryFields": [
+    { "key": "workType" },
+    { "key": "units", "label": "실내기", "unit": "대" },
+    { "key": "standUnits", "label": "스탠드", "unit": "대" }
+  ],
+  "photoLimit": 20,
 
   "steps": [
     {
@@ -50,25 +56,26 @@
             { "value": "move", "label": "쓰던 에어컨 옮겨 설치 (이전 설치)" }
           ] },
         { "key": "units", "label": "설치할 실내기 대수 (전체)", "type": "stepper", "required": true, "min": 1, "max": 6, "default": 1 },
-        { "key": "standUnits", "label": "그중 스탠드형 대수", "type": "stepper", "required": true, "min": 0, "max": 6, "default": 0 },
-        { "key": "removeUnits", "label": "기존 자리에서 떼어낼 대수", "type": "stepper", "required": true, "min": 0, "max": 6, "default": 0 },
+        { "key": "standUnits", "label": "그중 스탠드형 대수", "type": "stepper", "required": true, "min": 0, "max": 6, "default": 0,
+          "maxField": "units", "hint": "전체 대수보다 많을 수 없어요." },
+        { "key": "removeUnits", "label": "기존 자리에서 떼어낼 대수", "type": "stepper", "required": true, "min": 0, "max": 6, "default": 0,
+          "maxField": "units", "hint": "전체 대수보다 많을 수 없어요. 이전 설치면 보통 전체 대수와 같아요." },
         { "key": "model", "label": "제품 모델명", "type": "text", "placeholder": "예) AF17B6474TZS", "maxLength": 40,
           "hint": "2in1(스탠드+벽걸이)은 전체 2대, 스탠드 1대로 입력하세요. 이전 설치면 '떼어낼 대수'도 같은 수로 입력하세요." }
       ]
     },
     {
       "title": "배관 길이를 골라주세요",
-      "description": "실내기에서 실외기까지 벽을 따라 잰 거리입니다. 정확하지 않아도 괜찮아요. 설치 당일 줄자로 재서, 고른 것보다 길면 초과분만 추가되고 짧으면 빼드립니다.",
+      "description": "실내기에서 실외기까지 벽을 따라 잰 거리입니다. 정확하지 않아도 괜찮아요. 5m까지는 기본 포함이라 짧아도 금액은 같습니다. 설치 당일 줄자로 잰 길이가 고른 것보다 길면 넘는 길이만 견적서 '배관 추가' 1m당 금액으로 더하고, 작업 전에 알려드립니다.",
       "fields": [
         { "key": "pipeLength", "label": "실내기 1대 기준 예상 배관 길이", "type": "choice", "required": true,
           "options": [
-            { "value": 3, "label": "실외기가 벽 바로 뒤 (약 3m)" },
-            { "value": 5, "label": "같은 방 창가 → 바로 밖 실외기 (약 5m)" },
+            { "value": 5, "label": "실외기가 벽 바로 뒤, 또는 같은 방 창가 → 바로 밖 (5m 이하)" },
             { "value": 7, "label": "방 하나를 지나 베란다·실외기실 (약 7m)" },
             { "value": 10, "label": "거실 끝 → 반대편 실외기실 (약 10m)" },
             { "value": 15, "label": "그보다 멀다 (약 15m)" }
           ],
-          "hint": "2대 이상이면 가장 먼 실내기 기준으로 골라주세요. 나머지 실내기의 초과 배관은 실측 후 같은 m당 단가로 정산합니다." }
+          "hint": "2대 이상이면 가장 먼 실내기 기준으로 골라주세요. 나머지 실내기도 5m까지는 기본 포함이고, 5m를 넘는 길이만 같은 '배관 추가' 1m당 금액으로 더해 작업 전에 알려드립니다." }
       ]
     },
     {
@@ -83,7 +90,7 @@
     },
     {
       "title": "사진을 올려주세요",
-      "description": "사진이 있으면 배관 길이·실외기 위치를 미리 보고 현장 추가요금 없이 정확한 견적을 드릴 수 있어요.",
+      "description": "칸을 누르면 찍는 방법이 나와요. 배관이 지나갈 길 사진이 있으면 배관 길이를 미리 맞춰 현장 추가요금이 줄어요.",
       "fields": [ { "key": "photos", "type": "photos" } ]
     },
     {
@@ -102,18 +109,30 @@
     { "key": "gas", "short": "냉매 보충", "label": "(이전 설치만) 떼어낸 지 1개월 이상 됐거나, 전에 냉방이 약했나요?", "risk": "yes", "optionKey": "gasCharge" },
     { "key": "drain", "short": "배수", "label": "실내기 물(응축수)을 밖이나 배수구로 자연스럽게 뺄 수 있나요?", "risk": "no", "optionKey": "drainPump" },
     { "key": "power", "short": "전원", "label": "실내기 설치 자리 근처(1.5m 안)에 콘센트가 있나요?", "risk": "no",
-      "conditionText": "콘센트가 멀거나 전용 회로가 필요하면 전기선 연장·전용선 공사비가 추가됩니다. (작업 전 금액 고지 후 동의 시 진행)" },
+      "conditionText": "콘센트가 1.5m보다 멀거나 전용 회로가 필요하면 전기선 연장·전용선 공사비가 실비(영수증 기준)로 추가됩니다. 작업 전 금액을 알려드리고 동의하실 때만 진행합니다." },
     { "key": "permit", "short": "관리사무소 허가", "label": "외벽 작업·타공에 관리사무소 허가가 필요한 건물인가요?", "risk": "yes",
-      "conditionText": "관리사무소 허가가 없으면 당일 외벽 작업·타공이 불가할 수 있습니다. 허가는 고객님이 미리 받아주세요. 허가 문제로 작업이 불가하면 출장비가 청구될 수 있습니다." }
+      "conditionText": "외벽 작업·타공에 관리사무소 허가가 필요한 건물이면 작업일 전까지 고객님이 허가를 받아 주세요. 허가가 없어 당일 설치하지 못하면 취소 규정의 '설치 당일 취소'와 같게 처리합니다." }
   ],
 
   "photoSlots": [
-    { "key": "indoorSpot", "label": "실내기 놓을 자리 (벽 전체)" },
-    { "key": "path", "label": "실내기→실외기 가는 길 (방·거실 전체)" },
-    { "key": "outdoorSpot", "label": "실외기 놓을 자리 (실외기실·베란다·창밖)" },
-    { "key": "outsideView", "label": "창밖으로 내려다본 외벽·난간" },
-    { "key": "hole", "label": "기존 배관 구멍·매립배관 마감 캡" },
-    { "key": "label", "label": "제품 모델명 스티커 (이전 설치 시 실외기 옆면)" }
+    { "key": "room", "label": "설치할 방", "repeatField": "units",
+      "shots": [
+        { "key": "spot", "label": "놓을 벽", "required": true, "illustration": "room-wide", "tip": "실내기 놓을 벽 전체와 콘센트가 나오게 찍어 주세요" },
+        { "key": "path", "label": "배관 길", "required": true, "illustration": "wall-route", "tip": "문간에서 실내기 자리부터 창까지 한 화면에 찍어 주세요" },
+        { "key": "hole", "label": "배관 구멍", "required": false, "illustration": "closeup", "tip": "기존 배관 구멍이나 마감 캡이 있으면 가까이 찍어 주세요" }
+      ] },
+    { "key": "outdoorSpot", "label": "실외기 자리",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": true, "illustration": "outdoor-unit", "tip": "실외기 놓을 자리와 바닥·난간이 같이 나오게 찍어 주세요" }
+      ] },
+    { "key": "outsideView", "label": "창밖 외벽",
+      "shots": [
+        { "key": "down", "label": "아래쪽", "required": false, "illustration": "floor-rail", "tip": "창밖으로 폰을 아래로 기울여 외벽과 난간을 찍어 주세요" }
+      ] },
+    { "key": "label", "label": "모델명 스티커",
+      "shots": [
+        { "key": "label", "label": "명판", "required": false, "illustration": "label-sticker", "tip": "옮겨 다는 제품이면 실외기 옆면 스티커를 찍어 주세요" }
+      ] }
   ],
 
   "pricing": {
@@ -142,7 +161,7 @@
       { "key": "coreHard", "label": "콘크리트·대리석 타공" },
       { "key": "extraHole", "label": "추가 타공 (1회)" },
       { "key": "embeddedFlush", "label": "매립배관 세척·기밀 점검" },
-      { "key": "gasCharge", "label": "냉매(가스) 보충" },
+      { "key": "gasCharge", "label": "냉매(가스) 보충 (이전 설치)", "requires": { "field": "workType", "equals": "move" } },
       { "key": "drainPump", "label": "배수 펌프 설치" },
       { "key": "weld", "label": "배관 용접 (연장 접합)" },
       { "key": "disposal", "label": "기존 에어컨 폐기·수거", "customerSelectable": true }
@@ -174,21 +193,20 @@
     "policy": {
       "validDays": 7,
       "depositPct": 10,
-      "cancelPolicy": "작업 2일 전까지 취소 시 계약금 전액 환불, 전날 50% 환불, 당일 취소 시 환불 불가. 관리사무소 허가·전원 미비 등 고객 사정으로 당일 작업이 불가하면 출장비가 청구될 수 있습니다."
+      "cancelPolicy": "■ 7일 안 취소: 계약 확정 안내(온라인 결제는 계약금 결제 완료 안내)를 받은 날부터 7일 이내이고 설치 시작 전이면, 언제 취소하셔도 계약금 전액을 돌려드립니다.\n■ 7일이 지난 뒤 고객님 사정으로 취소하실 때 (설치일 기준)\n · 3일 전 자정까지: 계약금 전액 환불\n · 2일 전 0시부터 전날 자정까지: 계약금의 50%를 공제하고 나머지 환불\n · 설치 당일 취소, 또는 방문했으나 고객님 사정(관리사무소 허가를 받지 못함, 약속 장소 부재 등)으로 설치하지 못한 경우: 계약금 전액 공제 (잔금은 청구하지 않습니다)\n■ 업체 사정으로 취소할 때: 계약금 전액을 돌려드리고, 계약금과 같은 금액을 추가로 배상합니다.\n■ 비·강풍으로 외벽 작업이 위험하거나 천재지변 등 누구의 잘못도 아닌 사유로 설치할 수 없게 되면 날짜를 다시 잡아 드리고, 원하시면 계약금 전액을 돌려드립니다.\n■ 환불은 취소 요청을 받은 날부터 3영업일 안에 결제하신 수단(계좌로 입금하셨다면 그 계좌)으로 해드립니다.\n■ 관련 법령이 이 규정보다 고객님께 유리하면 법령을 따릅니다."
     }
   },
 
   "included": [
     "실내기·실외기 설치 및 시운전 (냉방 확인)",
-    "배관 5m (동관·보온재·전선·배수호스) — 초과분은 견적서 '배관 추가' m당 단가로만 계산",
-    "설치 당일 줄자 실측: 견적보다 길면 초과 m만 추가, 짧으면 m당 단가로 차감",
-    "진공 작업 (진공 펌프로 배관 속 공기·수분 제거) — 별도 청구 없음",
+    "배관 5m 기본 포함(5m보다 짧아도 금액은 같습니다). 5m를 넘는 길이만 견적서 '배관 추가' 1m당 금액으로 계산합니다.",
+    "배관 자재: 동관·보온재·전선·배수호스",
     "일반 벽(석고·벽돌) 타공 1회 또는 기존 구멍 사용",
     "실외기 바닥 거치 (실외기실·베란다 안·1층 땅)",
     "설치 후 배관 마감 테이핑·구멍 실리콘 마감"
   ],
   "excluded": [
-    "사다리차·스카이차 (필요 시 작업 전 실비 고지·동의 후 진행)",
+    "사다리차·스카이차 (필요하면 실비(영수증 기준)이며, 작업 전 금액을 알려드리고 동의하실 때만 진행)",
     "매립배관 불량(누설·막힘) 시 교체·노출 배관 전환 — 점검 결과 사진으로 보여드리고 동의 후 m당 단가로 진행",
     "전기 전용선·차단기 공사",
     "시스템·천장형 에어컨 (별도 현장 견적)",

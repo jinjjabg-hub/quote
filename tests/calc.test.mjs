@@ -14,6 +14,9 @@ import { TEMPLATE_IDS } from '../js/templates.js';
 const loadTpl = (id) => JSON.parse(readFileSync(new URL(`../templates/${id}.json`, import.meta.url)));
 const clone = (o) => structuredClone(o);
 const template = loadTpl('move-in-cleaning');
+/** 템플릿 필수 컷을 모두 채운 사진 목록 (2차 photoSlots.shots) */
+const requiredPhotos = (tpl, answers) => expandPhotoSlots(tpl, answers)
+  .flatMap((sl) => sl.shots.filter((x) => x.required).map((x) => ({ slot: sl.slot, index: sl.index, shot: x.key, path: 'p' })));
 const allNo = Object.fromEntries(template.checklist.map((i) => [i.key, i.risk === 'yes' ? 'no' : 'yes']));
 
 // 완료 확인 시나리오 1~4
@@ -26,8 +29,8 @@ test('시나리오: 34평 신축 + 곰팡이 예 + 붙박이장 모름 → 560,0
   const req = {
     answers: { area: 34, isNew: true, date: '2026-10-14', timeSlot: 'am', balconies: 2, extras: [] },
     checklist: { ...allNo, mold: 'yes', closet: 'unknown' },
-    photos: [{ url: 'a' }, { url: 'b' }],
   };
+  req.photos = requiredPhotos(template, req.answers);
   const r = calculateQuote(template, pt, req);
   assert.equal(r.subtotal, 560400);
   assert.equal(r.total, 560000);
@@ -64,9 +67,10 @@ test('사장님 수동 조정: 할증 끄기, 옵션 켜기 → 조건에서 빠
 
 test('체크리스트 위험 답변(옵션 없음) → 조건 문구', () => {
   const pt = mergePriceTable(template, {});
-  const r = calculateQuote(template, pt, { answers: { area: 30, date: '2026-10-14' }, checklist: { elevator: 'no', pet: 'yes' } });
-  assert.ok(r.conditions.some((c) => c.key === 'elevator'));
-  assert.ok(r.conditions.some((c) => c.key === 'pet'));
+  const r = calculateQuote(template, pt, { answers: { area: 30, date: '2026-10-14' }, checklist: { parking: 'no', leftover: 'yes', elevator: 'no' } });
+  assert.ok(r.conditions.some((c) => c.key === 'parking'));
+  assert.ok(r.conditions.some((c) => c.key === 'leftover'));
+  assert.equal(r.lines.find((l) => l.key === 'option:noElevator').note, '엘리베이터: 아니오', '옵션 연결 항목은 금액 줄');
 });
 
 test('finalizeLines: 수정 후 합계·계약금 재계산', () => {
@@ -133,11 +137,11 @@ test('L2: 0원 옵션은 줄·조건·포함 목록을 만들지 않는다', () 
 
 test('조건 amount 보존 + 최대 금액 = 합계 + Σamount', () => {
   const pt = mergePriceTable(template, { unitPrice: 13000, options: { closet: 30000 } });
-  const r = calculateQuote(template, pt, { answers: { area: 30, date: '2026-10-14' }, checklist: { closet: 'unknown', pet: 'yes' } });
+  const r = calculateQuote(template, pt, { answers: { area: 30, date: '2026-10-14' }, checklist: { closet: 'unknown', parking: 'no' } });
   const closet = r.conditions.find((c) => c.key === 'closet');
   assert.equal(closet.amount, 30000);
   assert.match(closet.text, /30,000원/);
-  assert.equal(r.conditions.find((c) => c.key === 'pet').amount, null);
+  assert.equal(r.conditions.find((c) => c.key === 'parking').amount, null);
   assert.equal(maxTotal(r.total, r.conditions), r.total + 30000);
   assert.equal(maxTotal(100000, [{ amount: null }, { amount: 5000 }, {}]), 105000);
 });
@@ -160,8 +164,12 @@ test('offWhen (M1): 같은 쪽 사다리차가 켜지면 계단 운반을 끈다
   // 사다리차 '아니오' 면 계단 운반 그대로
   const r2 = calculateQuote(tpl, pt, { ...req, checklist: { ladderFrom: 'no' } });
   assert.equal(r2.lines.find((l) => l.key === 'option:stairsFrom').amount, 80000);
+  // 실제 moving.json 도 같은 결과
+  assert.ok(!calculateQuote(loadTpl('moving'), pt, req).lines.some((l) => l.key === 'option:stairsFrom'));
   // offWhen 없는 기존 템플릿은 기존 동작
-  const r3 = calculateQuote(loadTpl('moving'), pt, req);
+  const legacy = clone(loadTpl('moving'));
+  for (const o of legacy.pricing.options) delete o.offWhen;
+  const r3 = calculateQuote(legacy, pt, req);
   assert.ok(r3.lines.some((l) => l.key === 'option:stairsFrom'));
 });
 
@@ -268,8 +276,10 @@ test('사진: repeatField·shots 펼치기, 필수 컷 기준 isVerified, 기존
   assert.deepEqual(four.filter((s) => s.slot === 'bath').map((s) => s.shots[0].required), [true, true, false, false]);
   assert.equal(isVerified(t, { answers: { baths: 4 }, checklist: cl, photos: all }), true, '욕실 3·4 사진 없어도 배지');
   // 새 필드 없는 기존 템플릿: 칸당 1장, 배지는 기존처럼 사진 1장 이상
-  assert.deepEqual(expandPhotoSlots(template, {}).map((s) => s.shots.length), [1, 1, 1, 1, 1]);
-  assert.equal(isVerified(template, { checklist: cl, photos: [{ slot: 'bath', path: 'requests/a/b/bath.jpg' }] }), true);
+  const legacy = clone(template);
+  legacy.photoSlots = legacy.photoSlots.map(({ key, label }) => ({ key, label }));
+  assert.deepEqual(expandPhotoSlots(legacy, {}).map((s) => s.shots.length), [1, 1, 1, 1, 1]);
+  assert.equal(isVerified(legacy, { checklist: cl, photos: [{ slot: 'bath', path: 'requests/a/b/bath.jpg' }] }), true);
   assert.equal(photoKeyOf({ slot: 'bath', path: 'old' }), 'bath-1-main', '1차 형식 사진은 1번 칸·첫 컷');
   assert.equal(photoLimit(template), 20);
   assert.equal(photoLimit({ photoLimit: 50 }), 20);

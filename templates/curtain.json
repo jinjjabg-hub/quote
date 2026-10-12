@@ -3,6 +3,18 @@
   "name": "커튼·블라인드",
   "version": 1,
   "description": "맞춤 커튼·블라인드 제작 및 설치 (사진·고객 치수 = 가견적, 방문 실측 후 확정)",
+  "customMade": true,
+  "summaryFields": [
+    { "key": "windows", "label": "창", "unit": "개" },
+    { "key": "curtainBlackoutM", "label": "암막", "unit": "m" },
+    { "key": "curtainSheerM", "label": "쉬폰", "unit": "m" },
+    { "key": "combiM2", "label": "콤비", "unit": "㎡" },
+    { "key": "woodM2", "label": "우드", "unit": "㎡" },
+    { "key": "honeycombM2", "label": "허니콤", "unit": "㎡" },
+    { "key": "rollM2", "label": "롤스크린", "unit": "㎡" },
+    { "key": "motors", "label": "전동", "unit": "창" }
+  ],
+  "photoLimit": 20,
 
   "steps": [
     {
@@ -45,9 +57,9 @@
       "description": "커튼·블라인드를 다는 창(또는 칸)의 개수입니다. 거실 큰 창에 커튼 2겹(암막+쉬폰)을 달아도 1개로 세어 주세요.",
       "fields": [
         { "key": "windows", "label": "설치할 창 개수", "type": "stepper", "required": true, "min": 1, "max": 30, "default": 1 },
-        { "key": "mountSurface", "label": "설치 위치 (천장·벽 재질)", "type": "choice", "required": true,
+        { "key": "mountSurface", "label": "나사를 박을 천장·벽 재질", "type": "choice", "required": true,
+          "hint": "커튼박스(천장 홈) 안에 달아도 커튼박스 천장의 재질을 골라주세요. 커튼박스가 있는지는 다음 '추가요금 체크'에서 여쭙니다. '모름'이면 석고보드 기준으로 계산하고, 실측 때 콘크리트·대리석으로 확인되면 확정 견적서에 '콘크리트·대리석 타공' 할증을 넣어 다시 보내드립니다.",
           "options": [
-            { "value": "box", "label": "커튼박스(천장 홈) 안" },
             { "value": "gypsum", "label": "석고보드 천장·벽 (두드리면 통통 소리)" },
             { "value": "concrete", "label": "콘크리트·대리석 벽 (딱딱함)" },
             { "value": "unknown", "label": "모름 (사진 보고 판단해 주세요)" }
@@ -61,7 +73,7 @@
     },
     {
       "title": "커튼 (원하시는 만큼만)",
-      "description": "창 가로(창틀 바깥 끝~끝) 길이를 m로 모두 더해서 적어 주세요. 예) 거실 3.2m + 안방 1.8m = 5.0. 커튼이 없으면 0으로 두세요.",
+      "description": "창 가로(창틀 바깥 끝~끝) 길이를 m로 모두 더해서 적어 주세요. 예) 거실 3.2m + 안방 1.8m = 5.0. 커튼이 없으면 0으로 두세요. 종류별 합계가 1m보다 작으면 1m로 계산합니다.",
       "fields": [
         { "key": "curtainBlackoutM", "label": "암막·일반 커튼 — 창 가로 합계 (m)", "type": "number", "min": 0, "max": 60, "default": 0,
           "placeholder": "예) 5.0", "hint": "cm로 재셨다면 ÷ 100 하세요. (320cm = 3.2m)" },
@@ -72,7 +84,7 @@
     },
     {
       "title": "블라인드·롤스크린 (원하시는 만큼만)",
-      "description": "창마다 가로(m) × 세로(m)를 곱해 종류별로 더해 주세요. 예) 1.2×1.4 + 1.0×1.2 = 2.88. 블라인드가 없으면 0으로 두세요.",
+      "description": "창마다 가로(m) × 세로(m)를 곱해 종류별로 더해 주세요. 예) 1.2×1.4 + 1.0×1.2 = 2.88. 블라인드가 없으면 0으로 두세요. 종류별 합계가 1㎡보다 작으면 1㎡로 계산합니다(제작 최소 단위).",
       "fields": [
         { "key": "combiM2", "label": "콤비 블라인드 — 면적 합계 (㎡)", "type": "number", "min": 0, "max": 100, "default": 0, "placeholder": "예) 2.88" },
         { "key": "woodM2", "label": "우드 블라인드 — 면적 합계 (㎡)", "type": "number", "min": 0, "max": 100, "default": 0, "placeholder": "예) 0.72" },
@@ -101,7 +113,7 @@
     },
     {
       "title": "사진을 올려주세요",
-      "description": "창마다 줄자를 대고 찍어 주시면 가견적이 실측 금액과 거의 같아집니다. 아래 위치별로 1장씩 권장합니다.",
+      "description": "칸을 누르면 찍는 방법이 나와요. 창마다 줄자를 대고 찍어 주시면 가견적이 실측 금액과 거의 같아집니다. 창이 6개보다 많으면 모양이 같은 창은 한 번만 찍어 주세요.",
       "fields": [ { "key": "photos", "type": "photos" } ]
     },
     {
@@ -118,21 +130,30 @@
       "conditionText": "줄자 실측 없이 사진·대략 치수로 낸 가견적입니다. 방문 실측 치수로 같은 단가표를 다시 계산해 확정 금액을 드립니다." },
     { "key": "curtainBox", "short": "커튼박스", "label": "커튼을 달 곳에 커튼박스(천장 홈)가 있나요?", "risk": "no", "optionKey": "boxlessBracket" },
     { "key": "drillOk", "short": "타공 가능", "label": "벽·천장에 나사 구멍을 내도 되나요? (전세·월세는 집주인 확인)", "risk": "no",
-      "conditionText": "타공이 불가하면 무타공 브라켓·압축봉 등으로 제품과 설치 방식이 바뀌어 금액이 달라질 수 있습니다. 실측 때 확정합니다." },
+      "conditionText": "벽·천장에 타공할 수 없으면 무타공 브라켓·압축봉으로 바꿔 설치합니다. 바뀐 금액은 실측 후 확정 견적서로 다시 알려드리고, 동의하지 않으시면 계약금 전액을 돌려드립니다." },
     { "key": "obstacle", "short": "창 주변 간섭물", "label": "창 주변에 몰딩·에어컨·붙박이장·손잡이 등 걸리는 것이 있나요?", "risk": "yes",
-      "conditionText": "간섭물이 있으면 제품 크기·설치 위치가 바뀔 수 있으며, 변경분은 실측 확정 견적에 반영합니다." },
+      "conditionText": "창 주변에 걸리는 것이 있으면 실측 때 제품 크기·설치 위치를 조정합니다. 바뀐 금액은 확정 견적서로 다시 알려드리고, 동의하지 않으시면 계약금 전액을 돌려드립니다." },
     { "key": "sampleSeen", "short": "원단 실물 확인", "label": "원단·색상을 실물 샘플로 보고 고르실 건가요?", "risk": "no",
-      "conditionText": "화면·사진의 색은 실제 원단과 다르게 보일 수 있습니다. 실측 방문 때 실물 샘플 확인을 권장하며, 제작 착수 후에는 색상 변경이 어렵습니다." },
+      "conditionText": "화면·사진의 색은 실제 원단과 다르게 보입니다. 실측 방문 때 실물 샘플로 확인해 주세요. 제작을 시작한 뒤에는 색상을 바꿀 수 없습니다." },
     { "key": "parking", "short": "주차", "label": "작업 차량 주차가 가능한가요?", "risk": "no",
-      "conditionText": "주차가 불가하면 주차비(실비)가 추가될 수 있습니다." }
+      "conditionText": "건물 안에 작업 차량을 댈 수 없으면 근처 유료주차장 주차비가 영수증 실비로 추가됩니다. 작업 전에 예상 금액을 알려드립니다." }
   ],
 
   "photoSlots": [
-    { "key": "windowFull", "label": "창 전체 (줄자 대고, 창마다)" },
-    { "key": "mountArea", "label": "창 위 설치 자리 (커튼박스·천장)" },
-    { "key": "sideWall", "label": "창 양옆 벽 여유" },
-    { "key": "floorGap", "label": "창 아래~바닥 (커튼 길이)" },
-    { "key": "existing", "label": "기존 커튼·블라인드" }
+    { "key": "window", "label": "창", "repeatField": "windows",
+      "shots": [
+        { "key": "full", "label": "창 전체", "required": true, "illustration": "window-measure", "tip": "줄자를 창 가로에 대고 창 전체가 나오게 찍어 주세요" },
+        { "key": "mount", "label": "위쪽", "required": true, "illustration": "ceiling-molding", "tip": "폰을 위로 들어 창 위 커튼박스·천장을 찍어 주세요" },
+        { "key": "floor", "label": "아래쪽", "required": false, "illustration": "floor-rail", "tip": "폰을 아래로 기울여 창 아래부터 바닥까지 찍어 주세요" }
+      ] },
+    { "key": "sideWall", "label": "창 양옆 벽",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": false, "illustration": "room-wide", "tip": "2m 뒤에서 창 양옆 벽과 가구가 나오게 찍어 주세요" }
+      ] },
+    { "key": "existing", "label": "기존 커튼",
+      "shots": [
+        { "key": "wide", "label": "전체", "required": false, "illustration": "window-measure", "tip": "지금 달린 커튼·블라인드가 다 나오게 찍어 주세요" }
+      ] }
   ],
 
   "pricing": {
@@ -158,10 +179,10 @@
         "priceLabel": "쉬폰 커튼 (창 가로 1m당)" },
       { "key": "tallCurtain", "label": "2.4m 초과 커튼 원단 추가", "unit": "창", "quantityField": "tallCurtainWindows",
         "priceLabel": "2.4m 초과 커튼 (창당)" },
-      { "key": "combi", "label": "콤비 블라인드", "unit": "㎡", "quantityField": "combiM2", "priceLabel": "콤비 블라인드 (㎡당)" },
-      { "key": "wood", "label": "우드 블라인드", "unit": "㎡", "quantityField": "woodM2", "priceLabel": "우드 블라인드 (㎡당)" },
-      { "key": "honeycomb", "label": "허니콤 블라인드", "unit": "㎡", "quantityField": "honeycombM2", "priceLabel": "허니콤 블라인드 (㎡당)" },
-      { "key": "roll", "label": "롤스크린", "unit": "㎡", "quantityField": "rollM2", "priceLabel": "롤스크린 (㎡당)" },
+      { "key": "combi", "label": "콤비 블라인드", "unit": "㎡", "quantityField": "combiM2", "priceLabel": "콤비 블라인드 (㎡당, 1㎡ 미만은 1㎡)" },
+      { "key": "wood", "label": "우드 블라인드", "unit": "㎡", "quantityField": "woodM2", "priceLabel": "우드 블라인드 (㎡당, 1㎡ 미만은 1㎡)" },
+      { "key": "honeycomb", "label": "허니콤 블라인드", "unit": "㎡", "quantityField": "honeycombM2", "priceLabel": "허니콤 블라인드 (㎡당, 1㎡ 미만은 1㎡)" },
+      { "key": "roll", "label": "롤스크린", "unit": "㎡", "quantityField": "rollM2", "priceLabel": "롤스크린 (㎡당, 1㎡ 미만은 1㎡)" },
       { "key": "motor", "label": "전동 모터·리모컨", "unit": "개", "quantityField": "motors", "priceLabel": "전동 모터 (창당)" },
       { "key": "removal", "label": "기존 제품 철거", "unit": "창", "quantityField": "removeWindows", "priceLabel": "기존 제품 철거 (창당)" },
       { "key": "boxlessBracket", "label": "커튼박스 없음 — 천장·벽 브라켓 시공", "priceLabel": "커튼박스 없음 브라켓 (건당)" },
@@ -186,7 +207,7 @@
     "policy": {
       "validDays": 7,
       "depositPct": 30,
-      "cancelPolicy": "이 견적은 고객님이 알려주신 치수·사진 기준 가견적입니다. 방문 실측 치수로 같은 단가표를 다시 계산한 금액이 확정 금액이며, 확정 금액이 가견적보다 15% 넘게 높으면 위약금 없이 취소하실 수 있습니다. 제작 착수 전 취소: 계약금 전액 환불. 커튼·블라인드는 고객 주문 치수로 개별 제작하는 맞춤 제품이므로, 확정 견적서로 별도 안내·동의 후 제작에 착수한 뒤에는 단순 변심 취소·환불이 제한됩니다. 제작 하자·주문과 다른 치수·색상(샘플 기준)은 무상 재제작합니다."
+      "cancelPolicy": "■ 이 견적은 알려주신 치수·사진으로 계산한 가견적입니다. 방문 실측 후 같은 단가표로 다시 계산한 확정 견적서를 보내드리고, 고객님이 확정 견적에 동의(문자 회신 포함)하신 뒤에만 제작을 시작합니다.\n■ 확정 견적에 동의하지 않으시면 계약금 전액을 돌려드립니다.\n■ 제작 시작 전에는 언제 취소하셔도 계약금 전액을 돌려드립니다.\n■ 제작 시작 후(맞춤 제작 취소 제한): 커튼·블라인드는 고객님 창 치수에 맞춰 재단해 개별 제작하므로 다른 곳에 쓸 수 없습니다. 그래서 제작을 시작한 뒤에는 단순 변심에 의한 청약철회가 제한되며, 이 내용은 결제 전에 따로 안내하고 따로 동의를 받습니다. 그래도 고객님 사정으로 취소하시면, 이미 들어간 자재·제작 비용을 발주서·영수증으로 보여드리고 그 금액을 계약금에서 뺀 나머지를 돌려드립니다. 비용이 계약금보다 많으면 그 차액만 청구합니다.\n■ 제품 하자, 확정 견적서와 다르게 만들어진 경우(치수·색상은 샘플 기준), 업체가 잰 치수가 틀려 맞지 않는 경우에는 위 제한과 관계없이 고객님이 원하시는 대로 다시 만들어 드리거나 환불합니다. 받으신 날부터 3개월 안, 또는 그 사실을 아신 날부터 30일 안에 알려주세요.\n■ 업체 사정으로 취소할 때: 계약금 전액을 돌려드리고, 계약금과 같은 금액을 추가로 배상합니다.\n■ 환불은 취소 요청을 받은 날부터 3영업일 안에 결제하신 수단(계좌로 입금하셨다면 그 계좌)으로 해드립니다.\n■ 관련 법령이 이 규정보다 고객님께 유리하면 법령을 따릅니다."
     }
   },
 
