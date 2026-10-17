@@ -159,7 +159,37 @@ try {
   await owner.locator('.req-item', { hasText: '김고객' }).getByText('계약요청').waitFor({ timeout: 10000 });
   await shot(owner, '10-owner-booking-requested');
 
-  console.log('\n✅ 완료 확인 시나리오 1~5 모두 통과');
+  // 6) 테스트 모드
+  step('6) 테스트 모드: 샘플 요청 만들기 → "테스트" 표시 → 테스트 견적서 → 한 번에 지우기');
+  await owner.getByText('🧪 테스트 모드').click();
+  await owner.getByRole('button', { name: '샘플 요청 1건 만들기' }).click();
+  const testItem = owner.locator('.req-item', { hasText: '테스트 고객' });
+  await testItem.waitFor();
+  assert.match(await testItem.innerText(), /테스트/);
+  assert.match(await testItem.innerText(), /\d{3},000원/); // 샘플도 같은 단가표로 자동 계산 (날짜에 따라 주말 할증 가능)
+  await testItem.click();
+  await owner.locator('.test-banner').waitFor();
+  await owner.getByRole('button', { name: '견적 발송' }).click();
+  await owner.locator('dialog.sheet').waitFor();
+  const testViewUrl = await owner.getByRole('link', { name: '견적서 미리보기' }).getAttribute('href');
+  await owner.getByRole('button', { name: '목록으로' }).click();
+  const tview = await newPage();
+  await tview.goto(`${testViewUrl}&emulator=1`);
+  await tview.locator('.test-banner').waitFor();
+  await shot(tview, '11-test-quote');
+  assert.equal(await owner.getByRole('link', { name: '고객 화면으로 직접 입력해보기' }).count(), 1);
+  assert.match(await owner.getByRole('link', { name: '고객 화면으로 직접 입력해보기' }).getAttribute('href'), /test=1/);
+  await shot(owner, '12-test-panel');
+  await owner.getByRole('button', { name: /테스트 데이터 모두 지우기/ }).click();
+  await testItem.waitFor({ state: 'detached', timeout: 10000 });
+  assert.equal(await owner.locator('.req-item', { hasText: '김고객' }).count(), 1, '실제 요청은 남아 있어야 함');
+  const gone = await tview.evaluate(async (id) => {
+    const m = await import('./js/firebase.js');
+    return !(await m.getDoc(m.doc(m.db, 'quotes', id))).exists();
+  }, new URL(testViewUrl).searchParams.get('id'));
+  assert.equal(gone, true, '테스트 견적서도 삭제');
+
+  console.log('\n✅ 완료 확인 시나리오 1~5 + 테스트 모드 통과');
 } catch (e) {
   for (const [i, p] of pages.entries()) await shot(p, `fail-${i}`).catch(() => {});
   throw e;

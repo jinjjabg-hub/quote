@@ -9,7 +9,7 @@ import {
   serverTimestamp, writeBatch, connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 import {
-  getStorage, ref as storageRef, uploadBytes, getDownloadURL, connectStorageEmulator,
+  getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, connectStorageEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
 import { firebaseConfig } from './config.js';
 
@@ -55,5 +55,5 @@ export async function signInWithGoogle() {
 
 export {
   onAuthStateChanged, signOut, doc, collection, getDoc, setDoc, updateDoc, onSnapshot, query, where,
-  serverTimestamp, writeBatch, storageRef, uploadBytes, getDownloadURL,
+  serverTimestamp, writeBatch, storageRef, uploadBytes, getDownloadURL, deleteObject,
 };

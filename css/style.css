@@ -137,6 +137,13 @@ textarea.input { min-height: 80px; resize: vertical; }
 .st-ok { background: #dcfce7; color: #166534; }
 .st-hold { background: #f3f4f6; color: var(--muted); }
 .badge.verified { background: #dcfce7; color: #166534; }
+.badge.st-test, .st-test { background: #f3e8ff; color: #7e22ce; }
+.test-banner { background: #f3e8ff; color: #6b21a8; border: 1px dashed #a855f7; border-radius: 10px; padding: 10px 12px; margin: 8px 0; font-size: .9rem; }
+.test-panel { background: #fff; border: 1px dashed #c4b5fd; border-radius: 12px; padding: 10px 14px; margin: 10px 0; }
+.test-panel summary { cursor: pointer; font-weight: 700; list-style: none; }
+.test-panel summary::-webkit-details-marker { display: none; }
+.test-panel[open] summary { margin-bottom: 6px; }
+.btn.danger { color: var(--danger); border-color: #fecaca; }
 
 .price-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .input-suffix { display: flex; align-items: center; gap: 6px; width: 170px; flex-shrink: 0; }

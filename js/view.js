@@ -28,6 +28,7 @@ function render() {
   const expired = q.validUntil && toDateStr(new Date()) > q.validUntil;
   const lines = q.lines || [];
   app.replaceChildren(
+    q.test ? h('div.test-banner', {}, '🧪 테스트 견적서입니다. 실제 견적이 아닙니다.') : null,
     h('header.quote-head', {},
       q.shop?.logoUrl ? h('img.logo', { src: q.shop.logoUrl, alt: '' }) : null,
       h('div', {},
