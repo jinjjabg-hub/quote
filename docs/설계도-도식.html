@@ -184,7 +184,7 @@ footer { margin-top: 28px; color: var(--muted); font-size: .82rem; text-align: c
     <div class="names">
       <span>A-01 시스템 구성도</span><span>A-02 가입·업종 설정 흐름</span><span>A-03 업종별 결정사항</span>
       <span>A-04 견적 화면 흐름도</span><span>A-05 데이터 구조도</span><span>A-06 계층 규칙</span><span>A-07 로드맵</span>
-      <span>A-08 사용자 여정 지도</span><span>A-09 일정·인력 관리</span><span>A-10 요금제·협력 업체</span>
+      <span>A-08 사용자 여정 지도</span><span>A-09 일정·인력 관리</span><span>A-10 요금·크레딧·성장</span>
     </div>
   </header>
 
@@ -198,7 +198,7 @@ footer { margin-top: 28px; color: var(--muted); font-size: .82rem; text-align: c
     <a href="#a07"><span class="no">A-07</span>로드맵</a>
     <a href="#a08"><span class="no">A-08</span>사용자 여정</a>
     <a href="#a09"><span class="no">A-09</span>일정·인력</a>
-    <a href="#a10"><span class="no">A-10</span>요금제</a>
+    <a href="#a10"><span class="no">A-10</span>요금·크레딧</a>
   </nav>
 
   <!-- A-01 -->
@@ -406,7 +406,7 @@ footer { margin-top: 28px; color: var(--muted); font-size: .82rem; text-align: c
         <div class="tbl priv"><div class="th"><span>shops/…/staff · jobs</span><span>일정·인력</span></div>
           <ul><li><span>staff</span><span>근무 요일·휴무·가능 업무</span></li><li><span>jobs</span><span>날짜·시간·인원·배정 직원</span></li><li><span>jobs/…/actuals</span><span>실제 걸린 시간·완료 사진</span></li><li><span>schedule/settings</span><span>배정 방식·이동 시간</span></li></ul></div>
         <div class="tbl srv"><div class="th"><span>서버 전용 필드</span><span>위조 방지</span></div>
-          <ul><li><span>quotes.payment</span><span>결제 확인</span></li><li><span>shops.plan</span><span>무료·프로·팀</span></li><li><span>shops/…/stats</span><span>내 숫자 집계</span></li><li><span>public/availability</span><span>고객 달력용 남은 자리</span></li></ul></div>
+          <ul><li><span>quotes.payment</span><span>결제 확인</span></li><li><span>shops.plan</span><span>체험·충전·혼자·팀·회사</span></li><li><span>billing · ledger</span><span>크레딧 잔액·차감 기록</span></li><li><span>shops/…/stats</span><span>내 숫자 집계</span></li><li><span>public/availability</span><span>고객 달력용 남은 자리</span></li></ul></div>
       </div>
     </div>
   </section>
@@ -440,13 +440,13 @@ footer { margin-top: 28px; color: var(--muted); font-size: .82rem; text-align: c
         <div class="stage"><div class="rail"><div class="dot">0</div><div class="bar"></div></div>
           <div class="body"><h3>MVP · 입주청소</h3><div class="tags"><span>고객 입력</span><span>자동 계산</span><span>1탭 발송</span><span>견적서·예약</span><span>만두 채팅 버튼</span></div><p class="done-when"><b>완료</b> · 시나리오 560,000원 통과, 실서비스 배포</p></div></div>
         <div class="stage now"><div class="rail"><div class="dot">1</div><div class="bar"></div></div>
-          <div class="body"><h3>기반 정리 · 여러 업체 × 여러 업종</h3><div class="tags"><span>업체 ID·slug</span><span>업종 선택</span><span>업종별 설정 마법사</span><span>서비스별 단가표</span><span>새 요청 푸시 알림</span><span>요금제·추천·역할 칸</span><span>폴더 계층 분리</span><span>목록 최근 100건</span><span>지표 시각 기록</span></div><p class="done-when">기준 · 입주청소 시나리오 그대로 통과 + 업종 2개 설정 + 가입~링크 공유 10분 이내</p></div></div>
+          <div class="body"><h3>기반 정리 · 여러 업체 × 여러 업종</h3><div class="tags"><span>업체 ID·slug</span><span>업종 선택</span><span>업종별 설정 마법사</span><span>서비스별 단가표</span><span>새 요청 푸시 알림</span><span>요금제·추천·역할·크레딧 칸</span><span>무료 10건·발송 시 차감</span><span>폴더 계층 분리</span><span>목록 최근 100건</span><span>지표 시각 기록</span></div><p class="done-when">기준 · 입주청소 시나리오 그대로 통과 + 업종 2개 설정 + 가입~링크 공유 10분 이내</p></div></div>
         <div class="stage"><div class="rail"><div class="dot">2</div><div class="bar"></div></div>
-          <div class="body"><h3>업종 확장 + 일정 선택</h3><div class="tags"><span>에어컨 청소</span><span>줄눈·탄성</span><span>예약 가능일 달력</span><span>내 숫자 카드(채널별)</span><span>홈페이지 임베드·위젯</span><span>QR</span><span>DiCA 버튼</span><span>플레이스토어</span></div><p class="done-when">기준 · 협력 업체 1곳이 2개 업종으로 견적 10건</p></div></div>
+          <div class="body"><h3>업종 확장 + 일정 선택</h3><div class="tags"><span>에어컨 청소</span><span>줄눈·탄성</span><span>예약 가능일 달력</span><span>내 숫자 카드(채널별)</span><span>홈페이지 임베드·위젯</span><span>QR</span><span>DiCA 버튼</span></div><p class="done-when">기준 · 협력 업체 1곳이 2개 업종으로 견적 10건</p></div></div>
         <div class="stage"><div class="rail"><div class="dot">3</div><div class="bar"></div></div>
           <div class="body"><h3>계약까지 닫기</h3><div class="tags"><span>범위 견적·실측 예약</span><span>가예약 → 계약금 → 확정</span><span>알림톡</span><span>미응답 재연락</span><span>인력 기반 가능 시간·일정표</span></div><p class="done-when">기준 · 결제 1건 성공, 직원 있는 협력 업체 일정 1주 운영</p></div></div>
         <div class="stage"><div class="rail"><div class="dot">4</div><div class="bar"></div></div>
-          <div class="body"><h3>판매 준비</h3><div class="tags"><span>요금제·추천 코드</span><span>직원 앱</span><span>커튼·블라인드</span><span>중문</span><span>운영자 화면</span><span>스팸 방지</span><span>구글 캘린더</span></div><p class="done-when">기준 · 외부 업체 3곳 사용, 유료 1곳</p></div></div>
+          <div class="body"><h3>판매 준비</h3><div class="tags"><span>크레딧 구매·월정액</span><span>추천 보상·고객 쿠폰</span><span>직원 앱</span><span>커튼·블라인드</span><span>중문</span><span>운영자 화면</span><span>스팸 방지</span><span>구글 캘린더</span></div><p class="done-when">기준 · 외부 업체 3곳 사용, 크레딧 구매 1곳</p></div></div>
         <div class="stage"><div class="rail"><div class="dot">5</div></div>
           <div class="body"><h3>고도화</h3><div class="tags"><span>이사</span><span>AI 시간 예측 보정</span><span>AI 사진 분석</span><span>단가표 역산</span><span>AI 통화(데이터 보고 결정)</span></div><p class="done-when">기준 · 지표가 정체된 곳부터</p></div></div>
       </div>
@@ -495,8 +495,8 @@ footer { margin-top: 28px; color: var(--muted); font-size: .82rem; text-align: c
       </div>
       <div class="row">
         <div class="box"><span class="k">배포 1 · 지금</span><b>홈 화면에 추가</b><span class="small muted">아이폰은 추가해야 푸시 가능 (iOS 16.4+)</span></div>
-        <div class="box"><span class="k">배포 2 · 2단계</span><b>플레이스토어</b><span class="small muted">만두에서 쓴 TWA 방식 재사용</span></div>
-        <div class="box"><span class="k">배포 3 · 나중</span><b>앱스토어</b><span class="small muted">사용자가 늘면</span></div>
+        <div class="box"><span class="k">배포 2 · 조건부</span><b>플레이스토어</b><span class="small muted">설치 이탈 데이터가 보일 때 · 만두 TWA 방식 재사용</span></div>
+        <div class="box"><span class="k">배포 3 · 나중</span><b>앱스토어</b><span class="small muted">사용자가 많이 늘면</span></div>
       </div>
     </div>
   </section>
@@ -569,16 +569,44 @@ footer { margin-top: 28px; color: var(--muted); font-size: .82rem; text-align: c
   <!-- A-10 -->
   <section class="sheet" id="a10">
     <div class="sheet-head">
-      <div class="title"><h2>요금제·협력 업체</h2><p class="muted small">누구에게 어떤 기능을 · 업체마다 다른 요구를 어떻게 받아들이나</p></div>
+      <div class="title"><h2>요금·크레딧·성장</h2><p class="muted small">요금 흐름 · 크레딧 · 추천 · 업체마다 다른 요구를 받아들이는 방식</p></div>
       <div class="stamp">도면 <b>A-10</b><br>사업 구조</div>
     </div>
     <div class="sheet-body">
-      <div class="row">
-        <div class="box"><span class="k">무료 · 1인 체험</span><b>견적 월 20건</b><span class="small muted">업종 1개</span></div>
-        <div class="box core"><span class="k">프로 · 1~3인</span><b>견적 무제한</b><span class="small muted">여러 업종 · 알림 · 계약금 결제</span></div>
-        <div class="box warn"><span class="k">팀 · 직원 있는 업체</span><b>프로 + 일정·인력 관리</b><span class="small muted">직원 앱 · AI 시간 예측</span></div>
+      <h3>요금 흐름: 써보기 → 쓴 만큼 → 내 사용량으로 월정액</h3>
+      <div class="flow">
+        <div class="box ok"><span class="k">체험</span><b>처음 10건 무료</b><span class="small muted">돈 없이 효과 확인</span></div>
+        <div class="box core"><span class="k">충전</span><b>크레딧 사서 쓴 만큼 차감</b><span class="small muted">수요를 몰라도 손해 없음</span></div>
+        <div class="box"><span class="k">2~3개월 후</span><b>월정액 자동 추천</b><span class="small muted">"평균 월 28건 → ○○가 월 ○원 저렴"</span></div>
+        <div class="box warn"><span class="k">월정액</span><b>혼자 · 팀 · 회사</b><span class="small muted">초과분은 크레딧. 충전형 유지도 가능</span></div>
       </div>
-      <div class="note">팀 요금제가 상위인 이유: <b>필요한 업체만 쓰고</b>(1인에게는 화면만 복잡), <b>낼 수 있는 업체이며</b>(일정 실수 한 번의 손해가 구독료보다 큼), <b>비용이 실제로 더 듭니다</b>(AI·직원 계정·지원). 가격은 협력 업체 의견을 듣고 정합니다. 기능 제한은 서버·규칙에서 <code>plan</code>으로 막습니다.</div>
+      <div class="row">
+        <div class="box"><span class="k">혼자 · solo</span><b>1인 사장님</b><span class="small muted">여러 업종 · 알림 · 계약금 결제</span></div>
+        <div class="box core"><span class="k">팀 · team</span><b>직원 몇 명</b><span class="small muted">혼자 + 일정·인력 관리 · 직원 앱</span></div>
+        <div class="box warn"><span class="k">회사 · company</span><b>직원 많은 업체</b><span class="small muted">팀 + 규모 확대 · AI 시간 예측</span></div>
+      </div>
+      <div class="layers">
+        <div class="layer" style="border-color:var(--accent)"><div class="nm">견적 발송<span class="mono">1 크레딧</span></div><div class="yes">사장님이 직접 누른 순간에 서버가 차감</div><div class="no">요청 접수 시 차감(스팸에도 비용)</div></div>
+        <div class="layer"><div class="nm">계약확정<span class="mono">차감 없음</span></div><div class="yes">확정을 편하게 누르게 해서 일정·지표 보호</div><div class="no">확정에 과금(확정을 안 누르게 됨)</div></div>
+        <div class="layer"><div class="nm">알림톡·AI<span class="mono">건당 소량</span></div><div class="yes">실제 비용이 드는 기능만</div><div class="no">화면에서 차감</div></div>
+      </div>
+      <h3>크레딧 두 종류 · 추천 보상</h3>
+      <div class="row">
+        <div class="box ok"><span class="k">무료 크레딧</span><b>체험 · 추천 보상</b><span class="small muted">먼저 차감 · 유효기간 · 환불 불가</span></div>
+        <div class="box"><span class="k">유료 크레딧</span><b>구매</b><span class="small muted">나중 차감 · 미사용분 환불 규정</span></div>
+        <div class="box ok"><span class="k">추천받은 업체</span><b>가입 즉시 +5건</b><span class="small muted">추천 코드를 넣을 이유</span></div>
+        <div class="box core"><span class="k">추천한 업체</span><b>상대가 견적 5건 발송 시 +10건</b><span class="small muted">가짜 가입 방지</span></div>
+      </div>
+      <div class="note">크레딧은 <b>현금 교환·양도·판매 불가, 서비스 이용료 전용</b>입니다. 유료 크레딧 환불·유효기간은 도입 전 세무사·법률 확인이 필요합니다. 숫자는 예시이며 협력 업체 데이터로 정합니다.</div>
+      <h3>성장: 써본 사람의 추천으로 퍼진다</h3>
+      <div class="row">
+        <div class="box"><b>자랑할 숫자</b><span class="small muted">내 숫자: 발송 시간·계약률</span></div>
+        <div class="box"><b>추천 코드</b><span class="small muted">크레딧 보상</span></div>
+        <div class="box"><b>업체 간 소개</b><span class="small muted">BNI 리퍼럴 구조</span></div>
+        <div class="box"><b>견적서 하단 표시</b><span class="small muted">월정액은 끄기 가능</span></div>
+        <div class="box"><b>협력 업체 사례</b><span class="small muted">전후 숫자 → BNI 발표</span></div>
+        <div class="box ok"><b>고객 쿠폰</b><span class="small muted">지인 소개 · 재방문 · 평일 할인 (업체별)</span></div>
+      </div>
       <h3>업체마다 다른 요구를 받아들이는 방식</h3>
       <div class="flow">
         <div class="box ext"><b>초기 협력 업체 3~5곳</b><span class="small muted">BNI 청소·인테리어 멤버 · 무료/할인 ↔ 주 1회 15분 피드백 + 데이터</span></div>
