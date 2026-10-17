@@ -53,12 +53,13 @@ service cloud.firestore {
     match /requests/{requestId} {
       function validNewRequest() {
         let d = request.resource.data;
-        return d.keys().hasOnly(['shopId', 'templateId', 'status', 'customer', 'answers', 'checklist', 'photos', 'quoteId', 'createdAt'])
+        return d.keys().hasOnly(['shopId', 'templateId', 'status', 'test', 'customer', 'answers', 'checklist', 'photos', 'quoteId', 'createdAt'])
           && d.keys().hasAll(['shopId', 'templateId', 'status', 'customer', 'answers', 'createdAt'])
           && d.shopId is string
           && exists(shopPath(d.shopId))
           && d.templateId == get(shopPath(d.shopId)).data.templateId
           && d.status == 'new'
+          && (!('test' in d) || d.test is bool)
           && (!('quoteId' in d) || d.quoteId == null)
           && d.createdAt == request.time
           && d.customer.keys().hasOnly(['name', 'phone', 'region'])

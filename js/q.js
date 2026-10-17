@@ -9,7 +9,9 @@ import { appConfig } from './config.js';
 
 registerSW();
 
-const shopId = new URLSearchParams(location.search).get('shop');
+const params = new URLSearchParams(location.search);
+const shopId = params.get('shop');
+const isTest = params.get('test') === '1'; // 사장님 테스트 모드에서 연 고객 화면
 const app = $('#app');
 const state = { step: 0, answers: {}, checklist: {}, extras: [], photos: {}, submitting: false };
 let shop; let tpl; let draftKey;
@@ -27,7 +29,7 @@ async function init() {
 
   // 기본값 + 임시 저장 복원
   for (const step of tpl.steps) for (const f of step.fields) if (f.default != null) state.answers[f.key] = f.default;
-  draftKey = `draft:${shopId}`;
+  draftKey = `draft:${shopId}${isTest ? ':test' : ''}`;
   try {
     const d = JSON.parse(localStorage.getItem(draftKey) || 'null');
     if (d) Object.assign(state, { answers: { ...state.answers, ...d.answers }, checklist: d.checklist || {}, extras: d.extras || [] });
@@ -48,6 +50,7 @@ function render() {
   const step = steps[state.step];
   const pct = Math.round(((state.step + 1) / steps.length) * 100);
   app.replaceChildren(
+    isTest ? h('div.test-banner', {}, '🧪 테스트 모드: 사장님 확인용이며 실제 요청으로 집계되지 않습니다.') : null,
     h('header.shop-head', {},
       shop.logoUrl ? h('img.logo', { src: shop.logoUrl, alt: '' }) : null,
       h('div.grow', {}, h('div.shop-name', {}, shop.name || '업체'), h('div.muted', {}, `${tpl.name} 견적 요청`)),
@@ -203,6 +206,7 @@ async function submit() {
       shopId,
       templateId: shop.templateId,
       status: 'new',
+      ...(isTest ? { test: true } : {}),
       customer: { name: String(name).trim(), phone: String(phone).trim(), region: String(region || '').trim() },
       answers: { ...rest, extras: state.extras },
       checklist: state.checklist,

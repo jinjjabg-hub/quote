@@ -3,7 +3,7 @@
 import {
   auth, db, storage, isConfigured, signInWithGoogle, onAuthStateChanged, signOut,
   doc, collection, getDoc, setDoc, updateDoc, onSnapshot, query, where, serverTimestamp, writeBatch,
-  storageRef, uploadBytes, getDownloadURL,
+  storageRef, uploadBytes, getDownloadURL, deleteObject,
 } from './firebase.js';
 import { appConfig } from './config.js';
 import { loadTemplate } from './templates.js';
@@ -118,6 +118,7 @@ function renderList() {
   const filters = [['all', '전체'], ...Object.entries(STATUS).map(([k, v]) => [k, v.label])];
   const shown = S.filter === 'all' ? all : all.filter((r) => r.status === S.filter);
   return h('section', {},
+    renderTestPanel(all),
     h('div.choices.filter', {}, filters.map(([k, label]) => {
       const n = k === 'all' ? all.length : all.filter((r) => r.status === k).length;
       return h(`button.chip.small${S.filter === k ? '.on' : ''}`, { onclick: () => { S.filter = k; renderMain(); } }, `${label} ${n}`);
@@ -127,13 +128,71 @@ function renderList() {
         h('p.muted', {}, '위 "링크 복사"를 눌러 고객에게 보내보세요.')));
 }
 
+// ---------- 테스트 모드 ----------
+// 실제 고객 없이 견적 흐름 전체를 해보는 기능. 테스트 데이터는 test: true 로 표시되고 한 번에 지울 수 있다.
+
+function renderTestPanel(all) {
+  const tests = all.filter((r) => r.test);
+  return h('details.test-panel', { open: S.testOpen },
+    h('summary', { onclick: (e) => { e.preventDefault(); S.testOpen = !S.testOpen; renderMain(); } },
+      '🧪 테스트 모드', tests.length ? h('span.muted.small', {}, ` · 테스트 요청 ${tests.length}건`) : null),
+    h('p.muted.small', {}, '실제 고객 없이 견적 흐름을 직접 해볼 수 있어요. 테스트 데이터에는 "테스트" 표시가 붙습니다.'),
+    h('div.btn-col', {},
+      h('button.btn.primary', { onclick: (e) => createSampleRequest(e.target) }, '샘플 요청 1건 만들기'),
+      h('a.btn.ghost', { href: pageUrl('q.html', { shop: S.user.uid, test: 1 }), target: '_blank', rel: 'noopener' }, '고객 화면으로 직접 입력해보기'),
+      tests.length ? h('button.btn.ghost.danger', { onclick: (e) => clearTestData(tests, e.target) }, `테스트 데이터 모두 지우기 (${tests.length}건)`) : null));
+}
+
+async function createSampleRequest(btn) {
+  const sample = S.tpl.sample;
+  if (!sample) { toast('이 업종에는 샘플 데이터가 아직 없어요. "고객 화면으로 직접 입력해보기"를 이용해주세요.'); return; }
+  btn.disabled = true;
+  try {
+    const ref = doc(collection(db, 'requests'));
+    await setDoc(ref, {
+      shopId: S.user.uid,
+      templateId: S.shop.templateId,
+      status: 'new',
+      test: true,
+      customer: { ...sample.customer },
+      answers: { date: addDays(toDateStr(new Date()), 7), ...sample.answers },
+      checklist: { ...(sample.checklist || {}) },
+      photos: [],
+      quoteId: null,
+      createdAt: serverTimestamp(),
+    });
+    toast('샘플 요청을 만들었어요. 목록에서 눌러 견적을 보내보세요.');
+  } catch (e) { toast(`만들기 실패: ${e.message}`); }
+  btn.disabled = false;
+}
+
+async function clearTestData(tests, btn) {
+  if (!confirm(`테스트 요청 ${tests.length}건과 그 견적서·사진을 지울까요? 되돌릴 수 없습니다.`)) return;
+  btn.disabled = true;
+  try {
+    for (const r of tests) {
+      for (const p of r.photos || []) await deleteObject(storageRef(storage, p.path)).catch(() => {});
+    }
+    for (let i = 0; i < tests.length; i += 200) { // 배치 1회 최대 500건 → 요청+견적 2건씩
+      const batch = writeBatch(db);
+      for (const r of tests.slice(i, i + 200)) {
+        if (r.quoteId) batch.delete(doc(db, 'quotes', r.quoteId));
+        batch.delete(doc(db, 'requests', r.id));
+      }
+      await batch.commit();
+    }
+    toast('테스트 데이터를 지웠어요.');
+  } catch (e) { toast(`지우기 실패: ${e.message}`); btn.disabled = false; }
+}
+
 function renderListItem(r) {
   let est = '';
   try { est = formatWon(calculateQuote(S.tpl, S.priceTable, r).total); } catch { /* 템플릿 불일치 */ }
   const a = r.answers || {};
   return h('li.req-item', { onclick: () => { location.hash = `req=${r.id}`; } },
     h('div.req-main', {},
-      h('div', {}, h('b', {}, r.customer?.name || '이름 없음'), ' ', h('span.muted', {}, r.customer?.region || '')),
+      h('div', {}, r.test ? h('span.badge.st-test', {}, '테스트') : null, r.test ? ' ' : null,
+        h('b', {}, r.customer?.name || '이름 없음'), ' ', h('span.muted', {}, r.customer?.region || '')),
       h('div.muted.small', {}, [a.area ? `${a.area}평` : '', a.date || '', r.photos?.length ? `사진 ${r.photos.length}` : ''].filter(Boolean).join(' · '))),
     h('div.req-side', {}, statusBadge(r.status), h('div.amount', {}, est), h('div.muted.small', {}, fmtDateTime(r.createdAt))));
 }
@@ -303,6 +362,7 @@ function renderDetail() {
   const ansLabel = { yes: '예', no: '아니오', unknown: '모름' };
 
   app.replaceChildren(
+    req.test ? h('div.test-banner', {}, '🧪 테스트 요청입니다. 견적을 보내도 실제 고객에게 가지 않고, 나중에 한 번에 지울 수 있어요.') : null,
     h('header.topbar', {},
       h('button.btn.ghost.small', { onclick: () => { location.hash = ''; } }, '← 목록'),
       h('div.status-box', { id: 'status-box' })),
@@ -456,6 +516,7 @@ async function sendQuote(req, btn) {
       issuedAt: today,
       validUntil: addDays(today, pt.policy.validDays),
       verified: d.calc.verified,
+      test: !!req.test,
       overrides: d.overrides,
       status: 'sent',
       updatedAt: serverTimestamp(),
