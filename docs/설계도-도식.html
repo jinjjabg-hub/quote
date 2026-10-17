@@ -178,12 +178,13 @@ footer { margin-top: 28px; color: var(--muted); font-size: .82rem; text-align: c
 
 <div class="wrap">
   <header class="top">
-    <div class="eyebrow">Quote Service · Blueprint v2 · 2026-10-11</div>
+    <div class="eyebrow">Quote Service · Blueprint v2.1 · 2026-10-17</div>
     <h1>견적 자동화 서비스 설계도</h1>
-    <p class="lede">고객이 링크로 입력하면 사장님 단가표로 견적이 계산되고, 사장님은 확인 후 1번 눌러 보내는 서비스입니다. 여러 업체가 가입해서 쓰고, 한 업체가 여러 업종을 운영할 수 있게 설계했습니다. 아래 도면 7장이 전체 구조입니다.</p>
+    <p class="lede">고객이 링크로 입력하면 사장님 단가표로 견적이 계산되고, 사장님은 확인 후 1번 눌러 보내는 서비스입니다. 여러 업체가 가입해서 쓰고, 한 업체가 여러 업종을 운영할 수 있게 설계했습니다. 아래 도면 10장이 전체 구조입니다.</p>
     <div class="names">
       <span>A-01 시스템 구성도</span><span>A-02 가입·업종 설정 흐름</span><span>A-03 업종별 결정사항</span>
       <span>A-04 견적 화면 흐름도</span><span>A-05 데이터 구조도</span><span>A-06 계층 규칙</span><span>A-07 로드맵</span>
+      <span>A-08 사용자 여정 지도</span><span>A-09 일정·인력 관리</span><span>A-10 요금제·협력 업체</span>
     </div>
   </header>
 
@@ -195,6 +196,9 @@ footer { margin-top: 28px; color: var(--muted); font-size: .82rem; text-align: c
     <a href="#a05"><span class="no">A-05</span>데이터 구조</a>
     <a href="#a06"><span class="no">A-06</span>계층 규칙</a>
     <a href="#a07"><span class="no">A-07</span>로드맵</a>
+    <a href="#a08"><span class="no">A-08</span>사용자 여정</a>
+    <a href="#a09"><span class="no">A-09</span>일정·인력</a>
+    <a href="#a10"><span class="no">A-10</span>요금제</a>
   </nav>
 
   <!-- A-01 -->
@@ -394,11 +398,13 @@ footer { margin-top: 28px; color: var(--muted); font-size: .82rem; text-align: c
         <div class="tbl"><div class="th"><span>templates/{id}</span><span>업종 템플릿</span></div>
           <ul><li><span>setup</span><span>가입 마법사 질문</span></li><li><span>steps</span><span>고객 질문</span></li><li><span>pricing.base.type</span><span>계산 방식</span></li><li><span>quoteMode</span><span>확정/범위</span></li><li><span>checklist · photos</span><span>분쟁 예방</span></li></ul></div>
         <div class="tbl priv"><div class="th"><span>requests/{id}</span><span>견적 요청</span></div>
-          <ul><li><span>shopId · serviceId</span><span></span></li><li><span>answers · items · checklist</span><span>고객 입력</span></li><li><span>photos[ ]</span><span>사장님만 열람</span></li><li><span>channel</span><span>유입 경로</span></li><li><span>createdAt … confirmedAt</span><span>지표용 시각</span></li></ul></div>
+          <ul><li><span>shopId · serviceId</span><span></span></li><li><span>answers · items · checklist</span><span>고객 입력</span></li><li><span>photos[ ]</span><span>사장님만 열람</span></li><li><span>channel</span><span>유입 경로</span></li><li><span>preferredSlots</span><span>희망 일정 1·2순위</span></li><li><span>createdAt … confirmedAt</span><span>지표용 시각</span></li></ul></div>
         <div class="tbl"><div class="th"><span>quotes/{id}</span><span>견적서</span></div>
-          <ul><li><span>lines · total · deposit</span><span></span></li><li><span>포함 · 불포함 · ⚠️조건</span><span></span></li><li><span>status</span><span>고객은 '예약요청'만</span></li></ul></div>
+          <ul><li><span>lines · total · deposit</span><span></span></li><li><span>포함 · 불포함 · ⚠️조건</span><span></span></li><li><span>labor</span><span>예상 인원 × 시간</span></li><li><span>slot · holdUntil</span><span>제안 일정·가예약</span></li><li><span>status</span><span>고객은 '예약요청'만</span></li></ul></div>
+        <div class="tbl priv"><div class="th"><span>shops/…/staff · jobs</span><span>일정·인력</span></div>
+          <ul><li><span>staff</span><span>근무 요일·휴무·가능 업무</span></li><li><span>jobs</span><span>날짜·시간·인원·배정 직원</span></li><li><span>jobs/…/actuals</span><span>실제 걸린 시간·완료 사진</span></li><li><span>schedule/settings</span><span>배정 방식·이동 시간</span></li></ul></div>
         <div class="tbl srv"><div class="th"><span>서버 전용 필드</span><span>위조 방지</span></div>
-          <ul><li><span>quotes.payment</span><span>결제 확인</span></li><li><span>shops.plan</span><span>요금제</span></li><li><span>shops/…/stats</span><span>내 숫자 집계</span></li></ul></div>
+          <ul><li><span>quotes.payment</span><span>결제 확인</span></li><li><span>shops.plan</span><span>무료·프로·팀</span></li><li><span>shops/…/stats</span><span>내 숫자 집계</span></li><li><span>public/availability</span><span>고객 달력용 남은 자리</span></li></ul></div>
       </div>
     </div>
   </section>
@@ -432,15 +438,153 @@ footer { margin-top: 28px; color: var(--muted); font-size: .82rem; text-align: c
         <div class="stage"><div class="rail"><div class="dot">0</div><div class="bar"></div></div>
           <div class="body"><h3>MVP · 입주청소</h3><div class="tags"><span>고객 입력</span><span>자동 계산</span><span>1탭 발송</span><span>견적서·예약</span><span>만두 채팅 버튼</span></div><p class="done-when"><b>완료</b> · 시나리오 560,000원 통과, 실서비스 배포</p></div></div>
         <div class="stage now"><div class="rail"><div class="dot">1</div><div class="bar"></div></div>
-          <div class="body"><h3>기반 정리 · 여러 업체 × 여러 업종</h3><div class="tags"><span>업체 ID·slug</span><span>업종 선택</span><span>업종별 설정 마법사</span><span>서비스별 단가표</span><span>폴더 계층 분리</span><span>목록 최근 100건</span><span>지표 시각 기록</span></div><p class="done-when">기준 · 입주청소 시나리오 그대로 통과 + 업체 1곳이 업종 2개 설정</p></div></div>
+          <div class="body"><h3>기반 정리 · 여러 업체 × 여러 업종</h3><div class="tags"><span>업체 ID·slug</span><span>업종 선택</span><span>업종별 설정 마법사</span><span>서비스별 단가표</span><span>새 요청 푸시 알림</span><span>요금제·추천·역할 칸</span><span>폴더 계층 분리</span><span>목록 최근 100건</span><span>지표 시각 기록</span></div><p class="done-when">기준 · 입주청소 시나리오 그대로 통과 + 업종 2개 설정 + 가입~링크 공유 10분 이내</p></div></div>
         <div class="stage"><div class="rail"><div class="dot">2</div><div class="bar"></div></div>
-          <div class="body"><h3>업종 확장 + 알림</h3><div class="tags"><span>에어컨 청소</span><span>줄눈·탄성</span><span>새 요청 푸시</span><span>내 숫자 카드</span><span>DiCA 버튼</span></div><p class="done-when">기준 · 실제 업체 1곳이 2개 업종으로 견적 10건</p></div></div>
+          <div class="body"><h3>업종 확장 + 일정 선택</h3><div class="tags"><span>에어컨 청소</span><span>줄눈·탄성</span><span>예약 가능일 달력</span><span>내 숫자 카드</span><span>DiCA 버튼</span><span>플레이스토어</span></div><p class="done-when">기준 · 협력 업체 1곳이 2개 업종으로 견적 10건</p></div></div>
         <div class="stage"><div class="rail"><div class="dot">3</div><div class="bar"></div></div>
-          <div class="body"><h3>계약까지 닫기</h3><div class="tags"><span>범위 견적·실측 예약</span><span>알림톡</span><span>계약금 결제</span><span>미응답 재연락</span></div><p class="done-when">기준 · 결제 1건 성공, 재연락으로 회수 1건</p></div></div>
+          <div class="body"><h3>계약까지 닫기</h3><div class="tags"><span>범위 견적·실측 예약</span><span>가예약 → 계약금 → 확정</span><span>알림톡</span><span>미응답 재연락</span><span>인력 기반 가능 시간·일정표</span></div><p class="done-when">기준 · 결제 1건 성공, 직원 있는 협력 업체 일정 1주 운영</p></div></div>
         <div class="stage"><div class="rail"><div class="dot">4</div><div class="bar"></div></div>
-          <div class="body"><h3>판매 준비</h3><div class="tags"><span>커튼·블라인드</span><span>중문</span><span>요금제</span><span>운영자 화면</span><span>스팸 방지</span></div><p class="done-when">기준 · 외부 업체 3곳 사용</p></div></div>
+          <div class="body"><h3>판매 준비</h3><div class="tags"><span>요금제·추천 코드</span><span>직원 앱</span><span>커튼·블라인드</span><span>중문</span><span>운영자 화면</span><span>스팸 방지</span><span>구글 캘린더</span></div><p class="done-when">기준 · 외부 업체 3곳 사용, 유료 1곳</p></div></div>
         <div class="stage"><div class="rail"><div class="dot">5</div></div>
-          <div class="body"><h3>고도화</h3><div class="tags"><span>이사</span><span>AI 사진 분석</span><span>단가표 역산</span><span>AI 통화(데이터 보고 결정)</span></div><p class="done-when">기준 · 지표가 정체된 곳부터</p></div></div>
+          <div class="body"><h3>고도화</h3><div class="tags"><span>이사</span><span>AI 시간 예측 보정</span><span>AI 사진 분석</span><span>단가표 역산</span><span>AI 통화(데이터 보고 결정)</span></div><p class="done-when">기준 · 지표가 정체된 곳부터</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-08 -->
+  <section class="sheet" id="a08">
+    <div class="sheet-head">
+      <div class="title"><h2>사용자 여정 지도</h2><p class="muted small">사람별로 처음 알게 된 순간부터 계속 쓰기까지 · 앱 설치는 사장님만, 고객은 링크만</p></div>
+      <div class="stamp">도면 <b>A-08</b><br>User Journey Map</div>
+    </div>
+    <div class="sheet-body">
+      <h3>사장님 <span class="who o">앱 설치</span></h3>
+      <div class="flow">
+        <div class="box"><b>알게 됨</b><span class="small muted">BNI 발표 · 명함 · 추천</span><span class="small">장치: 추천 코드</span></div>
+        <div class="box"><b>설치·가입</b><span class="small muted">홈 화면 추가 / 스토어 → 구글 로그인 · 1분</span></div>
+        <div class="box core"><b>첫 세팅</b><span class="small muted">업종 선택 → 마법사 → 샘플 견적 · 10분</span><span class="small">장치: 기본값·중간 저장</span></div>
+        <div class="box core"><b>첫 링크 공유</b><span class="small muted">카톡 프로필·명함·만두·자동응답</span><span class="small">장치: 붙일 곳 체크리스트</span></div>
+        <div class="box ok"><b>매일 쓰기</b><span class="small muted">🔔 → 확인 → 1탭 발송 → 확정</span><span class="small">장치: 푸시 알림</span></div>
+        <div class="box"><b>효과 확인</b><span class="small muted">내 숫자: 발송 시간·계약률</span></div>
+        <div class="box warn"><b>유료 전환</b><span class="small muted">한도 초과 · 팀 기능</span></div>
+        <div class="box"><b>추천</b><span class="small muted">다른 사장님에게 코드 공유 → 처음으로</span></div>
+      </div>
+      <div class="note">이탈이 가장 많은 구간은 <b>첫 세팅 → 첫 링크 공유</b>입니다. 가입 후 10분 안에 링크를 어딘가에 붙이게 만드는 것이 목표입니다. <b>푸시 알림이 없으면 사장님이 앱을 열지 않으므로</b> 알림은 1단계에 넣습니다.</div>
+      <h3>고객 <span class="who c">설치 없음 · 링크</span></h3>
+      <div class="flow">
+        <div class="box ok"><b>문의</b><span class="small muted">카톡·전화·명함·만두 → 링크 받음</span></div>
+        <div class="box ok"><b>입력</b><span class="small muted">서비스·질문·사진 · 3분</span></div>
+        <div class="box ok"><b>견적서</b><span class="small muted">카톡·문자 링크로 확인</span></div>
+        <div class="box ok"><b>날짜 선택·예약</b><span class="small muted">가능한 날 중 고르기 → 계약금</span></div>
+        <div class="box ok"><b>작업 후</b><span class="small muted">후기 요청 링크</span></div>
+      </div>
+      <h3>운영자(우리) <span class="who s">관리</span></h3>
+      <div class="row">
+        <div class="box"><b>업종 템플릿</b><span class="small muted">협력 업체와 검증 후 추가</span></div>
+        <div class="box"><b>전체 지표</b><span class="small muted">업체 수 · 견적 수 · 전환율 · 이탈 지점</span></div>
+        <div class="box"><b>문의 응대</b><span class="small muted">만두 채팅</span></div>
+        <div class="box"><b>요금 관리</b><span class="small muted">무료 · 프로 · 팀</span></div>
+      </div>
+      <div class="row">
+        <div class="box"><span class="k">배포 1 · 지금</span><b>홈 화면에 추가</b><span class="small muted">아이폰은 추가해야 푸시 가능 (iOS 16.4+)</span></div>
+        <div class="box"><span class="k">배포 2 · 2단계</span><b>플레이스토어</b><span class="small muted">만두에서 쓴 TWA 방식 재사용</span></div>
+        <div class="box"><span class="k">배포 3 · 나중</span><b>앱스토어</b><span class="small muted">사용자가 늘면</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-09 -->
+  <section class="sheet" id="a09">
+    <div class="sheet-head">
+      <div class="title"><h2>일정·인력 관리</h2><p class="muted small">누가 날짜를 정하나 · 직원 여러 명일 때 가능 시간은 어떻게 변하나</p></div>
+      <div class="stamp">도면 <b>A-09</b><br>스케줄링 구조</div>
+    </div>
+    <div class="sheet-body">
+      <h3>날짜 정하기: 사장님이 틀을 정하고, 고객이 고르고, 사장님이 확정</h3>
+      <div class="flow">
+        <div class="box"><span class="who o">사장님 · 1번</span><b>가능한 틀</b><span class="small muted">영업 요일·시간, 쉬는 날, 직원 수</span></div>
+        <div class="box ok"><span class="who c">고객</span><b>1·2순위 선택</b><span class="small muted">가능/마감 달력, 할증일 +10% 표시</span></div>
+        <div class="box core"><span class="who o">사장님</span><b>일정 확정 제안</b><span class="small muted">견적과 함께 발송</span></div>
+        <div class="box warn"><span class="who c">고객</span><b>예약 요청 = 가예약</b><span class="small muted">24시간 자리 잡아둠</span></div>
+        <div class="box ok"><span class="who o">사장님</span><b>확정</b><span class="small muted">계약확정 또는 계약금 결제</span></div>
+      </div>
+      <h3>직원 10명 업체의 하루: "몇 명 × 몇 시간"으로 계산</h3>
+      <div class="scroll-x">
+        <svg viewBox="0 0 760 210" width="760" role="img" aria-label="직원 10명의 하루 일정 예시">
+          <g font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--muted)">
+            <text x="96" y="16">08</text><text x="156" y="16">09</text><text x="216" y="16">10</text><text x="276" y="16">11</text><text x="336" y="16">12</text><text x="396" y="16">13</text><text x="456" y="16">14</text><text x="516" y="16">15</text><text x="576" y="16">16</text><text x="636" y="16">17</text><text x="696" y="16">18</text>
+          </g>
+          <g stroke="var(--line)" stroke-width="1">
+            <line x1="100" y1="24" x2="100" y2="200"/><line x1="160" y1="24" x2="160" y2="200"/><line x1="220" y1="24" x2="220" y2="200"/><line x1="280" y1="24" x2="280" y2="200"/><line x1="340" y1="24" x2="340" y2="200"/><line x1="400" y1="24" x2="400" y2="200"/><line x1="460" y1="24" x2="460" y2="200"/><line x1="520" y1="24" x2="520" y2="200"/><line x1="580" y1="24" x2="580" y2="200"/><line x1="640" y1="24" x2="640" y2="200"/><line x1="700" y1="24" x2="700" y2="200"/>
+          </g>
+          <g font-family="IBM Plex Sans KR, sans-serif" font-size="12" fill="var(--ink)">
+            <text x="8" y="56">직원 1–2</text><text x="8" y="106">직원 3–5</text><text x="8" y="166">직원 6–10</text>
+          </g>
+          <rect x="100" y="36" width="180" height="32" rx="5" fill="var(--ok-soft)" stroke="var(--ok)"/>
+          <text x="110" y="57" font-size="12" fill="var(--ink)" font-family="IBM Plex Sans KR, sans-serif">A · 2명 × 3h</text>
+          <rect x="280" y="36" width="60" height="32" rx="5" fill="var(--paper)" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <text x="290" y="57" font-size="11" fill="var(--muted)" font-family="IBM Plex Sans KR, sans-serif">이동</text>
+          <rect x="340" y="36" width="180" height="32" rx="5" fill="var(--ok-soft)" stroke="var(--ok)"/>
+          <text x="350" y="57" font-size="12" fill="var(--ink)" font-family="IBM Plex Sans KR, sans-serif">A′ · 2명 × 3h</text>
+          <rect x="100" y="86" width="180" height="32" rx="5" fill="var(--accent-soft)" stroke="var(--accent)"/>
+          <text x="110" y="107" font-size="12" fill="var(--ink)" font-family="IBM Plex Sans KR, sans-serif">B · 3명 × 3h</text>
+          <rect x="280" y="86" width="60" height="32" rx="5" fill="var(--paper)" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <text x="290" y="107" font-size="11" fill="var(--muted)" font-family="IBM Plex Sans KR, sans-serif">이동</text>
+          <rect x="340" y="86" width="360" height="32" rx="5" fill="none" stroke="var(--ok)" stroke-width="2" stroke-dasharray="6 4"/>
+          <text x="352" y="107" font-size="12" fill="var(--ok)" font-family="IBM Plex Sans KR, sans-serif">비어 있음 → 3명 × 3h 청소 가능</text>
+          <rect x="100" y="136" width="360" height="52" rx="5" fill="var(--warn-soft)" stroke="var(--warn)"/>
+          <text x="110" y="167" font-size="12" fill="var(--ink)" font-family="IBM Plex Sans KR, sans-serif">C · 5명 × 6h (50평 신축 + 곰팡이)</text>
+          <rect x="460" y="136" width="60" height="52" rx="5" fill="var(--paper)" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <text x="470" y="167" font-size="11" fill="var(--muted)" font-family="IBM Plex Sans KR, sans-serif">이동</text>
+          <text x="530" y="167" font-size="12" fill="var(--warn)" font-family="IBM Plex Sans KR, sans-serif">남은 시간 부족</text>
+        </svg>
+      </div>
+      <div class="row">
+        <div class="box ok"><span class="k">20평 고객이 보는 달력</span><b>이날 오후 가능</b><span class="small muted">2~3명 × 3시간이면 들어감</span></div>
+        <div class="box warn"><span class="k">50평 고객이 보는 달력</span><b>이날 마감</b><span class="small muted">5명 × 6시간 자리가 없음 → 다른 날만 보임</span></div>
+      </div>
+      <h3>역할 분담</h3>
+      <div class="layers">
+        <div class="layer"><div class="nm">필요 인원 × 시간<span class="mono">템플릿 labor</span></div><div class="yes">업종 기본 규칙 → 업체 수정 → 실제 기록으로 AI 보정</div><div class="no">기록 없이 AI 단독 추측</div></div>
+        <div class="layer" style="border-color:var(--accent)"><div class="nm">그 시간에 비어 있나<span class="mono">정확한 계산</span></div><div class="yes">직원 근무·배정·이동 시간으로 계산</div><div class="no">AI 추측 (중복 예약 사고)</div></div>
+        <div class="layer"><div class="nm">고객 달력<span class="mono">public/availability</span></div><div class="yes">고객 청소 규모별로 가능한 날만 표시</div><div class="no">다른 고객 예약 노출</div></div>
+      </div>
+      <div class="note blue"><b>설정은 업체가, 기본값은 우리가, 보정은 데이터가.</b> 배정 방식(고정 팀/매번 조합), 이동 시간, 근무 시간, 투입 인원은 업체가 고르는 설정 칸입니다. 1인 사장님은 일정 관리를 꺼두고 날짜만 받습니다. AI 보정은 업체당 실제 기록 30~50건부터 의미가 있습니다.</div>
+      <div class="row">
+        <div class="box"><span class="who o">사장님</span><b>일정표</b><span class="small muted">직원 × 시간, 끌어서 변경</span></div>
+        <div class="box"><span class="who o">사장님</span><b>직원 관리</b><span class="small muted">근무·휴무·가능 업무</span></div>
+        <div class="box ok"><span class="who s">직원</span><b>오늘 내 현장</b><span class="small muted">시작 → 완료 → 완료 사진</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-10 -->
+  <section class="sheet" id="a10">
+    <div class="sheet-head">
+      <div class="title"><h2>요금제·협력 업체</h2><p class="muted small">누구에게 어떤 기능을 · 업체마다 다른 요구를 어떻게 받아들이나</p></div>
+      <div class="stamp">도면 <b>A-10</b><br>사업 구조</div>
+    </div>
+    <div class="sheet-body">
+      <div class="row">
+        <div class="box"><span class="k">무료 · 1인 체험</span><b>견적 월 20건</b><span class="small muted">업종 1개</span></div>
+        <div class="box core"><span class="k">프로 · 1~3인</span><b>견적 무제한</b><span class="small muted">여러 업종 · 알림 · 계약금 결제</span></div>
+        <div class="box warn"><span class="k">팀 · 직원 있는 업체</span><b>프로 + 일정·인력 관리</b><span class="small muted">직원 앱 · AI 시간 예측</span></div>
+      </div>
+      <div class="note">팀 요금제가 상위인 이유: <b>필요한 업체만 쓰고</b>(1인에게는 화면만 복잡), <b>낼 수 있는 업체이며</b>(일정 실수 한 번의 손해가 구독료보다 큼), <b>비용이 실제로 더 듭니다</b>(AI·직원 계정·지원). 가격은 협력 업체 의견을 듣고 정합니다. 기능 제한은 서버·규칙에서 <code>plan</code>으로 막습니다.</div>
+      <h3>업체마다 다른 요구를 받아들이는 방식</h3>
+      <div class="flow">
+        <div class="box ext"><b>초기 협력 업체 3~5곳</b><span class="small muted">BNI 청소·인테리어 멤버 · 무료/할인 ↔ 주 1회 15분 피드백 + 데이터</span></div>
+        <div class="box core"><b>공통점만 반영</b><span class="small muted">기본값 · 설정 칸 · 업종 템플릿</span></div>
+        <div class="box"><b>그 이후 업체</b><span class="small muted">피드백 대신 데이터: 예측 vs 실제, 자주 바꾸는 설정, 이탈 화면, 👍👎</span></div>
+      </div>
+      <div class="note blue">개별 업체 맞춤 개발은 하지 않습니다. 업체마다 다른 것은 <b>설정 칸</b>으로, 업종마다 다른 것은 <b>템플릿</b>으로 표현합니다. 이것이 코드를 하나로 유지하는 방법입니다.</div>
+      <h3>작업 방식 (사람 ↔ AI)</h3>
+      <div class="flow">
+        <div class="box"><b>아이디어</b><span class="small muted">어디서나</span></div>
+        <div class="box core"><b>결정 전 검토</b><span class="small muted">코드가 있는 곳에서 가능 여부·비용 확인</span></div>
+        <div class="box core"><b>설계도에 기록</b><span class="small muted">docs/설계도.md</span></div>
+        <div class="box"><b>짧은 지시문</b><span class="small muted">"설계도 8장 1단계 진행"</span></div>
+        <div class="box ok"><b>PR 1개 · 테스트 통과 · 머지</b></div>
       </div>
     </div>
   </section>
