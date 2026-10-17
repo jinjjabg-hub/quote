@@ -62,6 +62,7 @@ try {
   const shopField = (label) => owner.locator('label.field', { hasText: label }).locator('input');
   await shopField('상호').fill('반짝입주청소');
   await shopField('연락처').fill('010-1111-2222');
+  await shopField('만두 ID').fill('@Banjjak');
   await owner.getByRole('button', { name: '저장', exact: true }).click();
   await owner.getByText('숫자만 고치고').waitFor();
   const priceInput = (label) => owner.locator('label.price-row', { hasText: label }).locator('input');
@@ -83,6 +84,7 @@ try {
   const next = () => cust.locator('.nav-row .btn.primary').click();
   await cust.getByPlaceholder('홍길동').fill('김고객');
   await cust.getByPlaceholder('010-0000-0000').fill('010-3333-4444');
+  assert.match(await cust.getByRole('link', { name: /채팅/ }).getAttribute('href'), /MANDU\/\?u=banjjak$/);
   await shot(cust, '2-customer-step1');
   await next();
   await cust.getByPlaceholder('예) 서울 송파구').fill('서울 송파구');
@@ -147,6 +149,7 @@ try {
   assert.match(await view.locator('.total-box').innerText(), /560,000원/);
   assert.match(await view.locator('.total-box').innerText(), /56,000원/); // 계약금 10%
   assert.equal(await view.locator('.badge.verified').count(), 1, '사진 확인 완료 배지');
+  assert.match(await view.getByRole('link', { name: /채팅/ }).getAttribute('href'), /MANDU\/\?u=banjjak$/);
   await shot(view, '9-quote-view');
 
   // 5) 예약 요청 → 사장님 목록 상태 변경

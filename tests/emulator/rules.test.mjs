@@ -87,6 +87,13 @@ test('사장님: 견적 발송(배치) O, 남의 요청으로 견적 생성 X', 
   await assertFails(setDoc(doc(other(), 'quotes', 'q3'), { shopId: OTHER, requestId: 'r1', status: 'sent' }));
 });
 
+test('사장님: 만두 ID 형식 검사', async () => {
+  const base = { ownerUid: OTHER, templateId: 'move-in-cleaning', name: '' };
+  await assertSucceeds(setDoc(doc(other(), 'shops', OTHER), { ...base, manduId: 'banjjak_1' }));
+  await assertSucceeds(setDoc(doc(other(), 'shops', OTHER), { ...base, manduId: '' }));
+  await assertFails(setDoc(doc(other(), 'shops', OTHER), { ...base, manduId: 'javascript:alert(1)' }));
+});
+
 test('사장님: 업체 최초 생성은 본인 uid 로만', async () => {
   await assertSucceeds(setDoc(doc(other(), 'shops', OTHER), { ownerUid: OTHER, templateId: 'move-in-cleaning', name: '' }));
   await assertFails(setDoc(doc(other(), 'shops', 'someoneElse'), { ownerUid: OTHER, templateId: 'move-in-cleaning' }));

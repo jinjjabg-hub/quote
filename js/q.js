@@ -4,7 +4,8 @@ import {
   db, storage, doc, collection, getDoc, setDoc, serverTimestamp, storageRef, uploadBytes, isConfigured,
 } from './firebase.js';
 import { loadTemplate } from './templates.js';
-import { $, h, toast, compressImage, registerSW, showFatal, telHref } from './util.js';
+import { $, h, toast, compressImage, registerSW, showFatal, telHref, manduHref } from './util.js';
+import { appConfig } from './config.js';
 
 registerSW();
 
@@ -49,7 +50,8 @@ function render() {
   app.replaceChildren(
     h('header.shop-head', {},
       shop.logoUrl ? h('img.logo', { src: shop.logoUrl, alt: '' }) : null,
-      h('div', {}, h('div.shop-name', {}, shop.name || '업체'), h('div.muted', {}, `${tpl.name} 견적 요청`))),
+      h('div.grow', {}, h('div.shop-name', {}, shop.name || '업체'), h('div.muted', {}, `${tpl.name} 견적 요청`)),
+      manduLink() ? h('a.btn.ghost.small', { href: manduLink(), target: '_blank', rel: 'noopener' }, '💬 채팅') : null),
     h('div.progress', { role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100 },
       h('div.progress-bar', { style: `width:${pct}%` })),
     h('div.step-count.muted', {}, `${state.step + 1} / ${steps.length}`),
@@ -223,5 +225,11 @@ function renderDone() {
     h('h1', {}, '요청이 접수되었습니다'),
     h('p', {}, `${shop.name || '사장님'}이 확인 후 견적을 보내드립니다.`),
     h('p.muted', {}, '보통 작업이 끝난 뒤 순서대로 확인합니다. 급하시면 전화 주세요.'),
-    shop.phone ? h('a.btn.primary', { href: telHref(shop.phone) }, `📞 ${shop.phone} 전화하기`) : null));
+    h('div.btn-col', {},
+      shop.phone ? h('a.btn.primary', { href: telHref(shop.phone) }, `📞 ${shop.phone} 전화하기`) : null,
+      manduLink() ? h('a.btn.ghost', { href: manduLink(), target: '_blank', rel: 'noopener' }, '💬 만두로 채팅 문의') : null)));
+}
+
+function manduLink() {
+  return manduHref(appConfig.manduBaseUrl, shop.manduId);
 }

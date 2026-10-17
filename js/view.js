@@ -2,7 +2,8 @@
 // 견적 ID 자체가 추측 불가능한 열쇠 역할을 한다. (Firestore 규칙: 단건 get 만 허용)
 import { db, doc, getDoc, writeBatch, serverTimestamp, isConfigured } from './firebase.js';
 import { formatWon, toDateStr } from './calc.js';
-import { $, h, toast, registerSW, showFatal, telHref } from './util.js';
+import { $, h, toast, registerSW, showFatal, telHref, manduHref } from './util.js';
+import { appConfig } from './config.js';
 
 registerSW();
 
@@ -63,6 +64,8 @@ function render() {
 
     h('div.sticky-actions', {},
       q.shop?.phone ? h('a.btn.ghost', { href: telHref(q.shop.phone) }, '📞 전화') : null,
+      manduHref(appConfig.manduBaseUrl, q.shop?.manduId)
+        ? h('a.btn.ghost', { href: manduHref(appConfig.manduBaseUrl, q.shop.manduId), target: '_blank', rel: 'noopener' }, '💬 채팅') : null,
       bookingButton(expired)),
   );
 }

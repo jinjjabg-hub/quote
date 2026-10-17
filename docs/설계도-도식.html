@@ -1,0 +1,629 @@
+<title>견적 서비스 설계도</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* 레이아웃: 청사진(도면) 용지 위에 도면 시트 7장을 세로로 쌓고, 상단 고정 목차로 이동 */
+:root {
+  --paper: #f3f6fb;
+  --sheet: #ffffff;
+  --ink: #14233d;
+  --muted: #5b6b85;
+  --line: #c9d5e8;
+  --grid: rgba(31, 84, 170, .07);
+  --accent: #1f54aa;
+  --accent-soft: #e4ecfa;
+  --ok: #19794a;
+  --ok-soft: #e2f3ea;
+  --warn: #a35a00;
+  --warn-soft: #fbefdc;
+  --ext: #6b4fbb;
+  --ext-soft: #eee9fa;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0d1a30; --sheet: #12233f; --ink: #e3ecfb; --muted: #9db0cf; --line: #2c4269;
+    --grid: rgba(120, 170, 255, .08); --accent: #7fb0ff; --accent-soft: #1b3460;
+    --ok: #6fd6a0; --ok-soft: #133a2b; --warn: #f2b45f; --warn-soft: #3b2a12;
+    --ext: #b9a3ff; --ext-soft: #2a2350; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0d1a30; --sheet: #12233f; --ink: #e3ecfb; --muted: #9db0cf; --line: #2c4269;
+  --grid: rgba(120, 170, 255, .08); --accent: #7fb0ff; --accent-soft: #1b3460;
+  --ok: #6fd6a0; --ok-soft: #133a2b; --warn: #f2b45f; --warn-soft: #3b2a12;
+  --ext: #b9a3ff; --ext-soft: #2a2350; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background-color: var(--paper);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--ink);
+  font: 15px/1.6 var(--font-body);
+  word-break: keep-all;
+}
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; padding-block: 0 64px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); line-height: 1.25; }
+h2 { font-size: 1.3rem; }
+h3 { font-size: 1rem; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--font-mono); letter-spacing: .04em; }
+.small { font-size: .85rem; }
+
+/* 상단 */
+header.top { padding-block: 32px 16px; display: grid; gap: 10px; }
+.eyebrow { font-family: var(--font-mono); font-size: .78rem; letter-spacing: .12em; color: var(--accent); text-transform: uppercase; }
+.lede { max-width: 62ch; color: var(--muted); }
+.names { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.names span { font-size: .82rem; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--sheet); }
+
+nav.toc {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  display: flex; gap: 6px; overflow-x: auto; padding-block: 10px;
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  backdrop-filter: blur(6px);
+}
+nav.toc a {
+  flex-shrink: 0; text-decoration: none; color: var(--ink); font-size: .85rem;
+  padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--sheet);
+}
+nav.toc a:hover, nav.toc a:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+nav.toc .no { font-family: var(--font-mono); color: var(--muted); margin-right: 4px; }
+
+/* 도면 시트 */
+section.sheet {
+  background: var(--sheet); border: 1px solid var(--line); border-radius: 6px;
+  margin-top: 20px; scroll-margin-top: 64px;
+}
+.sheet-head {
+  display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+  padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
+}
+.sheet-head .title { display: grid; gap: 4px; min-width: 0; }
+.stamp { font-family: var(--font-mono); font-size: .75rem; color: var(--muted); text-align: right; line-height: 1.5; }
+.stamp b { color: var(--accent); font-weight: 500; }
+.sheet-body { padding: 20px; display: grid; gap: 18px; }
+.scroll-x { overflow-x: auto; }
+
+/* 상자 + 화살표 */
+.box {
+  border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--sheet);
+  display: grid; gap: 4px; min-width: 0;
+}
+.box .k { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .08em; color: var(--muted); }
+.box.core { border-color: var(--accent); background: var(--accent-soft); }
+.box.ok { border-color: var(--ok); background: var(--ok-soft); }
+.box.warn { border-color: var(--warn); background: var(--warn-soft); }
+.box.ext { border-color: var(--ext); background: var(--ext-soft); border-style: dashed; }
+.down { text-align: center; color: var(--accent); font-size: 1.2rem; line-height: 1; }
+.down .lbl { display: block; font-size: .75rem; color: var(--muted); font-family: var(--font-mono); margin-top: 2px; }
+.row { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.zone { border: 1.5px dashed var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 12px; position: relative; }
+.zone > .zlabel { font-family: var(--font-mono); font-size: .75rem; letter-spacing: .1em; color: var(--muted); }
+.zone.main { border-color: var(--accent); border-style: solid; }
+
+/* 흐름(가로 단계) */
+.flow { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); counter-reset: step; }
+.flow .box { position: relative; padding-top: 26px; }
+.flow .box::before {
+  counter-increment: step; content: counter(step);
+  position: absolute; top: 6px; left: 10px; font-family: var(--font-mono); font-size: .75rem; color: var(--accent);
+}
+.who { display: inline-block; font-size: .7rem; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; width: fit-content; }
+.who.c { color: var(--ok); } .who.o { color: var(--accent); } .who.s { color: var(--ext); }
+
+/* 업종 카드 */
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: .82rem; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.ind-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+.ind { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+.ind-head { padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }
+.ind-head h3 { font-size: 1.05rem; }
+.chip { font-size: .72rem; padding: 2px 8px; border-radius: 4px; white-space: nowrap; font-family: var(--font-mono); }
+.chip.fixed { background: var(--ok-soft); color: var(--ok); }
+.chip.range { background: var(--warn-soft); color: var(--warn); }
+.chip.done { background: var(--accent-soft); color: var(--accent); }
+.ind dl { margin: 0; padding: 12px 14px; display: grid; grid-template-columns: 4.6em 1fr; gap: 6px 10px; font-size: .86rem; }
+.ind dt { color: var(--muted); font-size: .78rem; padding-top: 2px; }
+.ind dd { margin: 0; min-width: 0; }
+.ind dd.risk { color: var(--warn); }
+
+.common { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.common .box { font-size: .88rem; }
+
+/* 데이터 구조 */
+.erd { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.tbl { border: 1.5px solid var(--line); border-radius: 8px; overflow: hidden; font-size: .84rem; }
+.tbl .th { padding: 8px 12px; background: var(--accent-soft); font-family: var(--font-mono); font-size: .8rem; color: var(--accent); display: flex; justify-content: space-between; gap: 8px; }
+.tbl ul { list-style: none; margin: 0; padding: 8px 12px; display: grid; gap: 3px; }
+.tbl li { display: flex; justify-content: space-between; gap: 8px; }
+.tbl li span:last-child { color: var(--muted); font-size: .78rem; text-align: right; }
+.tbl.priv .th { background: var(--warn-soft); color: var(--warn); }
+.tbl.srv .th { background: var(--ext-soft); color: var(--ext); }
+
+/* 계층 */
+.layers { display: grid; gap: 6px; }
+.layer { display: grid; grid-template-columns: minmax(120px, 190px) 1fr 1fr; gap: 12px; align-items: start; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 8px; font-size: .88rem; }
+.layer .nm { font-weight: 700; display: grid; gap: 2px; }
+.layer .nm .mono { font-weight: 500; font-size: .75rem; color: var(--muted); }
+.layer .yes::before { content: "하는 일 · "; color: var(--ok); font-weight: 500; }
+.layer .no::before { content: "금지 · "; color: var(--warn); font-weight: 500; }
+@media (max-width: 640px) { .layer { grid-template-columns: 1fr; gap: 4px; } }
+
+/* 로드맵 */
+.road { display: grid; gap: 0; }
+.stage { display: grid; grid-template-columns: 56px 1fr; gap: 14px; }
+.stage .rail { display: flex; flex-direction: column; align-items: center; }
+.stage .dot { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--accent); display: grid; place-items: center; font-family: var(--font-mono); color: var(--accent); background: var(--sheet); flex-shrink: 0; }
+.stage.now .dot { background: var(--accent); color: var(--sheet); }
+.stage .bar { width: 2px; flex: 1; background: var(--line); min-height: 18px; }
+.stage .body { padding-bottom: 18px; display: grid; gap: 6px; min-width: 0; }
+.stage .body .done-when { font-size: .84rem; color: var(--muted); }
+.stage .body .done-when b { color: var(--ok); font-weight: 500; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tags span { font-size: .8rem; padding: 2px 8px; border-radius: 4px; background: var(--accent-soft); color: var(--ink); }
+
+.note { border-left: 3px solid var(--warn); background: var(--warn-soft); padding: 10px 14px; border-radius: 0 6px 6px 0; font-size: .9rem; }
+.note.blue { border-color: var(--accent); background: var(--accent-soft); }
+
+footer { margin-top: 28px; color: var(--muted); font-size: .82rem; text-align: center; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Quote Service · Blueprint v2.1 · 2026-10-17</div>
+    <h1>견적 자동화 서비스 설계도</h1>
+    <p class="lede">고객이 링크로 입력하면 사장님 단가표로 견적이 계산되고, 사장님은 확인 후 1번 눌러 보내는 서비스입니다. 여러 업체가 가입해서 쓰고, 한 업체가 여러 업종을 운영할 수 있게 설계했습니다. 아래 도면 10장이 전체 구조입니다.</p>
+    <div class="names">
+      <span>A-01 시스템 구성도</span><span>A-02 가입·업종 설정 흐름</span><span>A-03 업종별 결정사항</span>
+      <span>A-04 견적 화면 흐름도</span><span>A-05 데이터 구조도</span><span>A-06 계층 규칙</span><span>A-07 로드맵</span>
+      <span>A-08 사용자 여정 지도</span><span>A-09 일정·인력 관리</span><span>A-10 요금·크레딧·성장</span>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="도면 목차">
+    <a href="#a01"><span class="no">A-01</span>시스템 구성도</a>
+    <a href="#a02"><span class="no">A-02</span>가입·업종 설정</a>
+    <a href="#a03"><span class="no">A-03</span>업종별 결정사항</a>
+    <a href="#a04"><span class="no">A-04</span>견적 흐름</a>
+    <a href="#a05"><span class="no">A-05</span>데이터 구조</a>
+    <a href="#a06"><span class="no">A-06</span>계층 규칙</a>
+    <a href="#a07"><span class="no">A-07</span>로드맵</a>
+    <a href="#a08"><span class="no">A-08</span>사용자 여정</a>
+    <a href="#a09"><span class="no">A-09</span>일정·인력</a>
+    <a href="#a10"><span class="no">A-10</span>요금·크레딧</a>
+  </nav>
+
+  <!-- A-01 -->
+  <section class="sheet" id="a01">
+    <div class="sheet-head">
+      <div class="title"><h2>시스템 구성도</h2><p class="muted small">무엇이 어디에 있고, 어떻게 연결되는가</p></div>
+      <div class="stamp">도면 <b>A-01</b><br>아키텍처 다이어그램</div>
+    </div>
+    <div class="sheet-body">
+      <div class="zone">
+        <div class="zlabel">유입 채널 · 다른 앱과는 링크로만 연결 (앱 독립)</div>
+        <div class="row">
+          <div class="box ext"><span class="k">CHANNEL</span><b>카톡·문자·숨고</b><span class="small muted">링크 붙여넣기</span></div>
+          <div class="box ext"><span class="k">CHANNEL · 사장님 소유</span><b>사장님 홈페이지</b><span class="small muted">버튼 · 끼워넣기 · 떠 있는 버튼</span></div>
+          <div class="box ext"><span class="k">CHANNEL</span><b>QR · 네이버 · 인스타</b><span class="small muted">전단지·차량 스티커 / 링크</span></div>
+          <div class="box ext"><span class="k">APP · 별도 판매</span><b>DiCA 명함</b><span class="small muted">"견적 받기" 버튼</span></div>
+          <div class="box ext"><span class="k">APP · 별도 판매</span><b>MANDU 메신저</b><span class="small muted">채팅 ↔ 견적 링크</span></div>
+          <div class="box ext"><span class="k">EXTERNAL</span><b>부재중 자동문자</b><span class="small muted">전화 앱이 링크 발송</span></div>
+        </div>
+      </div>
+      <div class="down">▼<span class="lbl">q.html?s=업체주소&amp;ch=유입경로</span></div>
+      <div class="zone main">
+        <div class="zlabel">견적 서비스 (이 저장소 · Firebase 프로젝트 quote-640f4)</div>
+        <div class="row">
+          <div class="box ok"><span class="k">PAGE · 고객</span><b>고객 입력 화면</b><span class="small">서비스 선택 → 단계형 질문 → 사진 → 제출</span></div>
+          <div class="box core"><span class="k">ENGINE</span><b>계산 엔진 + 업종 템플릿</b><span class="small">템플릿(JSON) × 업체 단가표 → 항목별 금액·⚠️조건</span></div>
+          <div class="box"><span class="k">PAGE · 사장님</span><b>사장님 화면</b><span class="small">가입·업종 설정 / 요청 목록 / 확인·수정 / 1탭 발송 / 내 숫자</span></div>
+          <div class="box ok"><span class="k">PAGE · 고객</span><b>견적서</b><span class="small">포함·불포함·⚠️조건 → 예약 요청 → 결제</span></div>
+        </div>
+        <div class="down">▼<span class="lbl">돈 · 비밀키 · 외부 API 는 전부 여기로</span></div>
+        <div class="box ext" style="border-style:solid"><span class="k">SERVER · Cloud Functions</span><b>서버 함수</b><span class="small">새 요청 알림 · 알림톡/문자 · 결제 확인 · 미응답 재연락 · AI 사진 분석 · 지표 집계</span></div>
+      </div>
+      <div class="down">▼<span class="lbl">어댑터 1개 파일만 바꾸면 업체 교체 가능</span></div>
+      <div class="row">
+        <div class="box ext"><span class="k">EXTERNAL</span><b>알림톡·문자 대행사</b></div>
+        <div class="box ext"><span class="k">EXTERNAL</span><b>토스페이먼츠</b><span class="small muted">계약금 결제</span></div>
+        <div class="box ext"><span class="k">EXTERNAL</span><b>AI 이미지 분석</b></div>
+        <div class="box ext"><span class="k">EXTERNAL</span><b>지도·거리 API</b><span class="small muted">이사 업종</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-02 -->
+  <section class="sheet" id="a02">
+    <div class="sheet-head">
+      <div class="title"><h2>가입·업종 설정 흐름</h2><p class="muted small">사장님이 처음 가입해서 첫 견적 링크를 받기까지 (온보딩)</p></div>
+      <div class="stamp">도면 <b>A-02</b><br>화면 흐름도 · 사장님</div>
+    </div>
+    <div class="sheet-body">
+      <div class="flow">
+        <div class="box"><b>구글 로그인</b><span class="small muted">버튼 1번</span></div>
+        <div class="box"><b>업체 기본정보</b><span class="small muted">상호·연락처·영업지역·만두 ID</span></div>
+        <div class="box core"><b>업종 선택 (여러 개)</b><span class="small muted">입주청소 ☑ 에어컨 ☑ 줄눈 ☐ …</span></div>
+        <div class="box core"><b>업종별 설정 마법사</b><span class="small muted">업종마다 4화면: 가격 기준 · 할증 · 옵션 · 정책 (A-03)</span></div>
+        <div class="box"><b>샘플 견적 미리보기</b><span class="small muted">"34평 신축이면 560,000원" 처럼 내 단가로 바로 확인</span></div>
+        <div class="box ok"><b>내 견적 링크 발급</b><span class="small muted">q.html?s=banjjak · 명함·만두·문자 연결 안내</span></div>
+      </div>
+      <div class="note blue">마법사는 <b>템플릿의 <code>setup</code> 칸을 읽어서 자동으로 그립니다.</b> 업종을 추가해도 마법사 코드는 고치지 않습니다. 모든 칸에 시세 기준 기본값이 채워져 있어서, 사장님은 다른 숫자만 고치면 됩니다.</div>
+      <div class="common">
+        <div class="box"><span class="k">공통 결정 · 업체당 1번</span><b>영업 지역·요일·시간대</b></div>
+        <div class="box"><span class="k">공통 결정</span><b>부가세 포함 여부</b></div>
+        <div class="box"><span class="k">공통 결정</span><b>견적 유효기간</b></div>
+        <div class="box"><span class="k">공통 결정</span><b>계약금 % · 취소 규정</b><span class="small muted">업종별로 덮어쓰기 가능</span></div>
+        <div class="box"><span class="k">공통 결정</span><b>결제 수단</b><span class="small muted">계좌이체 / 카드</span></div>
+        <div class="box"><span class="k">공통 결정</span><b>출장비 기준</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-03 -->
+  <section class="sheet" id="a03">
+    <div class="sheet-head">
+      <div class="title"><h2>업종별 결정사항</h2><p class="muted small">가입할 때 사장님이 업종마다 정해야 하는 것 · 고객에게 물어볼 것</p></div>
+      <div class="stamp">도면 <b>A-03</b><br>업종 템플릿 명세</div>
+    </div>
+    <div class="sheet-body">
+      <div class="legend">
+        <span><i style="background:var(--ok)"></i>확정 견적: 사진·체크리스트로 금액 확정</span>
+        <span><i style="background:var(--warn)"></i>범위 견적: "예상 ○○~○○원", 실측 후 확정</span>
+        <span><i style="background:var(--accent)"></i>완료</span>
+      </div>
+      <div class="note">업종마다 가장 큰 차이는 <b>"견적을 확정할 수 있느냐"</b>입니다. 커튼·중문·이사는 실측이나 방문 없이 금액을 확정하면 분쟁이 납니다. 그래서 <b>범위 견적 + 실측 예약</b> 흐름을 따로 둡니다.</div>
+      <div class="ind-grid">
+        <article class="ind">
+          <div class="ind-head"><h3>입주청소</h3><span class="chip done">완료 · 확정</span></div>
+          <dl>
+            <dt>계산</dt><dd>평수 × 평당 단가 (최소 금액)</dd>
+            <dt>가격</dt><dd>평당 단가, 최소 금액, 면적 기준(공급/전용), 인원 기준</dd>
+            <dt>할증</dt><dd>신축 · 주말·공휴일 · 손 없는 날 · 오전 첫 타임</dd>
+            <dt>옵션</dt><dd>곰팡이 · 베란다 추가 · 붙박이장 · 새집증후군 · 외창 · 스티커</dd>
+            <dt>분쟁 체크</dt><dd class="risk">곰팡이 · 붙박이장 · 스티커 · 애완동물 · 기름때 · 주차 · 엘리베이터</dd>
+            <dt>사진</dt><dd>창틀 · 욕실 · 베란다 · 주방 · 거실</dd>
+          </dl>
+        </article>
+        <article class="ind">
+          <div class="ind-head"><h3>에어컨 청소</h3><span class="chip fixed">확정</span></div>
+          <dl>
+            <dt>계산</dt><dd>Σ 대수 × 형태별 단가</dd>
+            <dt>가격</dt><dd>벽걸이 · 스탠드 · 2in1 · 천장형 1way/4way · 실외기 단가, 일반/완전분해 차이, 2대 이상 할인, 최소 출장 금액</dd>
+            <dt>할증</dt><dd>성수기(6~8월) · 주말</dd>
+            <dt>옵션</dt><dd>실외기 세척 · 항균 코팅 · 배수 점검</dd>
+            <dt>분쟁 체크</dt><dd class="risk">설치 높이(사다리) · 실외기 위치(난간 외부) · 10년 이상 제품(부품 파손 면책) · 심한 냄새</dd>
+            <dt>사진</dt><dd>실내기 전면 · 모델명 스티커 · 실외기 위치</dd>
+          </dl>
+        </article>
+        <article class="ind">
+          <div class="ind-head"><h3>줄눈·탄성코트</h3><span class="chip fixed">확정</span></div>
+          <dl>
+            <dt>계산</dt><dd>시공 부위 × 부위별 단가 (욕실 1개당, 베란다 평당)</dd>
+            <dt>가격</dt><dd>소재 등급(폴리우레아/에폭시/케라폭시), 색상 추가비, 기존 줄눈 제거비, AS 기간</dd>
+            <dt>할증</dt><dd>구축(기존 제거 필요) · 주말</dd>
+            <dt>옵션</dt><dd>현관 · 주방 벽 · 베란다 바닥 · 실리콘 교체</dd>
+            <dt>분쟁 체크</dt><dd class="risk">기존 줄눈 깨짐 · 타일 들뜸 · 곰팡이 · 시공 후 24시간 사용 금지</dd>
+            <dt>사진</dt><dd>욕실 바닥 · 벽 모서리 · 현관</dd>
+          </dl>
+        </article>
+        <article class="ind">
+          <div class="ind-head"><h3>커튼·블라인드</h3><span class="chip range">범위 → 실측</span></div>
+          <dl>
+            <dt>계산</dt><dd>Σ 창마다 (폭 × 제품 단가) + 설치비</dd>
+            <dt>가격</dt><dd>제품 라인(암막/쉬폰/콤비/우드/롤), 폭 m당 또는 회배 단가, 최소 폭, 창당 설치비, 실측 방문비(계약 시 차감?), 제작 기간</dd>
+            <dt>할증</dt><dd>천장 2.6m 초과 · 전동</dd>
+            <dt>옵션</dt><dd>레일 · 전동 모터 · 타공</dd>
+            <dt>분쟁 체크</dt><dd class="risk">커튼박스 유무 · 콘크리트 타공 가능 여부 · 관리사무소 타공 제한 · 맞춤 제작 반품 불가</dd>
+            <dt>사진</dt><dd>창 전체 · 커튼박스 · 천장</dd>
+          </dl>
+        </article>
+        <article class="ind">
+          <div class="ind-head"><h3>중문</h3><span class="chip range">범위 → 실측</span></div>
+          <dl>
+            <dt>계산</dt><dd>제품 기본가 + 사이즈 구간 + 유리·색상 + 철거</dd>
+            <dt>가격</dt><dd>종류별 기본가(3연동/원슬라이딩/스윙/슬림/자동), 사이즈 구간, 유리(투명/아쿠아/샤틴/망입), 프레임 색, 철거비, 계약금 비율(제작품이라 높게)</dd>
+            <dt>할증</dt><dd>비표준 사이즈 · 하부 레일 매립</dd>
+            <dt>옵션</dt><dd>고정창 · 손잡이 · 자동 센서</dd>
+            <dt>분쟁 체크</dt><dd class="risk">바닥 수평 · 신발장 간섭 · 천장 몰딩 · 제작 후 취소 불가</dd>
+            <dt>사진</dt><dd>현관 정면 · 천장 · 바닥</dd>
+          </dl>
+        </article>
+        <article class="ind">
+          <div class="ind-head"><h3>이사</h3><span class="chip range">범위 → 방문</span></div>
+          <dl>
+            <dt>계산</dt><dd>차량 톤수 + 인원 + 거리 구간 + 층수·사다리차 + 특수물품</dd>
+            <dt>가격</dt><dd>이사 형태(포장/반포장/일반/원룸), 톤수별 기본가, 인원당 비용, 거리 구간, 사다리차, 엘리베이터 없을 때 층당 추가, 피아노·금고, 보관 일당</dd>
+            <dt>할증</dt><dd>손 없는 날(큼) · 주말 · 월말 · 성수기(2~3월)</dd>
+            <dt>옵션</dt><dd>에어컨 탈부착 · 정리수납 · 폐기물</dd>
+            <dt>분쟁 체크</dt><dd class="risk">짐량 · 사다리차 진입 · 엘리베이터 예약 · 파손 보상 범위</dd>
+            <dt>사진</dt><dd>방마다 짐 · 대형가구 · 진입로</dd>
+          </dl>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-04 -->
+  <section class="sheet" id="a04">
+    <div class="sheet-head">
+      <div class="title"><h2>견적 화면 흐름도</h2><p class="muted small">문의 1건이 계약까지 가는 길 · 누가 무엇을 하나</p></div>
+      <div class="stamp">도면 <b>A-04</b><br>화면 흐름도 · 고객/사장님</div>
+    </div>
+    <div class="sheet-body">
+      <div class="flow">
+        <div class="box"><span class="who o">사장님</span><b>링크 보내기</b><span class="small muted">문의 오면 10초</span></div>
+        <div class="box ok"><span class="who c">고객</span><b>서비스 선택</b><span class="small muted">업종이 2개 이상일 때만</span></div>
+        <div class="box ok"><span class="who c">고객</span><b>질문·체크·사진</b><span class="small muted">한 화면 1~2문항</span></div>
+        <div class="box"><span class="who s">서버</span><b>사장님 알림</b><span class="small muted">새 요청 푸시</span></div>
+        <div class="box core"><span class="who o">사장님</span><b>확인·수정</b><span class="small muted">자동 계산된 금액</span></div>
+        <div class="box core"><span class="who o">사장님</span><b>1탭 발송</b><span class="small muted">문구+링크 복사</span></div>
+        <div class="box ok"><span class="who c">고객</span><b>견적서 확인</b><span class="small muted">포함·불포함·⚠️</span></div>
+        <div class="box ok"><span class="who c">고객</span><b>예약 요청·계약금</b></div>
+        <div class="box"><span class="who o">사장님</span><b>계약확정</b></div>
+      </div>
+      <div class="note">범위 견적 업종(커튼·중문·이사)은 "견적서 확인" 다음에 <b>실측·방문 예약 → 사장님이 실측값 입력 → 확정 견적 재발송</b> 단계가 들어갑니다. 같은 화면을 쓰고, 템플릿의 <code>quoteMode: "range"</code> 로 켜집니다.</div>
+      <div class="row">
+        <div class="box"><span class="k">지표 ①</span><b>첫 응답 시간</b><span class="small muted">문의 → 링크 받기</span></div>
+        <div class="box"><span class="k">지표 ②</span><b>견적 발송 시간</b><span class="small muted">접수 → 발송</span></div>
+        <div class="box"><span class="k">지표 ③</span><b>계약 전환율</b><span class="small muted">발송 → 확정</span></div>
+        <div class="box"><span class="k">지표 ④</span><b>현장 추가요금 발생률</b><span class="small muted">분쟁 예방 효과</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-05 -->
+  <section class="sheet" id="a05">
+    <div class="sheet-head">
+      <div class="title"><h2>데이터 구조도</h2><p class="muted small">무엇을 어디에 저장하고, 누가 볼 수 있나</p></div>
+      <div class="stamp">도면 <b>A-05</b><br>ERD · Firestore</div>
+    </div>
+    <div class="sheet-body">
+      <div class="legend">
+        <span><i style="background:var(--accent)"></i>공개 (링크로 읽기)</span>
+        <span><i style="background:var(--warn)"></i>비공개 (사장님만)</span>
+        <span><i style="background:var(--ext)"></i>서버만 쓰기</span>
+      </div>
+      <div class="erd">
+        <div class="tbl"><div class="th"><span>shops/{shopId}</span><span>업체</span></div>
+          <ul><li><span>slug</span><span>짧은 링크 주소</span></li><li><span>name · phone · logo</span><span>견적서 표시</span></li><li><span>services[ ]</span><span>업종 메뉴</span></li><li><span>members{uid:역할}</span><span>사장님·직원</span></li><li><span>manduId</span><span>채팅 연결</span></li></ul></div>
+        <div class="tbl priv"><div class="th"><span>shops/…/pricing/{serviceId}</span><span>단가표</span></div>
+          <ul><li><span>단가 · 최소금액</span><span>업종별</span></li><li><span>할증 % · 옵션 원</span><span></span></li><li><span>정책</span><span>계약금·취소·유효기간</span></li></ul></div>
+        <div class="tbl"><div class="th"><span>templates/{id}</span><span>업종 템플릿</span></div>
+          <ul><li><span>setup</span><span>가입 마법사 질문</span></li><li><span>steps</span><span>고객 질문</span></li><li><span>pricing.base.type</span><span>계산 방식</span></li><li><span>quoteMode</span><span>확정/범위</span></li><li><span>checklist · photos</span><span>분쟁 예방</span></li></ul></div>
+        <div class="tbl priv"><div class="th"><span>requests/{id}</span><span>견적 요청</span></div>
+          <ul><li><span>shopId · serviceId</span><span></span></li><li><span>answers · items · checklist</span><span>고객 입력</span></li><li><span>photos[ ]</span><span>사장님만 열람</span></li><li><span>channel</span><span>유입 경로</span></li><li><span>preferredSlots</span><span>희망 일정 1·2순위</span></li><li><span>createdAt … confirmedAt</span><span>지표용 시각</span></li></ul></div>
+        <div class="tbl"><div class="th"><span>quotes/{id}</span><span>견적서</span></div>
+          <ul><li><span>lines · total · deposit</span><span></span></li><li><span>포함 · 불포함 · ⚠️조건</span><span></span></li><li><span>labor</span><span>예상 인원 × 시간</span></li><li><span>slot · holdUntil</span><span>제안 일정·가예약</span></li><li><span>status</span><span>고객은 '예약요청'만</span></li></ul></div>
+        <div class="tbl priv"><div class="th"><span>shops/…/staff · jobs</span><span>일정·인력</span></div>
+          <ul><li><span>staff</span><span>근무 요일·휴무·가능 업무</span></li><li><span>jobs</span><span>날짜·시간·인원·배정 직원</span></li><li><span>jobs/…/actuals</span><span>실제 걸린 시간·완료 사진</span></li><li><span>schedule/settings</span><span>배정 방식·이동 시간</span></li></ul></div>
+        <div class="tbl srv"><div class="th"><span>서버 전용 필드</span><span>위조 방지</span></div>
+          <ul><li><span>quotes.payment</span><span>결제 확인</span></li><li><span>shops.plan</span><span>체험·충전·혼자·팀·회사</span></li><li><span>billing · ledger</span><span>크레딧 잔액·차감 기록</span></li><li><span>shops/…/stats</span><span>내 숫자 집계</span></li><li><span>public/availability</span><span>고객 달력용 남은 자리</span></li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-06 -->
+  <section class="sheet" id="a06">
+    <div class="sheet-head">
+      <div class="title"><h2>계층 규칙</h2><p class="muted small">코드가 엉망이 되지 않게 하는 칸막이 · 새 기능은 반드시 한 칸에만 들어간다</p></div>
+      <div class="stamp">도면 <b>A-06</b><br>레이어 다이어그램</div>
+    </div>
+    <div class="sheet-body">
+      <div class="layers">
+        <div class="layer"><div class="nm">업종 템플릿<span class="mono">templates/*.json</span></div><div class="yes">질문·체크리스트·계산 규칙·기본 단가·가입 마법사</div><div class="no">코드(함수) 넣기</div></div>
+        <div class="layer" style="border-color:var(--accent)"><div class="nm">계산 엔진<span class="mono">js/core/</span></div><div class="yes">템플릿 해석, 계산, 검증. 테스트 필수</div><div class="no">화면·Firebase 접근</div></div>
+        <div class="layer"><div class="nm">데이터<span class="mono">js/data/</span></div><div class="yes">Firestore·Storage 읽기/쓰기를 여기서만</div><div class="no">계산, 화면 그리기</div></div>
+        <div class="layer"><div class="nm">화면<span class="mono">js/pages/ · js/ui/</span></div><div class="yes">그리기와 클릭 처리</div><div class="no">계산 공식, 업종 이름으로 if 분기</div></div>
+        <div class="layer" style="border-color:var(--ext)"><div class="nm">서버 함수<span class="mono">functions/</span></div><div class="yes">비밀키·결제·문자·AI·알림</div><div class="no">화면</div></div>
+      </div>
+      <div class="note blue"><b>새 기능 체크리스트:</b> ① 지표 4개 중 무엇을 개선하나 ② 어느 칸에 들어가나 ③ 업종마다 다르면 템플릿으로 ④ 돈·비밀키면 서버로 ⑤ 데이터 필드가 늘면 규칙·테스트도 같이 ⑥ 테스트 통과 후 합치기</div>
+    </div>
+  </section>
+
+  <!-- A-07 -->
+  <section class="sheet" id="a07">
+    <div class="sheet-head">
+      <div class="title"><h2>로드맵</h2><p class="muted small">각 단계는 "끝났다는 기준"을 채워야 다음으로 간다</p></div>
+      <div class="stamp">도면 <b>A-07</b><br>단계별 계획</div>
+    </div>
+    <div class="sheet-body">
+      <div class="road">
+        <div class="stage"><div class="rail"><div class="dot">0</div><div class="bar"></div></div>
+          <div class="body"><h3>MVP · 입주청소</h3><div class="tags"><span>고객 입력</span><span>자동 계산</span><span>1탭 발송</span><span>견적서·예약</span><span>만두 채팅 버튼</span></div><p class="done-when"><b>완료</b> · 시나리오 560,000원 통과, 실서비스 배포</p></div></div>
+        <div class="stage now"><div class="rail"><div class="dot">1</div><div class="bar"></div></div>
+          <div class="body"><h3>기반 정리 · 여러 업체 × 여러 업종</h3><div class="tags"><span>업체 ID·slug</span><span>업종 선택</span><span>업종별 설정 마법사</span><span>서비스별 단가표</span><span>새 요청 푸시 알림</span><span>요금제·추천·역할·크레딧 칸</span><span>무료 10건·발송 시 차감</span><span>폴더 계층 분리</span><span>목록 최근 100건</span><span>지표 시각 기록</span></div><p class="done-when">기준 · 입주청소 시나리오 그대로 통과 + 업종 2개 설정 + 가입~링크 공유 10분 이내</p></div></div>
+        <div class="stage"><div class="rail"><div class="dot">2</div><div class="bar"></div></div>
+          <div class="body"><h3>업종 확장 + 일정 선택</h3><div class="tags"><span>에어컨 청소</span><span>줄눈·탄성</span><span>예약 가능일 달력</span><span>내 숫자 카드(채널별)</span><span>홈페이지 임베드·위젯</span><span>QR</span><span>DiCA 버튼</span></div><p class="done-when">기준 · 협력 업체 1곳이 2개 업종으로 견적 10건</p></div></div>
+        <div class="stage"><div class="rail"><div class="dot">3</div><div class="bar"></div></div>
+          <div class="body"><h3>계약까지 닫기</h3><div class="tags"><span>범위 견적·실측 예약</span><span>가예약 → 계약금 → 확정</span><span>알림톡</span><span>미응답 재연락</span><span>인력 기반 가능 시간·일정표</span></div><p class="done-when">기준 · 결제 1건 성공, 직원 있는 협력 업체 일정 1주 운영</p></div></div>
+        <div class="stage"><div class="rail"><div class="dot">4</div><div class="bar"></div></div>
+          <div class="body"><h3>판매 준비</h3><div class="tags"><span>크레딧 구매·월정액</span><span>추천 보상·고객 쿠폰</span><span>직원 앱</span><span>커튼·블라인드</span><span>중문</span><span>운영자 화면</span><span>스팸 방지</span><span>구글 캘린더</span></div><p class="done-when">기준 · 외부 업체 3곳 사용, 크레딧 구매 1곳</p></div></div>
+        <div class="stage"><div class="rail"><div class="dot">5</div></div>
+          <div class="body"><h3>고도화</h3><div class="tags"><span>이사</span><span>AI 시간 예측 보정</span><span>AI 사진 분석</span><span>단가표 역산</span><span>AI 통화(데이터 보고 결정)</span></div><p class="done-when">기준 · 지표가 정체된 곳부터</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-08 -->
+  <section class="sheet" id="a08">
+    <div class="sheet-head">
+      <div class="title"><h2>사용자 여정 지도</h2><p class="muted small">사람별로 처음 알게 된 순간부터 계속 쓰기까지 · 앱 설치는 사장님만, 고객은 링크만</p></div>
+      <div class="stamp">도면 <b>A-08</b><br>User Journey Map</div>
+    </div>
+    <div class="sheet-body">
+      <h3>사장님 <span class="who o">앱 설치</span></h3>
+      <div class="flow">
+        <div class="box"><b>알게 됨</b><span class="small muted">BNI 발표 · 명함 · 추천</span><span class="small">장치: 추천 코드</span></div>
+        <div class="box"><b>설치·가입</b><span class="small muted">홈 화면 추가 / 스토어 → 구글 로그인 · 1분</span></div>
+        <div class="box core"><b>첫 세팅</b><span class="small muted">업종 선택 → 마법사 → 샘플 견적 · 10분</span><span class="small">장치: 기본값·중간 저장</span></div>
+        <div class="box core"><b>첫 링크 공유</b><span class="small muted">홈페이지·카톡 프로필·명함·만두·QR·자동응답</span><span class="small">장치: 붙일 곳 체크리스트</span></div>
+        <div class="box ok"><b>매일 쓰기</b><span class="small muted">🔔 → 확인 → 1탭 발송 → 확정</span><span class="small">장치: 푸시 알림</span></div>
+        <div class="box"><b>효과 확인</b><span class="small muted">내 숫자: 발송 시간·계약률</span></div>
+        <div class="box warn"><b>유료 전환</b><span class="small muted">한도 초과 · 팀 기능</span></div>
+        <div class="box"><b>추천</b><span class="small muted">다른 사장님에게 코드 공유 → 처음으로</span></div>
+      </div>
+      <div class="note">이탈이 가장 많은 구간은 <b>첫 세팅 → 첫 링크 공유</b>입니다. 가입 후 10분 안에 링크를 어딘가에 붙이게 만드는 것이 목표입니다. <b>푸시 알림이 없으면 사장님이 앱을 열지 않으므로</b> 알림은 1단계에 넣습니다.</div>
+      <h3>고객 <span class="who c">설치 없음 · 링크</span></h3>
+      <div class="flow">
+        <div class="box ok"><b>문의</b><span class="small muted">카톡·전화·명함·만두 → 링크 받음</span></div>
+        <div class="box ok"><b>입력</b><span class="small muted">서비스·질문·사진 · 3분</span></div>
+        <div class="box ok"><b>견적서</b><span class="small muted">카톡·문자 링크로 확인</span></div>
+        <div class="box ok"><b>날짜 선택·예약</b><span class="small muted">가능한 날 중 고르기 → 계약금</span></div>
+        <div class="box ok"><b>작업 후</b><span class="small muted">후기 요청 링크</span></div>
+      </div>
+      <div class="note"><b>고객 앱·업체 선택(중개 플랫폼)은 만들지 않습니다.</b> 고객 화면에 경쟁 업체가 보이면 사장님이 링크를 뿌리지 않기 때문입니다. <b>절대 규칙: 사장님 링크로 들어온 고객에게는 다른 업체를 보여주지 않는다.</b></div>
+      <div class="row">
+        <div class="box ok"><span class="k">대신 · 3~4단계</span><b>내 견적함</b><span class="small muted">받은 견적·예약을 링크 하나로. 이용한 업체만</span></div>
+        <div class="box ok"><span class="k">대신 · 3단계</span><b>재방문 알림</b><span class="small muted">에어컨 1년 등 주기별, 그 업체 이름으로</span></div>
+        <div class="box ok"><span class="k">대신 · 나중</span><b>업체 간 소개</b><span class="small muted">사장님이 고른 협력 업체만. BNI 리퍼럴 방식</span></div>
+      </div>
+      <h3>운영자(우리) <span class="who s">관리</span></h3>
+      <div class="row">
+        <div class="box"><b>업종 템플릿</b><span class="small muted">협력 업체와 검증 후 추가</span></div>
+        <div class="box"><b>전체 지표</b><span class="small muted">업체 수 · 견적 수 · 전환율 · 이탈 지점</span></div>
+        <div class="box"><b>문의 응대</b><span class="small muted">만두 채팅</span></div>
+        <div class="box"><b>요금 관리</b><span class="small muted">무료 · 프로 · 팀</span></div>
+      </div>
+      <div class="row">
+        <div class="box"><span class="k">배포 1 · 지금</span><b>홈 화면에 추가</b><span class="small muted">아이폰은 추가해야 푸시 가능 (iOS 16.4+)</span></div>
+        <div class="box"><span class="k">배포 2 · 조건부</span><b>플레이스토어</b><span class="small muted">설치 이탈 데이터가 보일 때 · 만두 TWA 방식 재사용</span></div>
+        <div class="box"><span class="k">배포 3 · 나중</span><b>앱스토어</b><span class="small muted">사용자가 많이 늘면</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-09 -->
+  <section class="sheet" id="a09">
+    <div class="sheet-head">
+      <div class="title"><h2>일정·인력 관리</h2><p class="muted small">누가 날짜를 정하나 · 직원 여러 명일 때 가능 시간은 어떻게 변하나</p></div>
+      <div class="stamp">도면 <b>A-09</b><br>스케줄링 구조</div>
+    </div>
+    <div class="sheet-body">
+      <h3>날짜 정하기: 사장님이 틀을 정하고, 고객이 고르고, 사장님이 확정</h3>
+      <div class="flow">
+        <div class="box"><span class="who o">사장님 · 1번</span><b>가능한 틀</b><span class="small muted">영업 요일·시간, 쉬는 날, 직원 수</span></div>
+        <div class="box ok"><span class="who c">고객</span><b>1·2순위 선택</b><span class="small muted">가능/마감 달력, 할증일 +10% 표시</span></div>
+        <div class="box core"><span class="who o">사장님</span><b>일정 확정 제안</b><span class="small muted">견적과 함께 발송</span></div>
+        <div class="box warn"><span class="who c">고객</span><b>예약 요청 = 가예약</b><span class="small muted">24시간 자리 잡아둠</span></div>
+        <div class="box ok"><span class="who o">사장님</span><b>확정</b><span class="small muted">계약확정 또는 계약금 결제</span></div>
+      </div>
+      <h3>직원 10명 업체의 하루: "몇 명 × 몇 시간"으로 계산</h3>
+      <div class="scroll-x">
+        <svg viewBox="0 0 760 210" width="760" role="img" aria-label="직원 10명의 하루 일정 예시">
+          <g font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--muted)">
+            <text x="96" y="16">08</text><text x="156" y="16">09</text><text x="216" y="16">10</text><text x="276" y="16">11</text><text x="336" y="16">12</text><text x="396" y="16">13</text><text x="456" y="16">14</text><text x="516" y="16">15</text><text x="576" y="16">16</text><text x="636" y="16">17</text><text x="696" y="16">18</text>
+          </g>
+          <g stroke="var(--line)" stroke-width="1">
+            <line x1="100" y1="24" x2="100" y2="200"/><line x1="160" y1="24" x2="160" y2="200"/><line x1="220" y1="24" x2="220" y2="200"/><line x1="280" y1="24" x2="280" y2="200"/><line x1="340" y1="24" x2="340" y2="200"/><line x1="400" y1="24" x2="400" y2="200"/><line x1="460" y1="24" x2="460" y2="200"/><line x1="520" y1="24" x2="520" y2="200"/><line x1="580" y1="24" x2="580" y2="200"/><line x1="640" y1="24" x2="640" y2="200"/><line x1="700" y1="24" x2="700" y2="200"/>
+          </g>
+          <g font-family="IBM Plex Sans KR, sans-serif" font-size="12" fill="var(--ink)">
+            <text x="8" y="56">직원 1–2</text><text x="8" y="106">직원 3–5</text><text x="8" y="166">직원 6–10</text>
+          </g>
+          <rect x="100" y="36" width="180" height="32" rx="5" fill="var(--ok-soft)" stroke="var(--ok)"/>
+          <text x="110" y="57" font-size="12" fill="var(--ink)" font-family="IBM Plex Sans KR, sans-serif">A · 2명 × 3h</text>
+          <rect x="280" y="36" width="60" height="32" rx="5" fill="var(--paper)" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <text x="290" y="57" font-size="11" fill="var(--muted)" font-family="IBM Plex Sans KR, sans-serif">이동</text>
+          <rect x="340" y="36" width="180" height="32" rx="5" fill="var(--ok-soft)" stroke="var(--ok)"/>
+          <text x="350" y="57" font-size="12" fill="var(--ink)" font-family="IBM Plex Sans KR, sans-serif">A′ · 2명 × 3h</text>
+          <rect x="100" y="86" width="180" height="32" rx="5" fill="var(--accent-soft)" stroke="var(--accent)"/>
+          <text x="110" y="107" font-size="12" fill="var(--ink)" font-family="IBM Plex Sans KR, sans-serif">B · 3명 × 3h</text>
+          <rect x="280" y="86" width="60" height="32" rx="5" fill="var(--paper)" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <text x="290" y="107" font-size="11" fill="var(--muted)" font-family="IBM Plex Sans KR, sans-serif">이동</text>
+          <rect x="340" y="86" width="360" height="32" rx="5" fill="none" stroke="var(--ok)" stroke-width="2" stroke-dasharray="6 4"/>
+          <text x="352" y="107" font-size="12" fill="var(--ok)" font-family="IBM Plex Sans KR, sans-serif">비어 있음 → 3명 × 3h 청소 가능</text>
+          <rect x="100" y="136" width="360" height="52" rx="5" fill="var(--warn-soft)" stroke="var(--warn)"/>
+          <text x="110" y="167" font-size="12" fill="var(--ink)" font-family="IBM Plex Sans KR, sans-serif">C · 5명 × 6h (50평 신축 + 곰팡이)</text>
+          <rect x="460" y="136" width="60" height="52" rx="5" fill="var(--paper)" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <text x="470" y="167" font-size="11" fill="var(--muted)" font-family="IBM Plex Sans KR, sans-serif">이동</text>
+          <text x="530" y="167" font-size="12" fill="var(--warn)" font-family="IBM Plex Sans KR, sans-serif">남은 시간 부족</text>
+        </svg>
+      </div>
+      <div class="row">
+        <div class="box ok"><span class="k">20평 고객이 보는 달력</span><b>이날 오후 가능</b><span class="small muted">2~3명 × 3시간이면 들어감</span></div>
+        <div class="box warn"><span class="k">50평 고객이 보는 달력</span><b>이날 마감</b><span class="small muted">5명 × 6시간 자리가 없음 → 다른 날만 보임</span></div>
+      </div>
+      <h3>역할 분담</h3>
+      <div class="layers">
+        <div class="layer"><div class="nm">필요 인원 × 시간<span class="mono">템플릿 labor</span></div><div class="yes">업종 기본 규칙 → 업체 수정 → 실제 기록으로 AI 보정</div><div class="no">기록 없이 AI 단독 추측</div></div>
+        <div class="layer" style="border-color:var(--accent)"><div class="nm">그 시간에 비어 있나<span class="mono">정확한 계산</span></div><div class="yes">직원 근무·배정·이동 시간으로 계산</div><div class="no">AI 추측 (중복 예약 사고)</div></div>
+        <div class="layer"><div class="nm">고객 달력<span class="mono">public/availability</span></div><div class="yes">고객 청소 규모별로 가능한 날만 표시</div><div class="no">다른 고객 예약 노출</div></div>
+      </div>
+      <div class="note blue"><b>설정은 업체가, 기본값은 우리가, 보정은 데이터가.</b> 배정 방식(고정 팀/매번 조합), 이동 시간, 근무 시간, 투입 인원은 업체가 고르는 설정 칸입니다. 1인 사장님은 일정 관리를 꺼두고 날짜만 받습니다. AI 보정은 업체당 실제 기록 30~50건부터 의미가 있습니다.</div>
+      <div class="row">
+        <div class="box"><span class="who o">사장님</span><b>일정표</b><span class="small muted">직원 × 시간, 끌어서 변경</span></div>
+        <div class="box"><span class="who o">사장님</span><b>직원 관리</b><span class="small muted">근무·휴무·가능 업무</span></div>
+        <div class="box ok"><span class="who s">직원</span><b>오늘 내 현장</b><span class="small muted">시작 → 완료 → 완료 사진</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-10 -->
+  <section class="sheet" id="a10">
+    <div class="sheet-head">
+      <div class="title"><h2>요금·크레딧·성장</h2><p class="muted small">요금 흐름 · 크레딧 · 추천 · 업체마다 다른 요구를 받아들이는 방식</p></div>
+      <div class="stamp">도면 <b>A-10</b><br>사업 구조</div>
+    </div>
+    <div class="sheet-body">
+      <h3>요금 흐름: 써보기 → 쓴 만큼 → 내 사용량으로 월정액</h3>
+      <div class="flow">
+        <div class="box ok"><span class="k">체험</span><b>처음 10건 무료</b><span class="small muted">돈 없이 효과 확인</span></div>
+        <div class="box core"><span class="k">충전</span><b>크레딧 사서 쓴 만큼 차감</b><span class="small muted">수요를 몰라도 손해 없음</span></div>
+        <div class="box"><span class="k">2~3개월 후</span><b>월정액 자동 추천</b><span class="small muted">"평균 월 28건 → ○○가 월 ○원 저렴"</span></div>
+        <div class="box warn"><span class="k">월정액</span><b>혼자 · 팀 · 회사</b><span class="small muted">초과분은 크레딧. 충전형 유지도 가능</span></div>
+      </div>
+      <div class="row">
+        <div class="box"><span class="k">혼자 · solo</span><b>1인 사장님</b><span class="small muted">여러 업종 · 알림 · 계약금 결제</span></div>
+        <div class="box core"><span class="k">팀 · team</span><b>직원 몇 명</b><span class="small muted">혼자 + 일정·인력 관리 · 직원 앱</span></div>
+        <div class="box warn"><span class="k">회사 · company</span><b>직원 많은 업체</b><span class="small muted">팀 + 규모 확대 · AI 시간 예측</span></div>
+      </div>
+      <div class="layers">
+        <div class="layer" style="border-color:var(--accent)"><div class="nm">견적 발송<span class="mono">1 크레딧</span></div><div class="yes">사장님이 직접 누른 순간에 서버가 차감</div><div class="no">요청 접수 시 차감(스팸에도 비용)</div></div>
+        <div class="layer"><div class="nm">계약확정<span class="mono">차감 없음</span></div><div class="yes">확정을 편하게 누르게 해서 일정·지표 보호</div><div class="no">확정에 과금(확정을 안 누르게 됨)</div></div>
+        <div class="layer"><div class="nm">알림톡·AI<span class="mono">건당 소량</span></div><div class="yes">실제 비용이 드는 기능만</div><div class="no">화면에서 차감</div></div>
+      </div>
+      <h3>크레딧 두 종류 · 추천 보상</h3>
+      <div class="row">
+        <div class="box ok"><span class="k">무료 크레딧</span><b>체험 · 추천 보상</b><span class="small muted">먼저 차감 · 유효기간 · 환불 불가</span></div>
+        <div class="box"><span class="k">유료 크레딧</span><b>구매</b><span class="small muted">나중 차감 · 미사용분 환불 규정</span></div>
+        <div class="box ok"><span class="k">추천받은 업체</span><b>가입 즉시 +5건</b><span class="small muted">추천 코드를 넣을 이유</span></div>
+        <div class="box core"><span class="k">추천한 업체</span><b>상대가 견적 5건 발송 시 +10건</b><span class="small muted">가짜 가입 방지</span></div>
+      </div>
+      <div class="note">크레딧은 <b>현금 교환·양도·판매 불가, 서비스 이용료 전용</b>입니다. 유료 크레딧 환불·유효기간은 도입 전 세무사·법률 확인이 필요합니다. 숫자는 예시이며 협력 업체 데이터로 정합니다.</div>
+      <h3>성장: 써본 사람의 추천으로 퍼진다</h3>
+      <div class="row">
+        <div class="box"><b>자랑할 숫자</b><span class="small muted">내 숫자: 발송 시간·계약률</span></div>
+        <div class="box"><b>추천 코드</b><span class="small muted">크레딧 보상</span></div>
+        <div class="box"><b>업체 간 소개</b><span class="small muted">BNI 리퍼럴 구조</span></div>
+        <div class="box"><b>견적서 하단 표시</b><span class="small muted">월정액은 끄기 가능</span></div>
+        <div class="box"><b>협력 업체 사례</b><span class="small muted">전후 숫자 → BNI 발표</span></div>
+        <div class="box ok"><b>고객 쿠폰</b><span class="small muted">지인 소개 · 재방문 · 평일 할인 (업체별)</span></div>
+      </div>
+      <h3>업체마다 다른 요구를 받아들이는 방식</h3>
+      <div class="flow">
+        <div class="box ext"><b>초기 협력 업체 3~5곳</b><span class="small muted">BNI 청소·인테리어 멤버 · 무료/할인 ↔ 주 1회 15분 피드백 + 데이터</span></div>
+        <div class="box core"><b>공통점만 반영</b><span class="small muted">기본값 · 설정 칸 · 업종 템플릿</span></div>
+        <div class="box"><b>그 이후 업체</b><span class="small muted">피드백 대신 데이터: 예측 vs 실제, 자주 바꾸는 설정, 이탈 화면, 👍👎</span></div>
+      </div>
+      <div class="note blue">개별 업체 맞춤 개발은 하지 않습니다. 업체마다 다른 것은 <b>설정 칸</b>으로, 업종마다 다른 것은 <b>템플릿</b>으로 표현합니다. 이것이 코드를 하나로 유지하는 방법입니다.</div>
+      <h3>작업 방식 (사람 ↔ AI)</h3>
+      <div class="flow">
+        <div class="box"><b>아이디어</b><span class="small muted">어디서나</span></div>
+        <div class="box core"><b>결정 전 검토</b><span class="small muted">코드가 있는 곳에서 가능 여부·비용 확인</span></div>
+        <div class="box core"><b>설계도에 기록</b><span class="small muted">docs/설계도.md</span></div>
+        <div class="box"><b>짧은 지시문</b><span class="small muted">"설계도 8장 1단계 진행"</span></div>
+        <div class="box ok"><b>PR 1개 · 테스트 통과 · 머지</b></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>기준 문서: 저장소 <span class="mono">docs/설계도.md</span> · 이 도식은 그 문서를 그림으로 옮긴 것입니다.</footer>
+</div>

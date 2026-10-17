@@ -97,6 +97,13 @@ export function optionLabel(field, value) {
   return field?.options?.find((o) => o.value === value)?.label ?? value;
 }
 
+export const MANDU_ID_RE = /^[a-z0-9_]{3,20}$/;
+
+/** 만두 게스트 채팅 링크 (만두 ID 형식이 아니면 null) */
+export function manduHref(base, manduId) {
+  return MANDU_ID_RE.test(manduId || '') ? `${base}?u=${manduId}` : null;
+}
+
 export function telHref(phone) {
   return `tel:${String(phone || '').replace(/[^0-9+]/g, '')}`;
 }
