@@ -1,0 +1,485 @@
+{
+  "id": "moving",
+  "name": "이사",
+  "version": 1,
+  "status": "draft",
+  "draftNote": "⚠️ 업계 일반 기준으로 만든 예시 초안입니다. 실제 사장님 단가·질문으로 검증 후 사용하세요.",
+  "description": "포장·반포장·일반·원룸 이사",
+  "quoteMode": "range",
+  "rangePct": 15,
+  "steps": [
+    {
+      "title": "연락처를 알려주세요",
+      "description": "견적이 나오면 이 번호로 안내드립니다.",
+      "fields": [
+        {
+          "key": "name",
+          "label": "성함",
+          "type": "text",
+          "required": true,
+          "placeholder": "홍길동",
+          "maxLength": 30
+        },
+        {
+          "key": "phone",
+          "label": "연락처",
+          "type": "tel",
+          "required": true,
+          "placeholder": "010-0000-0000",
+          "maxLength": 20
+        }
+      ]
+    },
+    {
+      "title": "어디인가요?",
+      "fields": [
+        {
+          "key": "region",
+          "label": "주소 (시/구까지만)",
+          "type": "text",
+          "required": true,
+          "placeholder": "예) 부산 부산진구",
+          "maxLength": 40
+        }
+      ]
+    },
+    {
+      "title": "언제 원하시나요?",
+      "fields": [
+        {
+          "key": "date",
+          "label": "희망 날짜",
+          "type": "date",
+          "required": true
+        }
+      ]
+    },
+    {
+      "title": "이사 형태와 짐 양",
+      "fields": [
+        {
+          "key": "moveType",
+          "label": "이사 형태",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "full",
+              "label": "포장이사"
+            },
+            {
+              "value": "half",
+              "label": "반포장"
+            },
+            {
+              "value": "basic",
+              "label": "일반이사"
+            },
+            {
+              "value": "studio",
+              "label": "원룸이사"
+            }
+          ]
+        },
+        {
+          "key": "truckTon",
+          "label": "짐 양 (차량 톤수, 모르면 집 크기 기준)",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "1",
+              "label": "1톤 (원룸)"
+            },
+            {
+              "value": "2.5",
+              "label": "2.5톤 (투룸)"
+            },
+            {
+              "value": "5",
+              "label": "5톤 (20~30평)"
+            },
+            {
+              "value": "10",
+              "label": "10톤 (40평 이상)"
+            }
+          ]
+        },
+        {
+          "key": "crew",
+          "label": "작업 인원 (모르면 2)",
+          "type": "stepper",
+          "required": true,
+          "min": 1,
+          "max": 10,
+          "default": 3
+        }
+      ]
+    },
+    {
+      "title": "거리와 층수",
+      "fields": [
+        {
+          "key": "distanceKm",
+          "label": "이동 거리 (km, 대략)",
+          "type": "number",
+          "required": true,
+          "min": 0,
+          "max": 600,
+          "placeholder": "예) 12"
+        },
+        {
+          "key": "floors",
+          "label": "출발지 층수",
+          "type": "number",
+          "required": true,
+          "min": 1,
+          "max": 60,
+          "placeholder": "예) 7"
+        },
+        {
+          "key": "elevator",
+          "label": "엘리베이터 사용 가능",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": true,
+              "label": "예"
+            },
+            {
+              "value": false,
+              "label": "아니오"
+            }
+          ]
+        },
+        {
+          "key": "ladder",
+          "label": "사다리차 필요",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": true,
+              "label": "예"
+            },
+            {
+              "value": false,
+              "label": "아니오/모름"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "추가요금 체크",
+      "description": "현장에서 추가요금 다툼이 없도록 미리 확인합니다. 잘 모르시면 '모름'을 눌러주세요.",
+      "fields": [
+        {
+          "key": "checklist",
+          "type": "checklist",
+          "required": true
+        }
+      ]
+    },
+    {
+      "title": "추가로 원하시는 서비스가 있나요?",
+      "description": "없으면 그냥 '다음'을 누르세요.",
+      "fields": [
+        {
+          "key": "extras",
+          "type": "extras"
+        }
+      ]
+    },
+    {
+      "title": "사진을 올려주세요",
+      "description": "방마다 짐 1장, 대형 가구, 건물 진입로를 찍어주세요. (나중에 짧은 영상 지원 예정)",
+      "fields": [
+        {
+          "key": "photos",
+          "type": "photos"
+        }
+      ]
+    },
+    {
+      "title": "남기실 말씀 (선택)",
+      "fields": [
+        {
+          "key": "memo",
+          "label": "요청사항",
+          "type": "textarea",
+          "maxLength": 500
+        }
+      ]
+    }
+  ],
+  "checklist": [
+    {
+      "key": "piano",
+      "short": "피아노·금고",
+      "label": "피아노·금고 등 특수 물품이 있나요?",
+      "risk": "yes",
+      "optionKey": "special"
+    },
+    {
+      "key": "aircon",
+      "short": "에어컨 이전",
+      "label": "에어컨 이전 설치가 필요한가요?",
+      "risk": "yes",
+      "optionKey": "airconMove"
+    },
+    {
+      "key": "ladderAccess",
+      "short": "사다리차 진입",
+      "label": "사다리차가 진입할 공간이 있나요?",
+      "risk": "no",
+      "conditionText": "사다리차 진입이 불가하면 인력 운반비가 추가됩니다."
+    },
+    {
+      "key": "elevatorBook",
+      "short": "엘리베이터 예약",
+      "label": "엘리베이터 사용 예약을 하셨나요?",
+      "risk": "no",
+      "conditionText": "엘리베이터 예약이 안 되면 작업 시간이 늘어 추가 비용이 생길 수 있습니다."
+    }
+  ],
+  "photoSlots": [
+    {
+      "key": "room",
+      "label": "방 짐"
+    },
+    {
+      "key": "furniture",
+      "label": "대형 가구"
+    },
+    {
+      "key": "access",
+      "label": "진입로"
+    }
+  ],
+  "pricing": {
+    "base": {
+      "type": "composite",
+      "label": "이사",
+      "minPriceKey": "minPrice",
+      "components": [
+        {
+          "key": "truck",
+          "label": "차량",
+          "type": "select",
+          "field": "truckTon",
+          "priceKey": "truck",
+          "optionsLabel": {
+            "1": "1톤",
+            "2.5": "2.5톤",
+            "5": "5톤",
+            "10": "10톤"
+          }
+        },
+        {
+          "key": "type",
+          "label": "이사 형태",
+          "type": "select",
+          "field": "moveType",
+          "priceKey": "moveType",
+          "optionsLabel": {
+            "full": "포장",
+            "half": "반포장",
+            "basic": "일반",
+            "studio": "원룸"
+          }
+        },
+        {
+          "key": "crew",
+          "label": "추가 인원 (기본 2명 초과분)",
+          "type": "perUnit",
+          "field": "crew",
+          "priceKey": "perCrew",
+          "unit": "명",
+          "freeQty": 2
+        },
+        {
+          "key": "distance",
+          "label": "거리",
+          "type": "tier",
+          "field": "distanceKm",
+          "tiersKey": "distance",
+          "unit": "km"
+        },
+        {
+          "key": "stairs",
+          "label": "계단 운반 (엘리베이터 없음)",
+          "type": "perUnit",
+          "field": "floors",
+          "priceKey": "perFloor",
+          "unit": "층",
+          "freeQty": 1,
+          "when": {
+            "field": "elevator",
+            "equals": false
+          }
+        },
+        {
+          "key": "ladder",
+          "label": "사다리차",
+          "type": "fixed",
+          "priceKey": "ladder",
+          "when": {
+            "field": "ladder",
+            "equals": true
+          }
+        }
+      ]
+    },
+    "surcharges": [
+      {
+        "key": "sonEomneun",
+        "label": "손 없는 날",
+        "when": {
+          "field": "$sonEomneun",
+          "equals": true
+        }
+      },
+      {
+        "key": "weekend",
+        "label": "주말·공휴일",
+        "when": {
+          "any": [
+            {
+              "field": "$weekend",
+              "equals": true
+            },
+            {
+              "field": "$holiday",
+              "equals": true
+            }
+          ]
+        }
+      },
+      {
+        "key": "monthEnd",
+        "label": "월말",
+        "when": {
+          "field": "$monthEnd",
+          "equals": true
+        }
+      }
+    ],
+    "options": [
+      {
+        "key": "special",
+        "label": "특수 물품 운반"
+      },
+      {
+        "key": "airconMove",
+        "label": "에어컨 이전 설치"
+      },
+      {
+        "key": "organize",
+        "label": "정리 수납",
+        "customerSelectable": true
+      },
+      {
+        "key": "waste",
+        "label": "폐기물 처리",
+        "customerSelectable": true
+      }
+    ],
+    "warnings": []
+  },
+  "defaults": {
+    "minPrice": 300000,
+    "truck": {
+      "1": 200000,
+      "2.5": 400000,
+      "5": 800000,
+      "10": 1400000
+    },
+    "moveType": {
+      "full": 400000,
+      "half": 200000,
+      "basic": 0,
+      "studio": 100000
+    },
+    "perCrew": 150000,
+    "distance": [
+      {
+        "upTo": 10,
+        "price": 0
+      },
+      {
+        "upTo": 30,
+        "price": 50000
+      },
+      {
+        "upTo": 100,
+        "price": 150000
+      },
+      {
+        "upTo": 600,
+        "price": 400000
+      }
+    ],
+    "perFloor": 20000,
+    "ladder": 150000,
+    "surcharges": {
+      "sonEomneun": 20,
+      "weekend": 10,
+      "monthEnd": 10
+    },
+    "options": {
+      "special": 150000,
+      "airconMove": 150000,
+      "organize": 200000,
+      "waste": 100000
+    },
+    "policy": {
+      "validDays": 7,
+      "depositPct": 10,
+      "cancelPolicy": "이사 7일 전까지 취소 시 계약금 환불, 이후 취소 시 계약금 환불 불가."
+    }
+  },
+  "labor": {
+    "perField": "crew",
+    "manHoursPer": 8,
+    "crew": {
+      "min": 2,
+      "max": 10,
+      "maxHours": 10
+    }
+  },
+  "included": [
+    "포장·운반·배치 (형태에 따라)",
+    "기본 보험"
+  ],
+  "excluded": [
+    "에어컨 이전 (요청 시 별도)",
+    "폐기물 처리 (요청 시 별도)",
+    "보관 이사"
+  ],
+  "sample": {
+    "customer": {
+      "name": "테스트 고객",
+      "phone": "010-0000-0000",
+      "region": "부산 부산진구"
+    },
+    "answers": {
+      "moveType": "full",
+      "truckTon": "5",
+      "crew": 4,
+      "distanceKm": 12,
+      "floors": 7,
+      "elevator": true,
+      "ladder": false,
+      "extras": [],
+      "memo": "테스트"
+    },
+    "checklist": {
+      "piano": "no",
+      "aircon": "yes",
+      "ladderAccess": "unknown",
+      "elevatorBook": "yes"
+    }
+  }
+}

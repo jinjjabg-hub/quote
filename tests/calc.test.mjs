@@ -85,3 +85,72 @@ test('isVerified / priceWarnings / round1000', () => {
   assert.equal(round1000(560400), 560000);
   assert.equal(round1000(560500), 561000);
 });
+
+// ---------- 업종 템플릿 전체 (개발자 모드 · 시뮬레이터와 같은 엔진) ----------
+import { lintTemplate, estimateLabor, buildContext } from '../js/calc.js';
+const index = JSON.parse(readFileSync(new URL('../templates/index.json', import.meta.url)));
+const load = (id) => JSON.parse(readFileSync(new URL(`../templates/${id}.json`, import.meta.url)));
+
+test('모든 업종 템플릿: 점검 오류 0건, 샘플 계산 결과가 0보다 큼', () => {
+  assert.ok(index.length >= 6);
+  for (const { id } of index) {
+    const t = load(id);
+    const errors = lintTemplate(t).filter((l) => l.level === 'error');
+    assert.deepEqual(errors, [], `${id} 점검 오류`);
+    const r = calculateQuote(t, mergePriceTable(t, {}), { answers: { date: '2026-10-21', ...t.sample.answers }, checklist: t.sample.checklist });
+    assert.ok(r.total > 0, `${id} 합계`);
+    assert.equal(r.lines.reduce((a, l) => a + l.amount, 0), r.total, `${id} 항목 합 = 합계`);
+    assert.ok(r.labor && r.labor.crew >= 1, `${id} 인력 예상`);
+  }
+});
+
+test('itemized: 에어컨 벽걸이 2 + 스탠드 1, 완전분해는 선택했을 때만', () => {
+  const t = load('aircon-cleaning');
+  const pt = mergePriceTable(t, {});
+  const base = { date: '2026-10-21', units: [{ type: 'wall', count: 2 }, { type: 'stand', count: 1 }] };
+  const r1 = calculateQuote(t, pt, { answers: { ...base, washLevel: 'normal' } });
+  assert.equal(r1.lines.filter((l) => l.type === 'base').reduce((a, l) => a + l.amount, 0), 2 * 80000 + 120000);
+  assert.ok(!r1.lines.some((l) => l.key === 'option:fullWash'));
+  const r2 = calculateQuote(t, pt, { answers: { ...base, washLevel: 'full' } });
+  assert.equal(r2.lines.find((l) => l.key === 'option:fullWash').amount, 3 * 30000);
+});
+
+test('itemized + 크기: 커튼 폭 합계 × 단가 + 창당 설치비, 범위 견적', () => {
+  const t = load('curtain-blind');
+  const r = calculateQuote(t, mergePriceTable(t, {}), { answers: { date: '2026-10-21', windows: [{ type: 'blackout', count: 2, size: 2.4 }] } });
+  assert.equal(r.lines.find((l) => l.key === 'base:blackout').amount, Math.round(4.8 * 45000));
+  assert.equal(r.lines.find((l) => l.key === 'base:perItemFee').amount, 2 * 20000);
+  assert.equal(r.quoteMode, 'range');
+  assert.ok(r.range.low < r.total && r.total < r.range.high);
+});
+
+test('composite: 중문 사이즈 구간 %, 이사 거리 구간·계단·사다리차', () => {
+  const d = load('entrance-door');
+  const rd = calculateQuote(d, mergePriceTable(d, {}), { answers: { date: '2026-10-21', doorType: 'sliding3', width: 200, glass: 'clear', removeOld: false } });
+  assert.equal(rd.lines.find((l) => l.key === 'base:size').amount, 900000 * 0.25);
+  const m = load('moving');
+  const pm = mergePriceTable(m, {});
+  const rm = calculateQuote(m, pm, { answers: { date: '2026-10-21', moveType: 'basic', truckTon: '1', crew: 2, distanceKm: 45, floors: 4, elevator: false, ladder: true } });
+  assert.equal(rm.lines.find((l) => l.key === 'base:distance').amount, 150000);
+  assert.equal(rm.lines.find((l) => l.key === 'base:stairs').amount, 3 * 20000);
+  assert.equal(rm.lines.find((l) => l.key === 'base:ladder').amount, 150000);
+  assert.ok(!rm.lines.some((l) => l.key === 'base:crew'), '기본 2명은 무료');
+});
+
+test('인력 예상: 입주청소 34평 신축 + 곰팡이', () => {
+  const t = load('move-in-cleaning');
+  const ctx = buildContext({ area: 34, isNew: true }, t);
+  const lab = estimateLabor(t, ctx, { mold: { on: true } });
+  // 34 × 0.27 = 9.18 + 곰팡이 2 = 11.18 → 신축 +20% = 13.4인시간 → 2명 × 7시간
+  assert.equal(lab.crew, 2);
+  assert.equal(lab.hours, 7);
+});
+
+test('lintTemplate: 흔한 실수를 잡는다', () => {
+  const bad = { id: 'x', name: 'x', steps: [{ fields: [{ key: 'name', type: 'text' }, { key: 'q', type: 'weird' }] }], pricing: { base: { quantityField: 'area' }, surcharges: [], options: [] }, checklist: [{ key: 'c', optionKey: 'nope' }], defaults: {} };
+  const msgs = lintTemplate(bad).map((l) => l.msg).join('\n');
+  assert.match(msgs, /알 수 없는 입력 형태/);
+  assert.match(msgs, /"phone"/);
+  assert.match(msgs, /수량 필드/);
+  assert.match(msgs, /옵션 "nope"/);
+});

@@ -54,10 +54,13 @@ function isLunarHoliday(date) {
  */
 export function dateFlags(dateStr) {
   const d = parseLocalDate(dateStr);
-  if (!d) return { $weekend: false, $holiday: false, $sonEomneun: false };
+  if (!d) return { $month: 0, $monthEnd: false, $weekend: false, $holiday: false, $sonEomneun: false };
   const mmdd = dateStr.slice(5);
   const lunar = lunarOf(d);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
   return {
+    $month: d.getMonth() + 1,
+    $monthEnd: d.getDate() >= lastDay - 2, // 말일 포함 마지막 3일
     $weekend: d.getDay() === 0 || d.getDay() === 6,
     $holiday: SOLAR_HOLIDAYS.includes(mmdd) || isLunarHoliday(d),
     // 손 없는 날: 음력 끝자리가 9, 0 인 날
@@ -79,28 +82,106 @@ export function evalWhen(when, ctx) {
   return false;
 }
 
-export function buildContext(answers = {}) {
-  return { ...answers, ...dateFlags(answers.date) };
+export function buildContext(answers = {}, template = null) {
+  const ctx = { ...answers, ...dateFlags(answers.date) };
+  const itemsField = template?.pricing?.base?.itemsField;
+  const items = itemsField && Array.isArray(answers[itemsField]) ? answers[itemsField] : [];
+  ctx.$itemsCount = items.reduce((a, it) => a + (Number(it.count) || 0), 0);
+  ctx.$itemsSizeSum = items.reduce((a, it) => a + (Number(it.count) || 0) * (Number(it.size) || 0), 0);
+  return ctx;
 }
 
 // ---------- 기본값 ----------
 
-/** 템플릿 기본값과 사장님 저장값을 합쳐 빈 칸이 없는 단가표를 만든다. */
+/** 템플릿 기본값과 사장님 저장값을 합쳐 빈 칸이 없는 단가표를 만든다. (업종마다 모양이 달라 깊은 병합) */
 export function mergePriceTable(template, saved = {}) {
-  const d = template.defaults || {};
-  return {
-    unitPrice: num(saved.unitPrice, d.unitPrice),
-    minPrice: num(saved.minPrice, d.minPrice),
-    surcharges: { ...(d.surcharges || {}), ...(saved.surcharges || {}) },
-    options: { ...(d.options || {}), ...(saved.options || {}) },
-    policy: { ...(d.policy || {}), ...(saved.policy || {}) },
-  };
+  return deepMerge(template.defaults || {}, saved || {});
+}
+
+function deepMerge(base, over) {
+  if (Array.isArray(base)) return Array.isArray(over) ? over : base;
+  if (base && typeof base === 'object') {
+    const out = { ...base };
+    for (const [k, v] of Object.entries(over || {})) out[k] = k in base ? deepMerge(base[k], v) : v;
+    return out;
+  }
+  if (typeof base === 'number') return num(over, base);
+  return over ?? base;
 }
 
 function num(v, fallback = 0) {
   const n = Number(v);
   return v === '' || v == null || Number.isNaN(n) ? Number(fallback) || 0 : n;
 }
+
+// ---------- 기본 금액 (base.type) ----------
+// perUnit   : 수량 × 단가 (최소 금액)                 예) 입주청소 평수
+// itemized  : Σ 항목 수 × 종류별 단가 (× 크기)        예) 에어컨 대수, 커튼 창마다 폭
+// composite : 구성요소 합 (선택·수량·구간·고정)        예) 이사, 중문
+
+export function computeBase(template, pt, ctx) {
+  const b = template.pricing.base;
+  const type = b.type || 'perUnit';
+  let lines = [];
+  if (type === 'perUnit') {
+    const qty = Number(ctx[b.quantityField]) || 0;
+    const unitPrice = Number(pt[b.unitPriceKey || 'unitPrice']) || 0;
+    lines.push({ key: 'base', type: 'base', label: b.label, note: `${qty}${b.unit || ''} × ${formatWon(unitPrice)}`, amount: qty * unitPrice });
+  } else if (type === 'itemized') {
+    const items = Array.isArray(ctx[b.itemsField]) ? ctx[b.itemsField] : [];
+    const prices = pt[b.priceKey || 'items'] || {};
+    for (const it of b.itemTypes) {
+      const rows = items.filter((x) => x.type === it.key && Number(x.count) > 0);
+      if (!rows.length) continue;
+      const count = rows.reduce((a, x) => a + Number(x.count), 0);
+      const price = Number(prices[it.key]) || 0;
+      if (it.bySize) {
+        const sizeSum = rows.reduce((a, x) => a + Number(x.count) * (Number(x.size) || 0), 0);
+        lines.push({ key: `base:${it.key}`, type: 'base', label: it.label, note: `${count}${it.unit || '개'}, 합계 ${round1(sizeSum)}${it.sizeUnit || ''} × ${formatWon(price)}`, amount: Math.round(sizeSum * price) });
+      } else {
+        lines.push({ key: `base:${it.key}`, type: 'base', label: it.label, note: `${count}${it.unit || '개'} × ${formatWon(price)}`, amount: count * price });
+      }
+    }
+    if (b.perItemFeeKey && ctx.$itemsCount > 0) {
+      const fee = Number(pt[b.perItemFeeKey]) || 0;
+      if (fee) lines.push({ key: 'base:perItemFee', type: 'base', label: b.perItemFeeLabel || '설치비', note: `${ctx.$itemsCount}${b.perItemFeeUnit || '개'} × ${formatWon(fee)}`, amount: ctx.$itemsCount * fee });
+    }
+  } else if (type === 'composite') {
+    let running = 0;
+    for (const c of b.components) {
+      if (c.when && !evalWhen(c.when, ctx)) continue;
+      const v = ctx[c.field];
+      let amount = 0; let note = '';
+      if (c.type === 'select') {
+        amount = Number((pt[c.priceKey] || {})[v]) || 0;
+        note = c.optionsLabel?.[v] || String(v ?? '');
+      } else if (c.type === 'perUnit') {
+        const q = Math.max(0, (Number(v) || 0) - (Number(c.freeQty) || 0));
+        const price = Number(pt[c.priceKey]) || 0;
+        amount = q * price; note = `${q}${c.unit || ''} × ${formatWon(price)}`;
+      } else if (c.type === 'tier') {
+        const tiers = pt[c.tiersKey] || [];
+        const t = tiers.find((x) => (Number(v) || 0) <= Number(x.upTo)) || tiers[tiers.length - 1];
+        if (t) {
+          if ('pct' in t) { amount = Math.round((running * Number(t.pct)) / 100); note = `${v}${c.unit || ''} → +${t.pct}%`; }
+          else { amount = Number(t.price) || 0; note = `${v}${c.unit || ''} (${t.upTo}${c.unit || ''} 이하 구간)`; }
+        }
+      } else if (c.type === 'fixed') {
+        amount = Number(pt[c.priceKey]) || 0;
+      }
+      running += amount;
+      if (amount) lines.push({ key: `base:${c.key}`, type: 'base', label: c.label, note, amount });
+    }
+  }
+  const raw = lines.reduce((a, l) => a + l.amount, 0);
+  const minPrice = Number(pt[b.minPriceKey || 'minPrice']) || 0;
+  if (raw < minPrice) {
+    lines = [{ key: 'base', type: 'base', label: b.label, note: `최소 금액 적용 (계산 ${formatWon(raw)})`, amount: minPrice }];
+  }
+  return { lines, base: Math.max(raw, minPrice) };
+}
+
+function round1(n) { return Math.round(n * 10) / 10; }
 
 // ---------- 메인 계산 ----------
 
@@ -114,20 +195,12 @@ export function calculateQuote(template, priceTable, request = {}, overrides = {
   const pricing = template.pricing;
   const answers = request.answers || {};
   const checklist = request.checklist || {};
-  const ctx = buildContext(answers);
+  const ctx = buildContext(answers, template);
   const pt = priceTable;
 
-  // 1) 기본
-  const qty = Number(ctx[pricing.base.quantityField]) || 0;
-  const unitPrice = Number(pt.unitPrice) || 0;
-  const minPrice = Number(pt.minPrice) || 0;
-  const rawBase = qty * unitPrice;
-  const base = Math.max(minPrice, rawBase);
-  const baseNote = rawBase >= minPrice
-    ? `${qty}${pricing.base.unit} × ${formatWon(unitPrice)}`
-    : `최소 금액 적용 (${qty}${pricing.base.unit} × ${formatWon(unitPrice)} = ${formatWon(rawBase)})`;
-
-  const lines = [{ key: 'base', type: 'base', label: pricing.base.label, note: baseNote, amount: base }];
+  // 1) 기본 (base.type 에 따라)
+  const { lines: baseLines, base } = computeBase(template, pt, ctx);
+  const lines = [...baseLines];
 
   // 2) 할증 (base에 대해 % 합산)
   const appliedSurcharges = [];
@@ -152,7 +225,9 @@ export function calculateQuote(template, priceTable, request = {}, overrides = {
     let auto = false;
     let reason = '';
     if (extras.includes(o.key)) { auto = true; reason = '고객 요청'; }
-    if (o.quantityField && optionQty(o, ctx) > 0) { auto = true; reason = `${ctx[o.quantityField]}${o.unit || ''}`; }
+    if (o.when) { // 조건이 있는 옵션은 조건이 맞을 때만 자동으로 켜짐 (수량은 quantityField)
+      if (evalWhen(o.when, ctx)) { auto = true; reason = reason || '조건 해당'; }
+    } else if (o.quantityField && optionQty(o, ctx) > 0) { auto = true; reason = `${ctx[o.quantityField]}${o.unit || ''}`; }
     optionState[o.key] = { on: auto, auto, reason };
   }
   const conditions = [];
@@ -207,8 +282,12 @@ export function calculateQuote(template, priceTable, request = {}, overrides = {
   }
 
   const finalized = finalizeLines(lines, pt.policy?.depositPct);
+  const rangePct = template.quoteMode === 'range' ? Number(template.rangePct ?? 15) : 0;
   return {
     ...finalized,
+    quoteMode: template.quoteMode || 'fixed',
+    range: rangePct ? { low: round1000(finalized.total * (1 - rangePct / 100)), high: round1000(finalized.total * (1 + rangePct / 100)), pct: rangePct } : null,
+    labor: estimateLabor(template, ctx, optionState),
     surchargePct: appliedSurcharges.reduce((a, s) => a + s.pct, 0),
     surchargeState: Object.fromEntries((pricing.surcharges || []).map((s) => [s.key, {
       on: overrides.surcharges?.[s.key] ?? evalWhen(s.when, ctx),
@@ -265,4 +344,82 @@ export function addDays(dateStr, days) {
 export function toDateStr(d) {
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// ---------- 인력 예상 (몇 명 × 몇 시간) ----------
+/**
+ * template.labor = {
+ *   perField: 'area', manHoursPer: 0.27,          // 수량 기반 (예: 평당 0.27인시간)
+ *   perItem: { wall: 1, stand: 1.5 },             // 항목 기반 (itemized)
+ *   fixed: 4,                                      // 고정
+ *   min: 6, adjust: [{when, pct}|{option, manHours}],
+ *   crew: { min: 2, max: 5, maxHours: 8 }
+ * }
+ */
+export function estimateLabor(template, ctx, optionState = {}) {
+  const L = template.labor;
+  if (!L) return null;
+  let mh = Number(L.fixed) || 0;
+  if (L.perField) mh += (Number(ctx[L.perField]) || 0) * (Number(L.manHoursPer) || 0);
+  if (L.perItem) {
+    const items = Array.isArray(ctx[template.pricing.base.itemsField]) ? ctx[template.pricing.base.itemsField] : [];
+    for (const it of items) mh += (Number(it.count) || 0) * (Number(L.perItem[it.type]) || 0) * (L.perItemBySize?.includes(it.type) ? (Number(it.size) || 1) : 1);
+  }
+  for (const a of L.adjust || []) {
+    if (a.option && optionState[a.option]?.on) mh += Number(a.manHours) || 0;
+    if (a.when && evalWhen(a.when, ctx)) mh *= 1 + (Number(a.pct) || 0) / 100;
+  }
+  mh = Math.max(mh, Number(L.min) || 0);
+  if (!mh) return null;
+  const c = L.crew || { min: 1, max: 1, maxHours: 8 };
+  const crew = Math.min(c.max, Math.max(c.min, Math.ceil(mh / c.maxHours)));
+  const hours = Math.ceil((mh / crew) * 2) / 2; // 30분 단위
+  return { manHours: round1(mh), crew, hours, overDay: hours > c.maxHours };
+}
+
+// ---------- 템플릿 점검 (개발자 모드) ----------
+const KNOWN_FIELD_TYPES = ['text', 'tel', 'date', 'number', 'textarea', 'choice', 'stepper', 'checklist', 'extras', 'photos', 'items'];
+
+/** 템플릿 JSON의 흔한 실수를 찾아 [{level:'error'|'warn', msg}] 로 돌려준다. */
+export function lintTemplate(t) {
+  const out = [];
+  const err = (msg) => out.push({ level: 'error', msg });
+  const warn = (msg) => out.push({ level: 'warn', msg });
+  const d = t.defaults || {};
+  const p = t.pricing || {};
+  if (!t.id || !t.name) err('id 또는 name 이 없습니다');
+  if (!p.base) { err('pricing.base 가 없습니다'); return out; }
+  const type = p.base.type || 'perUnit';
+  if (!['perUnit', 'itemized', 'composite'].includes(type)) err(`알 수 없는 base.type: ${type}`);
+  const fields = (t.steps || []).flatMap((s) => s.fields || []);
+  const keys = new Set(fields.map((f) => f.key));
+  for (const f of fields) if (!KNOWN_FIELD_TYPES.includes(f.type)) err(`알 수 없는 입력 형태: ${f.key} (${f.type})`);
+  for (const k of ['name', 'phone', 'region']) if (!keys.has(k)) err(`공통 필드 "${k}" 가 질문에 없습니다`);
+  if (type === 'perUnit') {
+    if (!keys.has(p.base.quantityField)) err(`수량 필드 "${p.base.quantityField}" 가 질문에 없습니다`);
+    if (d[p.base.unitPriceKey || 'unitPrice'] == null) err('기본 단가 기본값이 없습니다');
+  }
+  if (type === 'itemized') {
+    if (!keys.has(p.base.itemsField)) err(`항목 필드 "${p.base.itemsField}" 가 질문에 없습니다`);
+    for (const it of p.base.itemTypes || []) if (d[p.base.priceKey || 'items']?.[it.key] == null) err(`항목 단가 기본값 없음: ${it.label}`);
+  }
+  if (type === 'composite') {
+    for (const c of p.base.components || []) {
+      if (c.field && !keys.has(c.field)) err(`구성요소 "${c.label}" 의 필드 "${c.field}" 가 질문에 없습니다`);
+      const k = c.priceKey || c.tiersKey;
+      if (k && d[k] == null) err(`구성요소 "${c.label}" 의 단가 기본값(${k})이 없습니다`);
+    }
+  }
+  for (const s of p.surcharges || []) if (d.surcharges?.[s.key] == null) warn(`할증 기본값 없음: ${s.label}`);
+  const optKeys = new Set((p.options || []).map((o) => o.key));
+  for (const o of p.options || []) if (d.options?.[o.key] == null) warn(`옵션 기본값 없음: ${o.label}`);
+  for (const c of t.checklist || []) {
+    if (c.optionKey && !optKeys.has(c.optionKey)) err(`체크리스트 "${c.short || c.key}" 의 옵션 "${c.optionKey}" 이 없습니다`);
+    if (!c.optionKey && !c.conditionText) warn(`체크리스트 "${c.short || c.key}" 에 옵션도 조건 문구도 없습니다`);
+  }
+  if (!t.sample) warn('sample(테스트용 샘플 입력)이 없습니다');
+  if (!t.labor) warn('labor(인력 예상 규칙)가 없습니다');
+  if (!t.photoSlots?.length) warn('photoSlots(권장 사진 칸)가 없습니다');
+  if (!d.policy) warn('policy(유효기간·계약금·취소 규정) 기본값이 없습니다');
+  return out;
 }

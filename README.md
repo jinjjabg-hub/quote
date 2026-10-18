@@ -34,7 +34,10 @@ templates/move-in-cleaning.json   ★ 입주청소 템플릿 (질문·체크리�
 css/style.css             모바일 우선 스타일
 manifest.webmanifest, sw.js, icons/   PWA
 firestore.rules, storage.rules, firebase.json   보안 규칙 (+ 에뮬레이터 설정)
-tests/calc.test.mjs       계산 단위 테스트 (Node 내장 테스트, 설치 불필요)
+tests/calc.test.mjs       계산 단위 테스트 (전 업종 템플릿 점검 포함, 설치 불필요)
+dev.html    js/dev.js     개발자 모드 · 업종 시뮬레이터
+js/devtools.js            개발자 모드 · 오류 패널 (?dev=1)
+templates/index.json      업종 목록 (live / draft)
 tests/emulator/           보안 규칙 테스트 + 완료 시나리오 E2E (Firebase 에뮬레이터)
 ```
 
@@ -114,6 +117,11 @@ tests/emulator/           보안 규칙 테스트 + 완료 시나리오 E2E (Fir
 
 계산 규칙이 `max(최소, 수량×단가)×(1+할증)+옵션` 으로 표현 안 되는 업종(예: 이사 — 거리·층수·짐량)은
 `pricing.base` 에 `type` 필드를 추가하고 `calculateQuote` 의 "1) 기본" 부분만 분기하면 된다. 나머지(할증·옵션·조건·반올림)는 공통.
+
+## 개발자 모드 (운영자용)
+- **업종 시뮬레이터:** `dev.html` — 로그인 없이 6개 업종의 고객 입력 → 계산 → 견적서 → 인력 예상을 한 화면에서 확인. 실제 앱과 같은 계산 엔진
+- **오류 패널:** 아무 화면 주소 뒤에 `?dev=1` → 왼쪽 아래 🛠 버튼에 오류가 모임. "전체 복사"로 전달. 끄기 `?dev=0`
+- 자세한 내용: `docs/설계도.md` 4-2장
 
 ## 개발·테스트
 ```bash

@@ -1,0 +1,405 @@
+{
+  "id": "grout-coating",
+  "name": "줄눈·탄성코트",
+  "version": 1,
+  "status": "draft",
+  "draftNote": "⚠️ 업계 일반 기준으로 만든 예시 초안입니다. 실제 사장님 단가·질문으로 검증 후 사용하세요.",
+  "description": "욕실·현관 줄눈 시공, 베란다 탄성코트",
+  "quoteMode": "fixed",
+  "steps": [
+    {
+      "title": "연락처를 알려주세요",
+      "description": "견적이 나오면 이 번호로 안내드립니다.",
+      "fields": [
+        {
+          "key": "name",
+          "label": "성함",
+          "type": "text",
+          "required": true,
+          "placeholder": "홍길동",
+          "maxLength": 30
+        },
+        {
+          "key": "phone",
+          "label": "연락처",
+          "type": "tel",
+          "required": true,
+          "placeholder": "010-0000-0000",
+          "maxLength": 20
+        }
+      ]
+    },
+    {
+      "title": "어디인가요?",
+      "fields": [
+        {
+          "key": "region",
+          "label": "주소 (시/구까지만)",
+          "type": "text",
+          "required": true,
+          "placeholder": "예) 부산 부산진구",
+          "maxLength": 40
+        },
+        {
+          "key": "isOld",
+          "label": "기존 줄눈이 있는 집인가요?",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": true,
+              "label": "예 (구축·기존 제거 필요)"
+            },
+            {
+              "value": false,
+              "label": "아니오 (신축)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "언제 원하시나요?",
+      "fields": [
+        {
+          "key": "date",
+          "label": "희망 날짜",
+          "type": "date",
+          "required": true
+        },
+        {
+          "key": "timeSlot",
+          "label": "시간대",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "am",
+              "label": "오전"
+            },
+            {
+              "value": "pm",
+              "label": "오후"
+            },
+            {
+              "value": "any",
+              "label": "상관없음"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "어디를 시공하나요?",
+      "description": "부위별로 개수 또는 평수를 넣어주세요.",
+      "fields": [
+        {
+          "key": "areas",
+          "label": "시공 부위",
+          "type": "items",
+          "required": true,
+          "itemTypes": "pricing"
+        }
+      ]
+    },
+    {
+      "title": "소재",
+      "fields": [
+        {
+          "key": "material",
+          "label": "줄눈 소재",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "polyurea",
+              "label": "폴리우레아 (기본)"
+            },
+            {
+              "value": "epoxy",
+              "label": "에폭시"
+            },
+            {
+              "value": "kerapoxy",
+              "label": "케라폭시 (최고급)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "추가요금 체크",
+      "description": "현장에서 추가요금 다툼이 없도록 미리 확인합니다. 잘 모르시면 '모름'을 눌러주세요.",
+      "fields": [
+        {
+          "key": "checklist",
+          "type": "checklist",
+          "required": true
+        }
+      ]
+    },
+    {
+      "title": "추가로 원하시는 서비스가 있나요?",
+      "description": "없으면 그냥 '다음'을 누르세요.",
+      "fields": [
+        {
+          "key": "extras",
+          "type": "extras"
+        }
+      ]
+    },
+    {
+      "title": "사진을 올려주세요",
+      "description": "욕실 바닥, 벽 모서리, 현관을 1장씩 권장합니다.",
+      "fields": [
+        {
+          "key": "photos",
+          "type": "photos"
+        }
+      ]
+    },
+    {
+      "title": "남기실 말씀 (선택)",
+      "fields": [
+        {
+          "key": "memo",
+          "label": "요청사항",
+          "type": "textarea",
+          "maxLength": 500
+        }
+      ]
+    }
+  ],
+  "checklist": [
+    {
+      "key": "cracked",
+      "short": "기존 줄눈 깨짐",
+      "label": "기존 줄눈이 깨지거나 빠진 곳이 많나요?",
+      "risk": "yes",
+      "optionKey": "removal"
+    },
+    {
+      "key": "lifted",
+      "short": "타일 들뜸",
+      "label": "들뜬 타일이 있나요?",
+      "risk": "yes",
+      "conditionText": "들뜬 타일은 줄눈 전에 보수가 필요하며 별도 비용이 발생합니다."
+    },
+    {
+      "key": "mold",
+      "short": "곰팡이",
+      "label": "실리콘·줄눈에 곰팡이가 있나요?",
+      "risk": "yes",
+      "optionKey": "silicone"
+    },
+    {
+      "key": "unused",
+      "short": "24시간 미사용",
+      "label": "시공 후 24시간 욕실을 쓰지 않을 수 있나요?",
+      "risk": "no",
+      "conditionText": "시공 후 24시간 물 사용이 불가합니다. 사용 시 하자 보증이 제한됩니다."
+    }
+  ],
+  "photoSlots": [
+    {
+      "key": "floor",
+      "label": "욕실 바닥"
+    },
+    {
+      "key": "corner",
+      "label": "벽 모서리"
+    },
+    {
+      "key": "entry",
+      "label": "현관"
+    }
+  ],
+  "pricing": {
+    "base": {
+      "type": "itemized",
+      "label": "줄눈·탄성 시공",
+      "itemsField": "areas",
+      "priceKey": "items",
+      "minPriceKey": "minPrice",
+      "itemTypes": [
+        {
+          "key": "bathFloor",
+          "label": "욕실 바닥",
+          "unit": "개"
+        },
+        {
+          "key": "bathFull",
+          "label": "욕실 바닥+벽",
+          "unit": "개"
+        },
+        {
+          "key": "entry",
+          "label": "현관",
+          "unit": "곳"
+        },
+        {
+          "key": "balcony",
+          "label": "베란다 탄성코트",
+          "unit": "곳",
+          "bySize": true,
+          "sizeUnit": "평",
+          "sizeLabel": "평수"
+        }
+      ]
+    },
+    "surcharges": [
+      {
+        "key": "oldHouse",
+        "label": "구축(기존 제거)",
+        "when": {
+          "field": "isOld",
+          "equals": true
+        }
+      },
+      {
+        "key": "weekend",
+        "label": "주말·공휴일",
+        "when": {
+          "any": [
+            {
+              "field": "$weekend",
+              "equals": true
+            },
+            {
+              "field": "$holiday",
+              "equals": true
+            }
+          ]
+        }
+      },
+      {
+        "key": "epoxy",
+        "label": "에폭시 소재",
+        "when": {
+          "field": "material",
+          "equals": "epoxy"
+        }
+      },
+      {
+        "key": "kerapoxy",
+        "label": "케라폭시 소재",
+        "when": {
+          "field": "material",
+          "equals": "kerapoxy"
+        }
+      }
+    ],
+    "options": [
+      {
+        "key": "removal",
+        "label": "기존 줄눈 제거"
+      },
+      {
+        "key": "silicone",
+        "label": "실리콘 교체",
+        "customerSelectable": true
+      },
+      {
+        "key": "kitchenWall",
+        "label": "주방 벽 줄눈",
+        "customerSelectable": true
+      }
+    ],
+    "warnings": []
+  },
+  "defaults": {
+    "minPrice": 200000,
+    "items": {
+      "bathFloor": 250000,
+      "bathFull": 450000,
+      "entry": 100000,
+      "balcony": 40000
+    },
+    "surcharges": {
+      "oldHouse": 15,
+      "weekend": 10,
+      "epoxy": 20,
+      "kerapoxy": 50
+    },
+    "options": {
+      "removal": 50000,
+      "silicone": 60000,
+      "kitchenWall": 150000
+    },
+    "policy": {
+      "validDays": 7,
+      "depositPct": 20,
+      "cancelPolicy": "작업 3일 전까지 취소 시 계약금 전액 환불, 2일 전~전날 50% 환불, 당일 취소 시 환불 불가."
+    }
+  },
+  "labor": {
+    "perItem": {
+      "bathFloor": 3,
+      "bathFull": 6,
+      "entry": 1.5,
+      "balcony": 1
+    },
+    "perItemBySize": [
+      "balcony"
+    ],
+    "adjust": [
+      {
+        "when": {
+          "field": "isOld",
+          "equals": true
+        },
+        "pct": 30
+      }
+    ],
+    "min": 3,
+    "crew": {
+      "min": 1,
+      "max": 3,
+      "maxHours": 8
+    }
+  },
+  "included": [
+    "줄눈 시공 및 마감",
+    "시공 부위 청소",
+    "하자 보증 (AS 기간은 업체 안내)"
+  ],
+  "excluded": [
+    "타일 보수·교체",
+    "욕실 외 부위 (요청 시 별도)"
+  ],
+  "sample": {
+    "customer": {
+      "name": "테스트 고객",
+      "phone": "010-0000-0000",
+      "region": "부산 부산진구"
+    },
+    "answers": {
+      "isOld": false,
+      "timeSlot": "am",
+      "areas": [
+        {
+          "type": "bathFloor",
+          "count": 2
+        },
+        {
+          "type": "entry",
+          "count": 1
+        },
+        {
+          "type": "balcony",
+          "count": 1,
+          "size": 3
+        }
+      ],
+      "material": "polyurea",
+      "extras": [],
+      "memo": "테스트"
+    },
+    "checklist": {
+      "cracked": "no",
+      "lifted": "unknown",
+      "mold": "no",
+      "unused": "yes"
+    }
+  }
+}

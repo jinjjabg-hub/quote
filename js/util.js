@@ -21,6 +21,11 @@ export function h(tag, attrs = {}, ...children) {
   return node;
 }
 
+/** root 의 내용을 바꾼다. replaceChildren 과 달리 null·false·중첩 배열을 h() 처럼 건너뛴다. */
+export function setChildren(root, ...children) {
+  root.replaceChildren(...children.flat(Infinity).filter((c) => c != null && c !== false));
+}
+
 export function toast(msg, ms = 2200) {
   let t = $('#toast');
   if (!t) { t = h('div.toast', { id: 'toast' }); document.body.append(t); }
