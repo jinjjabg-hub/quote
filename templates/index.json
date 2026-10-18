@@ -1,0 +1,32 @@
+[
+  {
+    "id": "move-in-cleaning",
+    "name": "입주청소",
+    "status": "live"
+  },
+  {
+    "id": "aircon-cleaning",
+    "name": "에어컨 청소",
+    "status": "draft"
+  },
+  {
+    "id": "grout-coating",
+    "name": "줄눈·탄성코트",
+    "status": "draft"
+  },
+  {
+    "id": "curtain-blind",
+    "name": "커튼·블라인드",
+    "status": "draft"
+  },
+  {
+    "id": "entrance-door",
+    "name": "중문",
+    "status": "draft"
+  },
+  {
+    "id": "moving",
+    "name": "이사",
+    "status": "draft"
+  }
+]

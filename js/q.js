@@ -4,7 +4,7 @@ import {
   db, storage, doc, collection, getDoc, setDoc, serverTimestamp, storageRef, uploadBytes, isConfigured,
 } from './firebase.js';
 import { loadTemplate } from './templates.js';
-import { $, h, toast, compressImage, registerSW, showFatal, telHref, manduHref } from './util.js';
+import { $, h, toast, compressImage, registerSW, showFatal, telHref, manduHref, setChildren } from './util.js';
 import { appConfig } from './config.js';
 
 registerSW();
@@ -13,6 +13,7 @@ const params = new URLSearchParams(location.search);
 const shopId = params.get('shop');
 const isTest = params.get('test') === '1'; // 사장님 테스트 모드에서 연 고객 화면
 const app = $('#app');
+const EXTRA_PHOTOS = 5;
 const state = { step: 0, answers: {}, checklist: {}, extras: [], photos: {}, submitting: false };
 let shop; let tpl; let draftKey;
 
@@ -49,7 +50,7 @@ function render() {
   const steps = tpl.steps;
   const step = steps[state.step];
   const pct = Math.round(((state.step + 1) / steps.length) * 100);
-  app.replaceChildren(
+  setChildren(app, 
     isTest ? h('div.test-banner', {}, '🧪 테스트 모드: 사장님 확인용이며 실제 요청으로 집계되지 않습니다.') : null,
     h('header.shop-head', {},
       shop.logoUrl ? h('img.logo', { src: shop.logoUrl, alt: '' }) : null,
@@ -120,8 +121,13 @@ function renderField(f) {
         }, `${on ? '✓ ' : ''}${o.label}`);
       }));
     }
-    case 'photos':
-      return h('div.photo-grid', {}, tpl.photoSlots.map(renderPhotoSlot));
+    case 'photos': {
+      // 업종별 권장 칸 + 기타 최대 5장 (합계 10장, 보안 규칙과 같음)
+      const used = Object.keys(state.photos).filter((k) => k.startsWith('extra')).length;
+      const extras = Array.from({ length: Math.min(EXTRA_PHOTOS, used + 1) }, (_, i) => ({ key: `extra${i + 1}`, label: `기타 ${i + 1}` }));
+      return h('div', {}, h('div.photo-grid', {}, [...tpl.photoSlots, ...extras].map(renderPhotoSlot)),
+        h('p.hint', {}, `권장 사진 외에 기타 사진을 ${EXTRA_PHOTOS}장까지 더 올릴 수 있어요.`));
+    }
     default:
       return h('p.muted', {}, `알 수 없는 항목 유형: ${f.type}`);
   }
@@ -224,7 +230,7 @@ async function submit() {
 }
 
 function renderDone() {
-  app.replaceChildren(h('section.card.done', {},
+  setChildren(app, h('section.card.done', {},
     h('div.done-icon', {}, '✓'),
     h('h1', {}, '요청이 접수되었습니다'),
     h('p', {}, `${shop.name || '사장님'}이 확인 후 견적을 보내드립니다.`),

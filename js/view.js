@@ -2,7 +2,7 @@
 // 견적 ID 자체가 추측 불가능한 열쇠 역할을 한다. (Firestore 규칙: 단건 get 만 허용)
 import { db, doc, getDoc, writeBatch, serverTimestamp, isConfigured } from './firebase.js';
 import { formatWon, toDateStr } from './calc.js';
-import { $, h, toast, registerSW, showFatal, telHref, manduHref } from './util.js';
+import { $, h, toast, registerSW, showFatal, telHref, manduHref, setChildren } from './util.js';
 import { appConfig } from './config.js';
 
 registerSW();
@@ -27,7 +27,7 @@ function render() {
   const q = quote;
   const expired = q.validUntil && toDateStr(new Date()) > q.validUntil;
   const lines = q.lines || [];
-  app.replaceChildren(
+  setChildren(app, 
     q.test ? h('div.test-banner', {}, '🧪 테스트 견적서입니다. 실제 견적이 아닙니다.') : null,
     h('header.quote-head', {},
       q.shop?.logoUrl ? h('img.logo', { src: q.shop.logoUrl, alt: '' }) : null,

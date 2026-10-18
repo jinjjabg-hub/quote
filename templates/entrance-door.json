@@ -1,0 +1,391 @@
+{
+  "id": "entrance-door",
+  "name": "중문",
+  "version": 1,
+  "status": "draft",
+  "draftNote": "⚠️ 업계 일반 기준으로 만든 예시 초안입니다. 실제 사장님 단가·질문으로 검증 후 사용하세요.",
+  "description": "현관 중문 제작·설치",
+  "quoteMode": "range",
+  "rangePct": 10,
+  "steps": [
+    {
+      "title": "연락처를 알려주세요",
+      "description": "견적이 나오면 이 번호로 안내드립니다.",
+      "fields": [
+        {
+          "key": "name",
+          "label": "성함",
+          "type": "text",
+          "required": true,
+          "placeholder": "홍길동",
+          "maxLength": 30
+        },
+        {
+          "key": "phone",
+          "label": "연락처",
+          "type": "tel",
+          "required": true,
+          "placeholder": "010-0000-0000",
+          "maxLength": 20
+        }
+      ]
+    },
+    {
+      "title": "어디인가요?",
+      "fields": [
+        {
+          "key": "region",
+          "label": "주소 (시/구까지만)",
+          "type": "text",
+          "required": true,
+          "placeholder": "예) 부산 부산진구",
+          "maxLength": 40
+        }
+      ]
+    },
+    {
+      "title": "언제 원하시나요?",
+      "fields": [
+        {
+          "key": "date",
+          "label": "희망 날짜",
+          "type": "date",
+          "required": true
+        }
+      ]
+    },
+    {
+      "title": "어떤 중문을 원하시나요?",
+      "fields": [
+        {
+          "key": "doorType",
+          "label": "종류",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "sliding3",
+              "label": "3연동"
+            },
+            {
+              "value": "oneSliding",
+              "label": "원슬라이딩"
+            },
+            {
+              "value": "swing",
+              "label": "스윙"
+            },
+            {
+              "value": "slim",
+              "label": "슬림"
+            },
+            {
+              "value": "auto",
+              "label": "자동문"
+            }
+          ]
+        },
+        {
+          "key": "width",
+          "label": "현관 폭 (cm, 대략)",
+          "type": "number",
+          "required": true,
+          "min": 60,
+          "max": 400,
+          "placeholder": "예) 150"
+        },
+        {
+          "key": "glass",
+          "label": "유리",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "clear",
+              "label": "투명"
+            },
+            {
+              "value": "aqua",
+              "label": "아쿠아"
+            },
+            {
+              "value": "satin",
+              "label": "샤틴(불투명)"
+            },
+            {
+              "value": "wire",
+              "label": "망입"
+            }
+          ]
+        },
+        {
+          "key": "removeOld",
+          "label": "기존 중문 철거가 필요한가요?",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": true,
+              "label": "예"
+            },
+            {
+              "value": false,
+              "label": "아니오"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "추가요금 체크",
+      "description": "현장에서 추가요금 다툼이 없도록 미리 확인합니다. 잘 모르시면 '모름'을 눌러주세요.",
+      "fields": [
+        {
+          "key": "checklist",
+          "type": "checklist",
+          "required": true
+        }
+      ]
+    },
+    {
+      "title": "추가로 원하시는 서비스가 있나요?",
+      "description": "없으면 그냥 '다음'을 누르세요.",
+      "fields": [
+        {
+          "key": "extras",
+          "type": "extras"
+        }
+      ]
+    },
+    {
+      "title": "사진을 올려주세요",
+      "description": "현관 정면, 천장, 바닥을 1장씩 권장합니다.",
+      "fields": [
+        {
+          "key": "photos",
+          "type": "photos"
+        }
+      ]
+    },
+    {
+      "title": "남기실 말씀 (선택)",
+      "fields": [
+        {
+          "key": "memo",
+          "label": "요청사항",
+          "type": "textarea",
+          "maxLength": 500
+        }
+      ]
+    }
+  ],
+  "checklist": [
+    {
+      "key": "level",
+      "short": "바닥 수평",
+      "label": "현관 바닥이 기울어 있나요?",
+      "risk": "yes",
+      "conditionText": "바닥 수평이 맞지 않으면 보정 작업비가 추가될 수 있습니다."
+    },
+    {
+      "key": "shoeRack",
+      "short": "신발장 간섭",
+      "label": "신발장 문이 중문 자리에 걸리나요?",
+      "risk": "yes",
+      "conditionText": "신발장 간섭 시 설치 위치·사이즈가 바뀔 수 있습니다."
+    },
+    {
+      "key": "molding",
+      "short": "천장 몰딩",
+      "label": "천장에 몰딩이 있나요?",
+      "risk": "yes",
+      "optionKey": "moldingCut"
+    },
+    {
+      "key": "noCancel",
+      "short": "제작 후 취소 불가",
+      "label": "제작 후 취소가 불가한 점을 확인하셨나요?",
+      "risk": "no",
+      "conditionText": "맞춤 제작 제품은 제작 시작 후 취소가 불가합니다."
+    }
+  ],
+  "photoSlots": [
+    {
+      "key": "front",
+      "label": "현관 정면"
+    },
+    {
+      "key": "ceiling",
+      "label": "천장"
+    },
+    {
+      "key": "floor",
+      "label": "바닥"
+    }
+  ],
+  "pricing": {
+    "base": {
+      "type": "composite",
+      "label": "중문 제작·설치",
+      "minPriceKey": "minPrice",
+      "components": [
+        {
+          "key": "product",
+          "label": "중문 본체",
+          "type": "select",
+          "field": "doorType",
+          "priceKey": "products",
+          "optionsLabel": {
+            "sliding3": "3연동",
+            "oneSliding": "원슬라이딩",
+            "swing": "스윙",
+            "slim": "슬림",
+            "auto": "자동문"
+          }
+        },
+        {
+          "key": "size",
+          "label": "사이즈 구간",
+          "type": "tier",
+          "field": "width",
+          "tiersKey": "sizeTiers",
+          "unit": "cm"
+        },
+        {
+          "key": "glass",
+          "label": "유리",
+          "type": "select",
+          "field": "glass",
+          "priceKey": "glass",
+          "optionsLabel": {
+            "clear": "투명",
+            "aqua": "아쿠아",
+            "satin": "샤틴",
+            "wire": "망입"
+          }
+        },
+        {
+          "key": "removal",
+          "label": "기존 중문 철거",
+          "type": "fixed",
+          "priceKey": "removal",
+          "when": {
+            "field": "removeOld",
+            "equals": true
+          }
+        }
+      ]
+    },
+    "surcharges": [],
+    "options": [
+      {
+        "key": "fixedPanel",
+        "label": "고정창 추가",
+        "customerSelectable": true
+      },
+      {
+        "key": "sensor",
+        "label": "자동 센서",
+        "customerSelectable": true
+      },
+      {
+        "key": "moldingCut",
+        "label": "천장 몰딩 가공"
+      }
+    ],
+    "warnings": []
+  },
+  "defaults": {
+    "minPrice": 500000,
+    "products": {
+      "sliding3": 900000,
+      "oneSliding": 1100000,
+      "swing": 800000,
+      "slim": 1000000,
+      "auto": 1800000
+    },
+    "sizeTiers": [
+      {
+        "upTo": 120,
+        "pct": 0
+      },
+      {
+        "upTo": 160,
+        "pct": 10
+      },
+      {
+        "upTo": 220,
+        "pct": 25
+      },
+      {
+        "upTo": 400,
+        "pct": 45
+      }
+    ],
+    "glass": {
+      "clear": 0,
+      "aqua": 50000,
+      "satin": 80000,
+      "wire": 60000
+    },
+    "removal": 100000,
+    "surcharges": {},
+    "options": {
+      "fixedPanel": 200000,
+      "sensor": 300000,
+      "moldingCut": 50000
+    },
+    "policy": {
+      "validDays": 7,
+      "depositPct": 50,
+      "cancelPolicy": "제작 시작 전 취소 시 계약금 환불, 제작 시작 후 취소 불가."
+    }
+  },
+  "labor": {
+    "fixed": 5,
+    "adjust": [
+      {
+        "when": {
+          "field": "removeOld",
+          "equals": true
+        },
+        "pct": 30
+      }
+    ],
+    "crew": {
+      "min": 2,
+      "max": 2,
+      "maxHours": 8
+    }
+  },
+  "included": [
+    "제작",
+    "설치",
+    "실측 1회"
+  ],
+  "excluded": [
+    "바닥 공사",
+    "전기 공사 (자동문 전원)"
+  ],
+  "sample": {
+    "customer": {
+      "name": "테스트 고객",
+      "phone": "010-0000-0000",
+      "region": "부산 부산진구"
+    },
+    "answers": {
+      "doorType": "sliding3",
+      "width": 150,
+      "glass": "aqua",
+      "removeOld": true,
+      "extras": [],
+      "memo": "테스트"
+    },
+    "checklist": {
+      "level": "no",
+      "shoeRack": "unknown",
+      "molding": "yes",
+      "noCancel": "yes"
+    }
+  }
+}

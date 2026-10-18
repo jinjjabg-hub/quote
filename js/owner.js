@@ -12,7 +12,7 @@ import {
 } from './calc.js';
 import {
   $, h, toast, copyText, pageUrl, compressImage, STATUS, statusBadge, fmtDateTime, optionLabel, telHref,
-  registerSW, showFatal, MANDU_ID_RE,
+  registerSW, showFatal, MANDU_ID_RE, setChildren,
 } from './util.js';
 
 registerSW();
@@ -32,14 +32,14 @@ async function onUser(user) {
   S.unsub?.(); S.unsub = null;
   S.user = user;
   if (!user) { renderLogin(); return; }
-  app.replaceChildren(h('p.muted.center', {}, '불러오는 중…'));
+  setChildren(app, h('p.muted.center', {}, '불러오는 중…'));
   await loadShop();
   subscribeRequests();
   route();
 }
 
 function renderLogin() {
-  app.replaceChildren(h('section.card.center', {},
+  setChildren(app, h('section.card.center', {},
     h('h1', {}, '견적 자동화'),
     h('p.muted', {}, '고객이 링크로 정보를 입력하면 내 단가표로 견적이 자동 계산됩니다.\n사장님은 확인 후 1번 눌러 보내기만 하세요.'),
     h('button.btn.primary.big', {
@@ -90,7 +90,7 @@ function shopLink() { return pageUrl('q.html', { shop: S.user.uid }); }
 function renderMain() {
   if (!S.shop) return;
   const tabs = [['list', '견적 요청'], ['price', '단가표'], ['shop', '업체 정보']];
-  app.replaceChildren(
+  setChildren(app, 
     topBar(),
     h('section.card.link-card', {},
       h('div', {}, h('b', {}, '내 견적 링크'), h('div.muted.small', {}, '카톡·문자·숨고 채팅에 붙여넣으세요')),
@@ -140,6 +140,7 @@ function renderTestPanel(all) {
     h('div.btn-col', {},
       h('button.btn.primary', { onclick: (e) => createSampleRequest(e.target) }, '샘플 요청 1건 만들기'),
       h('a.btn.ghost', { href: pageUrl('q.html', { shop: S.user.uid, test: 1 }), target: '_blank', rel: 'noopener' }, '고객 화면으로 직접 입력해보기'),
+      h('a.btn.ghost', { href: 'dev.html', target: '_blank', rel: 'noopener' }, '🛠 업종 시뮬레이터 (6개 업종 계산 확인)'),
       tests.length ? h('button.btn.ghost.danger', { onclick: (e) => clearTestData(tests, e.target) }, `테스트 데이터 모두 지우기 (${tests.length}건)`) : null));
 }
 
@@ -290,7 +291,20 @@ function renderShopForm() {
           S.tab = 'price'; renderMain();
         } catch (err) { toast(`저장 실패: ${err.message}`); e.target.disabled = false; }
       },
-    }, '저장'));
+    }, '저장'),
+    renderDevSettings());
+}
+
+function renderDevSettings() {
+  let on = false;
+  try { on = localStorage.getItem('devMode') === '1'; } catch { /* 무시 */ }
+  return h('div.dev-settings', {},
+    h('h3', {}, '🛠 개발자 모드'),
+    h('p.muted.small', {}, '켜면 모든 화면 왼쪽 아래에 오류 패널이 생겨, 문제가 생겼을 때 원인을 바로 보고 복사해서 전달할 수 있어요. 이 기기에서만 적용됩니다.'),
+    h('div.btn-col', {},
+      h('button.btn.ghost', { onclick: () => { try { if (on) localStorage.removeItem('devMode'); else localStorage.setItem('devMode', '1'); } catch { /* 무시 */ } location.reload(); } },
+        on ? '개발자 모드 끄기' : '개발자 모드 켜기 (오류 패널)'),
+      h('a.btn.ghost', { href: 'dev.html', target: '_blank', rel: 'noopener' }, '업종 시뮬레이터 열기')));
 }
 
 // ---------- 요청 상세 + 견적 편집 ----------
@@ -361,7 +375,7 @@ function renderDetail() {
 
   const ansLabel = { yes: '예', no: '아니오', unknown: '모름' };
 
-  app.replaceChildren(
+  setChildren(app, 
     req.test ? h('div.test-banner', {}, '🧪 테스트 요청입니다. 견적을 보내도 실제 고객에게 가지 않고, 나중에 한 번에 지울 수 있어요.') : null,
     h('header.topbar', {},
       h('button.btn.ghost.small', { onclick: () => { location.hash = ''; } }, '← 목록'),
@@ -392,7 +406,7 @@ const photoUrls = new Map();
 function renderPhoto(p) {
   const img = h('img', { alt: p.slot, loading: 'lazy' });
   const link = h('a.photo-slot', { target: '_blank', rel: 'noopener' }, img,
-    h('div.photo-label', {}, S.tpl.photoSlots.find((s) => s.key === p.slot)?.label || p.slot));
+    h('div.photo-label', {}, S.tpl.photoSlots.find((s) => s.key === p.slot)?.label || p.slot.replace(/^extra(\d+)$/, '기타 $1')));
   const set = (url) => { img.src = url; link.href = url; };
   if (photoUrls.has(p.path)) set(photoUrls.get(p.path));
   else {

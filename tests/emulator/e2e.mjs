@@ -48,6 +48,11 @@ async function newPage() {
 }
 const shot = (page, name) => page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage: true });
 const step = (msg) => console.log(`▶ ${msg}`);
+// 화면에 "null"·"undefined" 글자가 새어 나오지 않는지 (빈 값 렌더링 버그 방지)
+async function noLeak(page, where) {
+  const text = await page.locator('body').innerText();
+  assert.ok(!/\b(null|undefined|NaN)\b/.test(text), `${where}: 화면에 null/undefined/NaN 표시됨`);
+}
 
 // 2x2 PNG
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR4nGP4z8DwHwyBNAMDA5gGAJyFB/kXJ1ByAAAAAElFTkSuQmCC', 'base64');
@@ -85,6 +90,7 @@ try {
   await cust.getByPlaceholder('홍길동').fill('김고객');
   await cust.getByPlaceholder('010-0000-0000').fill('010-3333-4444');
   assert.match(await cust.getByRole('link', { name: /채팅/ }).getAttribute('href'), /MANDU\/\?u=banjjak$/);
+  await noLeak(cust, '고객 화면');
   await shot(cust, '2-customer-step1');
   await next();
   await cust.getByPlaceholder('예) 서울 송파구').fill('서울 송파구');
@@ -126,6 +132,7 @@ try {
   await item.waitFor();
   assert.match(await item.innerText(), /560,000원/);
   assert.match(await item.innerText(), /신규/);
+  await noLeak(owner, '사장님 목록');
   await shot(owner, '6-owner-list');
   await item.click();
   await owner.locator('.total-box').waitFor();
@@ -133,6 +140,7 @@ try {
   const condValue = await owner.locator('label.field', { hasText: '현장 추가요금 조건' }).locator('textarea').inputValue();
   assert.match(condValue, /붙박이장 내부/);
   await owner.locator('.photo-grid.view img[src]').nth(1).waitFor();
+  await noLeak(owner, '사장님 상세');
   await shot(owner, '7-owner-detail');
   await owner.getByRole('button', { name: '견적 발송' }).click();
   await owner.locator('dialog.sheet').waitFor();
@@ -150,6 +158,7 @@ try {
   assert.match(await view.locator('.total-box').innerText(), /56,000원/); // 계약금 10%
   assert.equal(await view.locator('.badge.verified').count(), 1, '사진 확인 완료 배지');
   assert.match(await view.getByRole('link', { name: /채팅/ }).getAttribute('href'), /MANDU\/\?u=banjjak$/);
+  await noLeak(view, '견적서');
   await shot(view, '9-quote-view');
 
   // 5) 예약 요청 → 사장님 목록 상태 변경
@@ -182,6 +191,7 @@ try {
   await shot(owner, '12-test-panel');
   await owner.getByRole('button', { name: /테스트 데이터 모두 지우기/ }).click();
   await testItem.waitFor({ state: 'detached', timeout: 10000 });
+  await owner.getByText('테스트 데이터를 지웠어요').waitFor({ timeout: 10000 }); // 화면은 즉시 바뀌고 서버 삭제는 그 뒤에 끝남
   assert.equal(await owner.locator('.req-item', { hasText: '김고객' }).count(), 1, '실제 요청은 남아 있어야 함');
   const gone = await tview.evaluate(async (id) => {
     const m = await import('./js/firebase.js');
@@ -189,7 +199,43 @@ try {
   }, new URL(testViewUrl).searchParams.get('id'));
   assert.equal(gone, true, '테스트 견적서도 삭제');
 
-  console.log('\n✅ 완료 확인 시나리오 1~5 + 테스트 모드 통과');
+  // 7) 개발자 모드: 업종 시뮬레이터
+  step('7) 개발자 모드: 업종 시뮬레이터 6개 업종 모두 계산·점검 통과, 값 바꾸면 결과 변경');
+  const dev = await newPage();
+  await dev.goto(`${BASE}dev.html`);
+  await dev.locator('.dev-tabs .chip').first().waitFor();
+  const index = JSON.parse(await readFile(path.join(ROOT, 'templates/index.json'), 'utf8'));
+  const tabNames = index.map((t) => t.name);
+  assert.ok(tabNames.length >= 6, '업종 6개 이상');
+  for (let i = 0; i < tabNames.length; i += 1) {
+    await dev.locator('.dev-tabs .chip').nth(i).click();
+    await dev.waitForFunction((n) => document.querySelector('.dev-tabs .chip.on')?.textContent.startsWith(n), tabNames[i]);
+    await noLeak(dev, `시뮬레이터 ${tabNames[i]}`);
+    assert.match(await dev.locator('.lint').innerText(), /점검 통과/, `${tabNames[i]} 템플릿 점검`);
+    assert.match(await dev.locator('.total-box').innerText(), /\d,\d{3},?\d*원|\d{3},000원/, `${tabNames[i]} 금액`);
+    assert.match(await dev.locator('.labor').innerText(), /명 ×/, `${tabNames[i]} 인력 예상`);
+  }
+  await shot(dev, '13-dev-moving');
+  await dev.locator('.dev-tabs .chip', { hasText: '에어컨' }).click();
+  const before = await dev.locator('.total-box b').innerText();
+  await dev.locator('.dev-item input[type=number]').first().fill('5');
+  await dev.locator('.dev-item input[type=number]').first().press('Enter');
+  await dev.waitForFunction((b) => document.querySelector('.total-box b').textContent !== b, before);
+  await shot(dev, '14-dev-aircon');
+  assert.equal(await dev.locator('.dv-badge.has-error').count(), 0, '시뮬레이터에 오류 없음');
+
+  // 8) 개발자 모드: 오류 패널
+  step('8) 개발자 모드 오류 패널: ?dev=1 로 켜면 오류가 패널에 기록됨');
+  const ownerDev = await newPage();
+  await ownerDev.goto(`${BASE}owner.html?emulator=1&dev=1`);
+  await ownerDev.locator('.dv-badge').waitFor();
+  await ownerDev.evaluate(() => console.error('테스트 오류: 일부러 낸 오류'));
+  await ownerDev.locator('.dv-badge.has-error').waitFor();
+  await ownerDev.locator('.dv-badge').click();
+  assert.match(await ownerDev.locator('.dv-list').innerText(), /일부러 낸 오류/);
+  await shot(ownerDev, '15-dev-panel');
+
+  console.log('\n✅ 완료 확인 시나리오 1~5 + 테스트 모드 + 개발자 모드 통과');
 } catch (e) {
   for (const [i, p] of pages.entries()) await shot(p, `fail-${i}`).catch(() => {});
   throw e;

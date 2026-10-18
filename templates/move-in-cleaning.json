@@ -3,6 +3,7 @@
   "name": "입주청소",
   "version": 1,
   "description": "입주 전 빈집 전체 청소",
+  "quoteMode": "fixed",
   "steps": [
     {
       "title": "연락처를 알려주세요",
@@ -432,5 +433,32 @@
     "가구·가전 이동 및 내부 청소",
     "외벽·고층 외창 (요청 시 별도)",
     "폐기물 처리"
-  ]
+  ],
+  "labor": {
+    "perField": "area",
+    "manHoursPer": 0.27,
+    "min": 6,
+    "adjust": [
+      {
+        "when": {
+          "field": "isNew",
+          "equals": true
+        },
+        "pct": 20
+      },
+      {
+        "option": "mold",
+        "manHours": 2
+      },
+      {
+        "option": "closet",
+        "manHours": 1
+      }
+    ],
+    "crew": {
+      "min": 2,
+      "max": 5,
+      "maxHours": 8
+    }
+  }
 }

@@ -1,0 +1,326 @@
+{
+  "id": "curtain-blind",
+  "name": "커튼·블라인드",
+  "version": 1,
+  "status": "draft",
+  "draftNote": "⚠️ 업계 일반 기준으로 만든 예시 초안입니다. 실제 사장님 단가·질문으로 검증 후 사용하세요.",
+  "description": "맞춤 커튼·블라인드 제작 설치",
+  "quoteMode": "range",
+  "rangePct": 15,
+  "steps": [
+    {
+      "title": "연락처를 알려주세요",
+      "description": "견적이 나오면 이 번호로 안내드립니다.",
+      "fields": [
+        {
+          "key": "name",
+          "label": "성함",
+          "type": "text",
+          "required": true,
+          "placeholder": "홍길동",
+          "maxLength": 30
+        },
+        {
+          "key": "phone",
+          "label": "연락처",
+          "type": "tel",
+          "required": true,
+          "placeholder": "010-0000-0000",
+          "maxLength": 20
+        }
+      ]
+    },
+    {
+      "title": "어디인가요?",
+      "fields": [
+        {
+          "key": "region",
+          "label": "주소 (시/구까지만)",
+          "type": "text",
+          "required": true,
+          "placeholder": "예) 부산 부산진구",
+          "maxLength": 40
+        }
+      ]
+    },
+    {
+      "title": "언제 원하시나요?",
+      "fields": [
+        {
+          "key": "date",
+          "label": "희망 날짜",
+          "type": "date",
+          "required": true
+        }
+      ]
+    },
+    {
+      "title": "창마다 원하는 제품과 폭을 넣어주세요",
+      "description": "폭은 대략적인 m 단위로 충분합니다. 정확한 치수는 실측 때 잽니다.",
+      "fields": [
+        {
+          "key": "windows",
+          "label": "창",
+          "type": "items",
+          "required": true,
+          "itemTypes": "pricing"
+        }
+      ]
+    },
+    {
+      "title": "설치 환경",
+      "fields": [
+        {
+          "key": "highCeiling",
+          "label": "천장 높이가 2.6m를 넘나요?",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": true,
+              "label": "예"
+            },
+            {
+              "value": false,
+              "label": "아니오/모름"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "추가요금 체크",
+      "description": "현장에서 추가요금 다툼이 없도록 미리 확인합니다. 잘 모르시면 '모름'을 눌러주세요.",
+      "fields": [
+        {
+          "key": "checklist",
+          "type": "checklist",
+          "required": true
+        }
+      ]
+    },
+    {
+      "title": "추가로 원하시는 서비스가 있나요?",
+      "description": "없으면 그냥 '다음'을 누르세요.",
+      "fields": [
+        {
+          "key": "extras",
+          "type": "extras"
+        }
+      ]
+    },
+    {
+      "title": "사진을 올려주세요",
+      "description": "창마다 전체가 보이게 1장, 커튼박스(천장)도 1장 권장합니다.",
+      "fields": [
+        {
+          "key": "photos",
+          "type": "photos"
+        }
+      ]
+    },
+    {
+      "title": "남기실 말씀 (선택)",
+      "fields": [
+        {
+          "key": "memo",
+          "label": "요청사항",
+          "type": "textarea",
+          "maxLength": 500
+        }
+      ]
+    }
+  ],
+  "checklist": [
+    {
+      "key": "box",
+      "short": "커튼박스",
+      "label": "커튼박스가 있나요?",
+      "risk": "no",
+      "conditionText": "커튼박스가 없으면 브라켓 설치비가 추가될 수 있습니다."
+    },
+    {
+      "key": "concrete",
+      "short": "콘크리트 타공",
+      "label": "천장이 콘크리트인가요?",
+      "risk": "yes",
+      "optionKey": "drilling"
+    },
+    {
+      "key": "rule",
+      "short": "관리사무소 제한",
+      "label": "관리사무소의 타공 제한이 있나요?",
+      "risk": "yes",
+      "conditionText": "타공이 제한되면 설치 방식이 바뀌어 금액이 달라질 수 있습니다."
+    },
+    {
+      "key": "custom",
+      "short": "맞춤 제작 반품 불가",
+      "label": "맞춤 제작 후에는 반품이 불가한 점을 확인하셨나요?",
+      "risk": "no",
+      "conditionText": "맞춤 제작 제품은 제작 시작 후 취소·반품이 불가합니다."
+    }
+  ],
+  "photoSlots": [
+    {
+      "key": "window",
+      "label": "창 전체"
+    },
+    {
+      "key": "box",
+      "label": "커튼박스"
+    },
+    {
+      "key": "ceiling",
+      "label": "천장"
+    }
+  ],
+  "pricing": {
+    "base": {
+      "type": "itemized",
+      "label": "커튼·블라인드 제작",
+      "itemsField": "windows",
+      "priceKey": "items",
+      "minPriceKey": "minPrice",
+      "perItemFeeKey": "installFee",
+      "perItemFeeLabel": "설치비",
+      "perItemFeeUnit": "창",
+      "itemTypes": [
+        {
+          "key": "blackout",
+          "label": "암막 커튼",
+          "unit": "창",
+          "bySize": true,
+          "sizeUnit": "m",
+          "sizeLabel": "폭(m)"
+        },
+        {
+          "key": "chiffon",
+          "label": "쉬폰 커튼",
+          "unit": "창",
+          "bySize": true,
+          "sizeUnit": "m",
+          "sizeLabel": "폭(m)"
+        },
+        {
+          "key": "combi",
+          "label": "콤비 블라인드",
+          "unit": "창",
+          "bySize": true,
+          "sizeUnit": "m",
+          "sizeLabel": "폭(m)"
+        },
+        {
+          "key": "wood",
+          "label": "우드 블라인드",
+          "unit": "창",
+          "bySize": true,
+          "sizeUnit": "m",
+          "sizeLabel": "폭(m)"
+        }
+      ]
+    },
+    "surcharges": [
+      {
+        "key": "highCeiling",
+        "label": "높은 천장",
+        "when": {
+          "field": "highCeiling",
+          "equals": true
+        }
+      }
+    ],
+    "options": [
+      {
+        "key": "motor",
+        "label": "전동 모터",
+        "customerSelectable": true
+      },
+      {
+        "key": "drilling",
+        "label": "콘크리트 타공"
+      },
+      {
+        "key": "measureVisit",
+        "label": "실측 방문비 (계약 시 차감)"
+      }
+    ],
+    "warnings": []
+  },
+  "defaults": {
+    "minPrice": 150000,
+    "installFee": 20000,
+    "items": {
+      "blackout": 45000,
+      "chiffon": 35000,
+      "combi": 40000,
+      "wood": 60000
+    },
+    "surcharges": {
+      "highCeiling": 15
+    },
+    "options": {
+      "motor": 250000,
+      "drilling": 10000,
+      "measureVisit": 0
+    },
+    "policy": {
+      "validDays": 7,
+      "depositPct": 30,
+      "cancelPolicy": "제작 시작 전 취소 시 계약금 전액 환불, 제작 시작 후에는 환불 불가."
+    }
+  },
+  "labor": {
+    "perItem": {
+      "blackout": 0.7,
+      "chiffon": 0.5,
+      "combi": 0.6,
+      "wood": 0.8
+    },
+    "min": 1,
+    "crew": {
+      "min": 1,
+      "max": 2,
+      "maxHours": 8
+    }
+  },
+  "included": [
+    "제작",
+    "설치 (레일·브라켓 기본)",
+    "실측 1회"
+  ],
+  "excluded": [
+    "전동 모터 (요청 시 별도)",
+    "기존 커튼 철거·폐기"
+  ],
+  "sample": {
+    "customer": {
+      "name": "테스트 고객",
+      "phone": "010-0000-0000",
+      "region": "부산 부산진구"
+    },
+    "answers": {
+      "windows": [
+        {
+          "type": "blackout",
+          "count": 2,
+          "size": 2.4
+        },
+        {
+          "type": "combi",
+          "count": 3,
+          "size": 1.5
+        }
+      ],
+      "highCeiling": false,
+      "extras": [],
+      "memo": "테스트"
+    },
+    "checklist": {
+      "box": "yes",
+      "concrete": "unknown",
+      "rule": "no",
+      "custom": "yes"
+    }
+  }
+}
