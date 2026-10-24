@@ -1,7 +1,7 @@
 {
   "id": "move-in-cleaning",
   "name": "입주청소",
-  "version": 1,
+  "version": 2,
   "description": "입주 전 빈집 전체 청소",
   "quoteMode": "fixed",
   "steps": [
@@ -131,7 +131,7 @@
       ]
     },
     {
-      "title": "방·욕실·베란다 개수",
+      "title": "방·욕실·베란다·추가 공간 개수",
       "fields": [
         {
           "key": "rooms",
@@ -159,6 +159,41 @@
           "min": 0,
           "max": 8,
           "default": 2
+        },
+        {
+          "key": "extraRooms",
+          "label": "드레스룸·팬트리·서브주방 등 추가 공간",
+          "type": "stepper",
+          "required": true,
+          "min": 0,
+          "max": 6,
+          "default": 0
+        }
+      ]
+    },
+    {
+      "title": "오염 정도는 어떤가요?",
+      "description": "이사 후 청소나 거주 중인 집은 오염 정도에 따라 작업량이 달라집니다. 사진을 함께 올리면 더 정확해요.",
+      "fields": [
+        {
+          "key": "contamination",
+          "label": "오염 정도",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "normal",
+              "label": "보통 (일반적인 생활 먼지·때)"
+            },
+            {
+              "value": "partial",
+              "label": "일부 심함 (특정 부분만 심한 오염)"
+            },
+            {
+              "value": "heavy",
+              "label": "전체적으로 심함"
+            }
+          ]
         }
       ]
     },
@@ -277,6 +312,10 @@
     {
       "key": "living",
       "label": "거실"
+    },
+    {
+      "key": "floorplan",
+      "label": "도면 (부동산 캡처 등)"
     }
   ],
   "sample": {
@@ -294,7 +333,9 @@
       "baths": 2,
       "balconies": 2,
       "extras": [],
-      "memo": "테스트 모드로 만든 샘플 요청입니다."
+      "memo": "테스트 모드로 만든 샘플 요청입니다.",
+      "extraRooms": 1,
+      "contamination": "normal"
     },
     "checklist": {
       "mold": "yes",
@@ -356,6 +397,22 @@
           "field": "timeSlot",
           "equals": "first"
         }
+      },
+      {
+        "key": "contamPartial",
+        "label": "오염 일부 심함",
+        "when": {
+          "field": "contamination",
+          "equals": "partial"
+        }
+      },
+      {
+        "key": "contamHeavy",
+        "label": "오염 전체 심함",
+        "when": {
+          "field": "contamination",
+          "equals": "heavy"
+        }
       }
     ],
     "options": [
@@ -370,6 +427,14 @@
         "quantityField": "balconies",
         "includedQty": 2,
         "priceLabel": "베란다 (2개 초과 1개당)"
+      },
+      {
+        "key": "extraRoom",
+        "label": "추가 공간 (드레스룸·팬트리 등)",
+        "unit": "개",
+        "quantityField": "extraRooms",
+        "includedQty": 0,
+        "priceLabel": "추가 공간 1개당"
       },
       {
         "key": "closet",
@@ -405,7 +470,9 @@
       "newBuild": 20,
       "weekend": 10,
       "sonEomneun": 10,
-      "firstSlot": 5
+      "firstSlot": 5,
+      "contamPartial": 15,
+      "contamHeavy": 30
     },
     "options": {
       "mold": 30000,
@@ -413,7 +480,8 @@
       "closet": 30000,
       "sickHouse": 150000,
       "window": 50000,
-      "sticker": 30000
+      "sticker": 30000,
+      "extraRoom": 30000
     },
     "policy": {
       "validDays": 7,

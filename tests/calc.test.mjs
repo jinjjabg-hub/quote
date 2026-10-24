@@ -154,3 +154,18 @@ test('lintTemplate: 흔한 실수를 잡는다', () => {
   assert.match(msgs, /수량 필드/);
   assert.match(msgs, /옵션 "nope"/);
 });
+
+// 2026-10-24 입주청소 업체 통화 반영: 오염도 요율(일부 15% / 전체 30%), 추가 공간 단가
+test('오염도: 일부 심함 15%, 전체 심함 30% 할증', () => {
+  const pt = mergePriceTable(template, { unitPrice: 10000, minPrice: 0, surcharges: { newBuild: 0 } });
+  const calc = (contamination) => calculateQuote(template, pt, { answers: { area: 30, isNew: false, date: '2026-10-14', contamination } });
+  assert.equal(calc('normal').total, 300000);
+  assert.equal(calc('partial').total, 345000);
+  assert.equal(calc('heavy').total, 390000);
+});
+
+test('추가 공간(드레스룸·팬트리 등): 1개당 과금', () => {
+  const pt = mergePriceTable(template, { unitPrice: 10000, minPrice: 0, options: { extraRoom: 30000 } });
+  const r = calculateQuote(template, pt, { answers: { area: 30, isNew: false, date: '2026-10-14', extraRooms: 2 } });
+  assert.equal(r.lines.find((l) => l.key === 'option:extraRoom').amount, 60000);
+});
