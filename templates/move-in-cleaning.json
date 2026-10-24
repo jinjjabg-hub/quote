@@ -1,7 +1,7 @@
 {
   "id": "move-in-cleaning",
   "name": "입주청소",
-  "version": 2,
+  "version": 3,
   "description": "입주 전 빈집 전체 청소",
   "quoteMode": "fixed",
   "steps": [
@@ -168,6 +168,15 @@
           "min": 0,
           "max": 6,
           "default": 0
+        },
+        {
+          "key": "closets",
+          "label": "붙박이장 (내부 청소할 개수)",
+          "type": "stepper",
+          "required": true,
+          "min": 0,
+          "max": 10,
+          "default": 0
         }
       ]
     },
@@ -250,13 +259,6 @@
       "optionKey": "mold"
     },
     {
-      "key": "closet",
-      "short": "붙박이장",
-      "label": "붙박이장 내부 청소가 필요한가요?",
-      "risk": "yes",
-      "optionKey": "closet"
-    },
-    {
       "key": "sticker",
       "short": "스티커·시트지 자국",
       "label": "스티커·시트지·페인트 자국이 있나요?",
@@ -335,11 +337,11 @@
       "extras": [],
       "memo": "테스트 모드로 만든 샘플 요청입니다.",
       "extraRooms": 1,
-      "contamination": "normal"
+      "contamination": "normal",
+      "closets": 1
     },
     "checklist": {
       "mold": "yes",
-      "closet": "unknown",
       "sticker": "no",
       "pet": "no",
       "grease": "no",
@@ -438,7 +440,11 @@
       },
       {
         "key": "closet",
-        "label": "붙박이장 내부"
+        "label": "붙박이장 내부",
+        "unit": "개",
+        "quantityField": "closets",
+        "includedQty": 0,
+        "priceLabel": "붙박이장 1개당"
       },
       {
         "key": "sickHouse",
