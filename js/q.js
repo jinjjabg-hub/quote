@@ -7,6 +7,7 @@ import { loadTemplate } from './templates.js';
 import { visibleSteps, pruneHidden } from './calc.js';
 import { $, h, toast, compressImage, registerSW, showFatal, telHref, manduHref, setChildren, icon, footerNote } from './util.js';
 import { appConfig } from './config.js';
+import { lookupEnabled, newLookupState, renderLookupPanel } from './areaLookup.js';
 
 registerSW();
 
@@ -15,7 +16,8 @@ const shopId = params.get('shop');
 const isTest = params.get('test') === '1'; // 사장님 테스트 모드에서 연 고객 화면
 const app = $('#app');
 const EXTRA_PHOTOS = 5;
-const state = { step: 0, answers: {}, checklist: {}, extras: [], photos: {}, submitting: false };
+const state = { step: 0, answers: {}, checklist: {}, extras: [], photos: {}, submitting: false, lookup: newLookupState() };
+const LOOKUP_ON = lookupEnabled(params);
 let shop; let tpl; let draftKey;
 
 init().catch((e) => showFatal(e.message));
@@ -50,7 +52,7 @@ function saveDraft() {
 // 조건부 질문(showIf) 때문에 답에 따라 단계 수가 달라질 수 있다
 const steps = () => visibleSteps(tpl, state.answers);
 
-function render() {
+function render({ focus = true } = {}) {
   const all = steps();
   state.step = Math.min(state.step, all.length - 1);
   const step = all[state.step];
@@ -76,7 +78,7 @@ function render() {
         state.step === all.length - 1 ? (state.submitting ? '보내는 중…' : '견적 요청 보내기') : '다음')),
   );
   const first = app.querySelector('.step input, .step textarea');
-  if (first && first.type !== 'file') first.focus({ preventScroll: true });
+  if (focus && first && first.type !== 'file') first.focus({ preventScroll: true });
 }
 
 // 상단 업체 바. 로고는 올린 업체만, 채팅은 만두 ID가 있을 때만 (시안: 전화 버튼 없음, 전화는 접수 완료 화면에서)
@@ -96,11 +98,15 @@ function renderField(f) {
         type: f.type, value: v ?? '', placeholder: f.placeholder || '', maxLength: f.maxLength || 100,
         inputMode: f.type === 'number' ? 'decimal' : f.type === 'tel' ? 'tel' : undefined,
         min: f.type === 'date' ? new Date().toISOString().slice(0, 10) : f.min, max: f.max,
-        oninput: (e) => set(f.type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value),
+        oninput: (e) => {
+          set(f.type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value);
+          if (f.lookup) markManualIfChanged(f);
+        },
         onkeydown: (e) => { if (e.key === 'Enter') next(); },
       });
       // 단위(템플릿 unit)는 입력칸 안쪽 오른쪽에 표시
-      return fieldWrap(f, f.unit ? h('div.input-unit', {}, input, h('span', { 'aria-hidden': 'true' }, f.unit)) : input);
+      const control = fieldWrap(f, f.unit ? h('div.input-unit', {}, input, h('span', { 'aria-hidden': 'true' }, f.unit)) : input);
+      return f.lookup === 'registry' && LOOKUP_ON ? [lookupPanel(f), control] : control;
     }
     case 'textarea':
       return fieldWrap(f, h('textarea.input', {
@@ -149,6 +155,36 @@ function renderField(f) {
     }
     default:
       return h('p.muted', {}, `알 수 없는 항목 유형: ${f.type}`);
+  }
+}
+
+// ---------- 주소 → 평수 자동 조회 (설계도 4-4장) ----------
+// 템플릿 숫자 질문에 "lookup": "registry" 가 있으면 위에 조회 패널을 붙인다. 결과는 answers 의
+// {key}Source ('registry'|'manual') 와 {key}Lookup (단지명·동·호·면적) 에 남긴다. 고객 공개 견적서에는 복사하지 않는다.
+
+function lookupPanel(f) {
+  return renderLookupPanel(state.lookup, state.answers[`${f.key}Source`] === 'registry' ? state.answers[`${f.key}Lookup`] : null, {
+    rerender: () => render({ focus: false }),
+    onApply: (info) => {
+      state.answers[f.key] = Math.round(info.pyeong);
+      state.answers[`${f.key}Source`] = 'registry';
+      state.answers[`${f.key}Lookup`] = info;
+      saveDraft();
+    },
+    onManual: () => {
+      state.answers[`${f.key}Source`] = 'manual';
+      saveDraft();
+      setTimeout(() => app.querySelector('.step input[type=number]')?.focus(), 0);
+    },
+  });
+}
+
+// 대장 평수를 적용한 뒤 고객이 숫자를 고치면 "직접 입력"으로 기록 (대장 값은 비교용으로 남김)
+function markManualIfChanged(f) {
+  const info = state.answers[`${f.key}Lookup`];
+  if (state.answers[`${f.key}Source`] === 'registry' && info && Number(state.answers[f.key]) !== Math.round(info.pyeong)) {
+    state.answers[`${f.key}Source`] = 'manual';
+    saveDraft();
   }
 }
 
@@ -234,6 +270,11 @@ async function submit() {
       photos.push({ slot, path }); // 다운로드 URL은 사장님 화면에서 권한 확인 후 받는다
     }
     const { name, phone, region, ...rest } = pruneHidden(tpl, state.answers);
+    if (LOOKUP_ON) {
+      for (const f of tpl.steps.flatMap((st) => st.fields).filter((x) => x.lookup)) {
+        if (rest[f.key] !== undefined && !rest[`${f.key}Source`]) rest[`${f.key}Source`] = 'manual';
+      }
+    }
     await setDoc(requestRef, {
       shopId,
       templateId: shop.templateId,

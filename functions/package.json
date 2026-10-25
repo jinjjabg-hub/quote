@@ -1,0 +1,16 @@
+{
+  "name": "quote-functions",
+  "private": true,
+  "type": "module",
+  "description": "견적 서비스 Cloud Functions. 키는 Secret Manager 에만 (코드·.env 에 넣지 않음).",
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "deploy:area": "firebase deploy --only functions:areaLookup --project quote-640f4"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.3.0"
+  }
+}

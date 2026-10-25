@@ -15,6 +15,7 @@ import {
   $, h, toast, copyText, pageUrl, compressImage, STATUS, statusBadge, fmtDateTime, optionLabel, telHref,
   registerSW, showFatal, MANDU_ID_RE, setChildren, icon, timeAgo, maskName, tsToDate, footerNote,
 } from './util.js';
+import { placeLabel } from './areaLookup.js';
 
 registerSW();
 
@@ -531,7 +532,9 @@ function renderDetail() {
   const infoRows = fields
     .filter((f) => isFieldVisible(f, a))
     .filter((f) => !['checklist', 'extras', 'photos', 'textarea'].includes(f.type) && !['name', 'phone', 'region', 'date', 'timeSlot'].includes(f.key))
-    .map((f) => [f.label, a[f.key] === undefined || a[f.key] === '' ? '-' : String(optionLabel(f, a[f.key]))]);
+    .map((f) => [f.label, a[f.key] === undefined || a[f.key] === '' ? '-' : `${optionLabel(f, a[f.key])}${f.lookup ? lookupNote(a, f.key) : ''}`]);
+  // 주소 → 평수 자동 조회 결과 (설계도 4-4장). 단지명·동·호는 사장님 화면에만 (견적서에는 넣지 않음)
+  const site = fields.filter((f) => f.lookup).map((f) => a[`${f.key}Lookup`]).find(Boolean);
   const extras = (a.extras || []).map((k) => S.tpl.pricing.options.find((o) => o.key === k)?.label || k);
   const dateTags = [flags.$weekend && '주말', flags.$holiday && '공휴일', flags.$sonEomneun && '손 없는 날'].filter(Boolean);
   const ansLabel = { yes: '예', no: '아니오', unknown: '모름' };
@@ -555,7 +558,11 @@ function renderDetail() {
           h('a.btn.soft.icon', { href: `sms:${phone.replace(/[^0-9+]/g, '')}`, 'aria-label': '문자 보내기' }, icon('sms'))) : null)),
     h('section.card', {},
       h('div.card-title', {}, icon('location_on'), '시공 현장 정보'),
-      h('div.box', {}, h('b', {}, req.customer?.region || '지역 미입력'), requestSummary(req).size ? h('div.muted', {}, `${requestSummary(req).size} · ${S.tpl.name}`) : null),
+      h('div.box', {},
+        h('b', {}, site ? placeLabel(site) : req.customer?.region || '지역 미입력'),
+        site?.roadAddr ? h('div.muted', {}, site.roadAddr) : null,
+        requestSummary(req).size ? h('div.muted', {}, `${requestSummary(req).size} · ${S.tpl.name}`) : null,
+        site ? h('div.small', { style: 'margin-top:4px' }, h('span.badge.verified', {}, icon('verified'), ' 건축물대장'), ` 전용 ${site.exclusiveM2}㎡ · 공급 ${site.supplyM2}㎡`) : null),
       a.date ? h('div.date-row', {}, h('span', {}, icon('calendar_month'), ' 희망 시공일'),
         h('b', {}, `${a.date}${a.timeSlot ? ` ${optionLabel(timeField, a.timeSlot)}` : ''}${dateTags.length ? ` (${dateTags.join('·')})` : ''}`)) : null),
     h('section.card', {},
@@ -581,6 +588,14 @@ function renderDetail() {
       h('div.dock-note', {}, h('span', {}, '견적서 링크 + 안내 문구 생성'), h('span', {}, '카톡·문자로 전달'))),
   );
   renderDetailStatus();
+}
+
+/** 평수 옆 표시: 대장으로 확인했는지, 고객이 대장 값과 다르게 고쳤는지 */
+function lookupNote(a, key) {
+  const info = a[`${key}Lookup`];
+  if (a[`${key}Source`] === 'registry') return ' (건축물대장 확인)';
+  if (info) return ` (고객 직접 입력 · 대장 ${Math.round(info.pyeong)}평)`;
+  return a[`${key}Source`] === 'manual' ? ' (직접 입력)' : '';
 }
 
 // 사장님만 보는 메모. requests 문서에 저장하며, 견적서(quotes)로는 복사하지 않는다.
