@@ -9,6 +9,7 @@ import { appConfig } from './config.js';
 import { loadTemplate } from './templates.js';
 import {
   calculateQuote, finalizeLines, mergePriceTable, priceWarnings, formatWon, addDays, toDateStr, dateFlags, ROUNDING_KEY,
+  isFieldVisible,
 } from './calc.js';
 import {
   $, h, toast, copyText, pageUrl, compressImage, STATUS, statusBadge, fmtDateTime, optionLabel, telHref,
@@ -364,6 +365,7 @@ function renderDetail() {
   const flags = dateFlags(a.date);
 
   const infoRows = fields
+    .filter((f) => isFieldVisible(f, a))
     .filter((f) => !['checklist', 'extras', 'photos', 'name', 'phone', 'region'].includes(f.type) && !['name', 'phone', 'region'].includes(f.key))
     .map((f) => [f.label, a[f.key] === undefined || a[f.key] === '' ? '-' : String(optionLabel(f, a[f.key]))]);
   if (a.date) {

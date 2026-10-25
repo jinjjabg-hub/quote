@@ -4,6 +4,7 @@ import {
   db, storage, doc, collection, getDoc, setDoc, serverTimestamp, storageRef, uploadBytes, isConfigured,
 } from './firebase.js';
 import { loadTemplate } from './templates.js';
+import { visibleSteps, pruneHidden } from './calc.js';
 import { $, h, toast, compressImage, registerSW, showFatal, telHref, manduHref, setChildren } from './util.js';
 import { appConfig } from './config.js';
 
@@ -46,10 +47,14 @@ function saveDraft() {
 
 // ---------- 렌더링 ----------
 
+// 조건부 질문(showIf) 때문에 답에 따라 단계 수가 달라질 수 있다
+const steps = () => visibleSteps(tpl, state.answers);
+
 function render() {
-  const steps = tpl.steps;
-  const step = steps[state.step];
-  const pct = Math.round(((state.step + 1) / steps.length) * 100);
+  const all = steps();
+  state.step = Math.min(state.step, all.length - 1);
+  const step = all[state.step];
+  const pct = Math.round(((state.step + 1) / all.length) * 100);
   setChildren(app, 
     isTest ? h('div.test-banner', {}, '🧪 테스트 모드: 사장님 확인용이며 실제 요청으로 집계되지 않습니다.') : null,
     h('header.shop-head', {},
@@ -58,7 +63,7 @@ function render() {
       manduLink() ? h('a.btn.ghost.small', { href: manduLink(), target: '_blank', rel: 'noopener' }, '💬 채팅') : null),
     h('div.progress', { role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100 },
       h('div.progress-bar', { style: `width:${pct}%` })),
-    h('div.step-count.muted', {}, `${state.step + 1} / ${steps.length}`),
+    h('div.step-count.muted', {}, `${state.step + 1} / ${all.length}`),
     h('section.card.step', {},
       h('h1', {}, step.title),
       step.description ? h('p.muted', {}, step.description) : null,
@@ -66,7 +71,7 @@ function render() {
     h('div.nav-row', {},
       state.step > 0 ? h('button.btn.ghost', { type: 'button', onclick: prev }, '이전') : h('span'),
       h('button.btn.primary', { type: 'button', onclick: next, disabled: state.submitting },
-        state.step === steps.length - 1 ? (state.submitting ? '보내는 중…' : '견적 요청 보내기') : '다음')),
+        state.step === all.length - 1 ? (state.submitting ? '보내는 중…' : '견적 요청 보내기') : '다음')),
   );
   const first = app.querySelector('.step input, .step textarea');
   if (first && first.type !== 'file') first.focus({ preventScroll: true });
@@ -165,7 +170,7 @@ function renderPhotoSlot(slot) {
 // ---------- 이동·검증 ----------
 
 function validateStep() {
-  for (const f of tpl.steps[state.step].fields) {
+  for (const f of steps()[state.step].fields) {
     const v = state.answers[f.key];
     if (f.type === 'checklist') {
       const missing = tpl.checklist.find((i) => !state.checklist[i.key]);
@@ -191,7 +196,7 @@ function prev() { state.step = Math.max(0, state.step - 1); render(); window.scr
 function next() {
   const err = validateStep();
   if (err) { toast(err); return; }
-  if (state.step < tpl.steps.length - 1) { state.step += 1; render(); window.scrollTo(0, 0); return; }
+  if (state.step < steps().length - 1) { state.step += 1; render(); window.scrollTo(0, 0); return; }
   submit();
 }
 
@@ -207,7 +212,7 @@ async function submit() {
       await uploadBytes(storageRef(storage, path), blob, { contentType: 'image/jpeg' });
       photos.push({ slot, path }); // 다운로드 URL은 사장님 화면에서 권한 확인 후 받는다
     }
-    const { name, phone, region, ...rest } = state.answers;
+    const { name, phone, region, ...rest } = pruneHidden(tpl, state.answers);
     await setDoc(requestRef, {
       shopId,
       templateId: shop.templateId,

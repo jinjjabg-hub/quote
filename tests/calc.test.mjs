@@ -170,9 +170,34 @@ test('추가 공간(드레스룸·팬트리 등): 1개당 과금', () => {
   assert.equal(r.lines.find((l) => l.key === 'option:extraRoom').amount, 60000);
 });
 
-test('붙박이장: 개수당 과금, 0개면 청구 없음', () => {
+test('붙박이장: 있으면 개수당 과금, 없으면 청구 없음', () => {
   const pt = mergePriceTable(template, { unitPrice: 10000, minPrice: 0, options: { closet: 30000 } });
-  const calc = (closets) => calculateQuote(template, pt, { answers: { area: 30, isNew: false, date: '2026-10-14', closets } });
+  const calc = (closets) => calculateQuote(template, pt, { answers: { area: 30, isNew: false, date: '2026-10-14', hasCloset: closets > 0, closets } });
   assert.ok(!calc(0).lines.some((l) => l.key === 'option:closet'));
   assert.equal(calc(3).lines.find((l) => l.key === 'option:closet').amount, 90000);
+});
+
+test('조건부 질문: 붙박이장 "없어요"면 개수를 넣었어도 청구하지 않음', () => {
+  const pt = mergePriceTable(template, { unitPrice: 10000, minPrice: 0, options: { closet: 30000 } });
+  const calc = (hasCloset) => calculateQuote(template, pt, { answers: { area: 30, isNew: false, date: '2026-10-14', hasCloset, closets: 3 } });
+  assert.equal(calc(true).lines.find((l) => l.key === 'option:closet').amount, 90000);
+  assert.ok(!calc(false).lines.some((l) => l.key === 'option:closet'));
+});
+
+test('조건부 질문: visibleSteps · pruneHidden', async () => {
+  const { visibleSteps, pruneHidden } = await import('../js/calc.js');
+  const keys = (a) => visibleSteps(template, a).flatMap((s) => s.fields.map((f) => f.key));
+  assert.ok(keys({ hasCloset: true }).includes('closets'));
+  assert.ok(!keys({ hasCloset: false }).includes('closets'));
+  assert.deepEqual(pruneHidden(template, { hasCloset: false, closets: 2, area: 30 }), { hasCloset: false, area: 30 });
+});
+
+test('lintTemplate: showIf 가 없는 질문·뒤에 있는 질문을 보면 오류', async () => {
+  const { lintTemplate } = await import('../js/calc.js');
+  const base = { id: 'x', name: 'x', pricing: { base: { quantityField: 'a' } }, defaults: { unitPrice: 1 } };
+  const common = [{ key: 'name', type: 'text' }, { key: 'phone', type: 'tel' }, { key: 'region', type: 'text' }];
+  const t1 = { ...base, steps: [{ fields: [...common, { key: 'a', type: 'number', showIf: { field: 'nope', equals: 1 } }] }] };
+  assert.match(lintTemplate(t1).map((l) => l.msg).join('\n'), /없는 질문 "nope"/);
+  const t2 = { ...base, steps: [{ fields: [...common, { key: 'a', type: 'number', showIf: { field: 'b', equals: 1 } }, { key: 'b', type: 'choice', options: [] }] }] };
+  assert.match(lintTemplate(t2).map((l) => l.msg).join('\n'), /뒤에 있습니다/);
 });

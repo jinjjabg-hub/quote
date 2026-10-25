@@ -1,7 +1,7 @@
 {
   "id": "move-in-cleaning",
   "name": "입주청소",
-  "version": 3,
+  "version": 4,
   "description": "입주 전 빈집 전체 청소",
   "quoteMode": "fixed",
   "steps": [
@@ -170,13 +170,34 @@
           "default": 0
         },
         {
+          "key": "hasCloset",
+          "label": "붙박이장이 있나요?",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": true,
+              "label": "있어요"
+            },
+            {
+              "value": false,
+              "label": "없어요"
+            }
+          ]
+        },
+        {
           "key": "closets",
-          "label": "붙박이장 (내부 청소할 개수)",
+          "label": "붙박이장 몇 개인가요?",
           "type": "stepper",
           "required": true,
-          "min": 0,
+          "min": 1,
           "max": 10,
-          "default": 0
+          "default": 1,
+          "showIf": {
+            "field": "hasCloset",
+            "equals": true
+          },
+          "hint": "내부까지 청소할 붙박이장 개수 (한 벽면 = 1개)"
         }
       ]
     },
@@ -338,7 +359,8 @@
       "memo": "테스트 모드로 만든 샘플 요청입니다.",
       "extraRooms": 1,
       "contamination": "normal",
-      "closets": 1
+      "closets": 1,
+      "hasCloset": true
     },
     "checklist": {
       "mold": "yes",
