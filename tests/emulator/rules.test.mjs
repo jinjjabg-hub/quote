@@ -96,6 +96,17 @@ test('사장님: 만두 ID 형식 검사', async () => {
   await assertFails(setDoc(doc(other(), 'shops', OTHER), { ...base, manduId: 'javascript:alert(1)' }));
 });
 
+test('사장님: 한 줄 소개·서비스 지역 저장 O, 60자 초과 X', async () => {
+  const base = { ownerUid: OTHER, templateId: 'move-in-cleaning', name: '' };
+  await assertSucceeds(setDoc(doc(other(), 'shops', OTHER), { ...base, intro: '10년 경력 직영팀', serviceArea: '부산 전 지역' }));
+  await assertFails(setDoc(doc(other(), 'shops', OTHER), { ...base, intro: 'x'.repeat(61) }));
+});
+
+test('사장님: 내부 메모(ownerMemo) 저장 O, 남의 요청 X', async () => {
+  await assertSucceeds(updateDoc(doc(owner(), 'requests', 'r1'), { ownerMemo: '주차 확인' }));
+  await assertFails(updateDoc(doc(other(), 'requests', 'r1'), { ownerMemo: '탈취' }));
+});
+
 test('사장님: 업체 최초 생성은 본인 uid 로만', async () => {
   await assertSucceeds(setDoc(doc(other(), 'shops', OTHER), { ownerUid: OTHER, templateId: 'move-in-cleaning', name: '' }));
   await assertFails(setDoc(doc(other(), 'shops', 'someoneElse'), { ownerUid: OTHER, templateId: 'move-in-cleaning' }));

@@ -8,7 +8,7 @@ const template = JSON.parse(readFileSync(new URL('../templates/move-in-cleaning.
 const allNo = Object.fromEntries(template.checklist.map((i) => [i.key, i.risk === 'yes' ? 'no' : 'yes']));
 
 // 완료 확인 시나리오 1~4
-test('시나리오: 34평 신축 + 곰팡이 예 + 붙박이장 모름 → 560,000원', () => {
+test('시나리오: 34평 신축 + 곰팡이 예 + 스티커 모름 → 560,000원', () => {
   const pt = mergePriceTable(template, {
     unitPrice: 13000,
     surcharges: { newBuild: 20, weekend: 0, sonEomneun: 0, firstSlot: 0 },
@@ -16,17 +16,17 @@ test('시나리오: 34평 신축 + 곰팡이 예 + 붙박이장 모름 → 560,0
   });
   const req = {
     answers: { area: 34, isNew: true, date: '2026-10-14', timeSlot: 'am', balconies: 2, extras: [] },
-    checklist: { ...allNo, mold: 'yes', closet: 'unknown' },
+    checklist: { ...allNo, mold: 'yes', sticker: 'unknown' },
     photos: [{ url: 'a' }, { url: 'b' }],
   };
   const r = calculateQuote(template, pt, req);
   assert.equal(r.subtotal, 560400);
   assert.equal(r.total, 560000);
   assert.deepEqual(r.lines.map((l) => l.amount), [442000, 88400, 30000, -400]);
-  const closet = r.conditions.find((c) => c.key === 'closet');
-  assert.ok(closet, '붙박이장이 ⚠️ 조건에 있어야 함');
-  assert.match(closet.label, /붙박이장/);
-  assert.ok(!r.excluded.some((e) => e.includes('붙박이장')), '조건에 있으면 불포함에 중복 표기 안 함');
+  const sticker = r.conditions.find((c) => c.key === 'sticker');
+  assert.ok(sticker, '스티커가 ⚠️ 조건에 있어야 함');
+  assert.match(sticker.label, /스티커/);
+  assert.ok(!r.excluded.some((e) => e.includes('스티커')), '조건에 있으면 불포함에 중복 표기 안 함');
   assert.ok(r.included.includes('곰팡이 제거'));
   assert.equal(r.verified, true);
 });
@@ -46,11 +46,11 @@ test('베란다: 기본 2개 초과분만 과금', () => {
 
 test('사장님 수동 조정: 할증 끄기, 옵션 켜기 → 조건에서 빠짐', () => {
   const pt = mergePriceTable(template, { unitPrice: 13000 });
-  const req = { answers: { area: 34, isNew: true, date: '2026-10-14' }, checklist: { closet: 'unknown' } };
-  const r = calculateQuote(template, pt, req, { surcharges: { newBuild: false }, options: { closet: true } });
+  const req = { answers: { area: 34, isNew: true, date: '2026-10-14' }, checklist: { sticker: 'unknown' } };
+  const r = calculateQuote(template, pt, req, { surcharges: { newBuild: false }, options: { sticker: true } });
   assert.ok(!r.lines.some((l) => l.key === 'surcharge:newBuild'));
-  assert.ok(r.lines.some((l) => l.key === 'option:closet'));
-  assert.ok(!r.conditions.some((c) => c.key === 'closet'));
+  assert.ok(r.lines.some((l) => l.key === 'option:sticker'));
+  assert.ok(!r.conditions.some((c) => c.key === 'sticker'));
 });
 
 test('체크리스트 위험 답변(옵션 없음) → 조건 문구', () => {
@@ -153,4 +153,51 @@ test('lintTemplate: 흔한 실수를 잡는다', () => {
   assert.match(msgs, /"phone"/);
   assert.match(msgs, /수량 필드/);
   assert.match(msgs, /옵션 "nope"/);
+});
+
+// 2026-10-24 입주청소 업체 통화 반영: 오염도 요율(일부 15% / 전체 30%), 추가 공간 단가
+test('오염도: 일부 심함 15%, 전체 심함 30% 할증', () => {
+  const pt = mergePriceTable(template, { unitPrice: 10000, minPrice: 0, surcharges: { newBuild: 0 } });
+  const calc = (contamination) => calculateQuote(template, pt, { answers: { area: 30, isNew: false, date: '2026-10-14', contamination } });
+  assert.equal(calc('normal').total, 300000);
+  assert.equal(calc('partial').total, 345000);
+  assert.equal(calc('heavy').total, 390000);
+});
+
+test('추가 공간(드레스룸·팬트리 등): 1개당 과금', () => {
+  const pt = mergePriceTable(template, { unitPrice: 10000, minPrice: 0, options: { extraRoom: 30000 } });
+  const r = calculateQuote(template, pt, { answers: { area: 30, isNew: false, date: '2026-10-14', extraRooms: 2 } });
+  assert.equal(r.lines.find((l) => l.key === 'option:extraRoom').amount, 60000);
+});
+
+test('붙박이장: 있으면 개수당 과금, 없으면 청구 없음', () => {
+  const pt = mergePriceTable(template, { unitPrice: 10000, minPrice: 0, options: { closet: 30000 } });
+  const calc = (closets) => calculateQuote(template, pt, { answers: { area: 30, isNew: false, date: '2026-10-14', hasCloset: closets > 0, closets } });
+  assert.ok(!calc(0).lines.some((l) => l.key === 'option:closet'));
+  assert.equal(calc(3).lines.find((l) => l.key === 'option:closet').amount, 90000);
+});
+
+test('조건부 질문: 붙박이장 "없어요"면 개수를 넣었어도 청구하지 않음', () => {
+  const pt = mergePriceTable(template, { unitPrice: 10000, minPrice: 0, options: { closet: 30000 } });
+  const calc = (hasCloset) => calculateQuote(template, pt, { answers: { area: 30, isNew: false, date: '2026-10-14', hasCloset, closets: 3 } });
+  assert.equal(calc(true).lines.find((l) => l.key === 'option:closet').amount, 90000);
+  assert.ok(!calc(false).lines.some((l) => l.key === 'option:closet'));
+});
+
+test('조건부 질문: visibleSteps · pruneHidden', async () => {
+  const { visibleSteps, pruneHidden } = await import('../js/calc.js');
+  const keys = (a) => visibleSteps(template, a).flatMap((s) => s.fields.map((f) => f.key));
+  assert.ok(keys({ hasCloset: true }).includes('closets'));
+  assert.ok(!keys({ hasCloset: false }).includes('closets'));
+  assert.deepEqual(pruneHidden(template, { hasCloset: false, closets: 2, area: 30 }), { hasCloset: false, area: 30 });
+});
+
+test('lintTemplate: showIf 가 없는 질문·뒤에 있는 질문을 보면 오류', async () => {
+  const { lintTemplate } = await import('../js/calc.js');
+  const base = { id: 'x', name: 'x', pricing: { base: { quantityField: 'a' } }, defaults: { unitPrice: 1 } };
+  const common = [{ key: 'name', type: 'text' }, { key: 'phone', type: 'tel' }, { key: 'region', type: 'text' }];
+  const t1 = { ...base, steps: [{ fields: [...common, { key: 'a', type: 'number', showIf: { field: 'nope', equals: 1 } }] }] };
+  assert.match(lintTemplate(t1).map((l) => l.msg).join('\n'), /없는 질문 "nope"/);
+  const t2 = { ...base, steps: [{ fields: [...common, { key: 'a', type: 'number', showIf: { field: 'b', equals: 1 } }, { key: 'b', type: 'choice', options: [] }] }] };
+  assert.match(lintTemplate(t2).map((l) => l.msg).join('\n'), /뒤에 있습니다/);
 });

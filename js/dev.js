@@ -2,7 +2,7 @@
 // 로그인·Firebase 없이 업종 템플릿 + 계산 엔진만으로 "고객 입력 → 계산 → 견적서 → 인력 예상"을 한 화면에서 확인한다.
 // 실제 앱과 같은 calc.js·templates/*.json 을 쓰므로, 여기서 맞으면 실제 앱 계산도 같다.
 import {
-  calculateQuote, mergePriceTable, lintTemplate, buildContext, formatWon, addDays, toDateStr, isVerified, ROUNDING_KEY,
+  calculateQuote, mergePriceTable, lintTemplate, buildContext, isFieldVisible, formatWon, addDays, toDateStr, isVerified, ROUNDING_KEY,
 } from './calc.js';
 import { $, h, toast, setChildren } from './util.js';
 import { devlog } from './devtools.js';
@@ -73,7 +73,11 @@ function render() {
 }
 
 function renderStep(step, i) {
-  return h('fieldset.dev-step', {}, h('legend', {}, `${i + 1}. ${step.title}`), step.fields.map(renderField));
+  // 조건부 질문은 조건이 안 맞으면 고객 화면에 안 보인다 → 여기서는 흐리게 표시만
+  return h('fieldset.dev-step', {}, h('legend', {}, `${i + 1}. ${step.title}`), step.fields.map((f) => {
+    if (isFieldVisible(f, S.answers)) return renderField(f);
+    return h('p.muted.small.dev-hidden', {}, `↳ 숨김: ${f.label || f.key} (조건 ${JSON.stringify(f.showIf)} 불일치)`);
+  }));
 }
 
 function set(key, v) { S.answers[key] = v; render(); }

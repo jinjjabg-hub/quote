@@ -82,7 +82,32 @@ export function evalWhen(when, ctx) {
   return false;
 }
 
+// ---------- 조건부 질문 ----------
+// 필드에 showIf 가 있으면 조건이 맞을 때만 보인다 (문법은 when 과 같음, 예: {"field":"hasCloset","equals":true}).
+// 숨겨진 질문의 답은 계산에 쓰지 않는다. 고객이 개수를 넣었다가 "없음"으로 바꿔도 금액이 남지 않게 하기 위함.
+
+export function isFieldVisible(field, answers = {}) {
+  return !field.showIf || evalWhen(field.showIf, answers);
+}
+
+/** 화면에 보이는 질문만 남긴 단계 목록. 질문이 모두 숨겨진 단계는 건너뛴다. */
+export function visibleSteps(template, answers = {}) {
+  return (template.steps || [])
+    .map((s) => ({ ...s, fields: s.fields.filter((f) => isFieldVisible(f, answers)) }))
+    .filter((s) => s.fields.length);
+}
+
+/** 숨겨진 질문의 답을 뺀 answers (순서대로 판정하므로 조건이 이어져도 맞게 빠진다) */
+export function pruneHidden(template, answers = {}) {
+  const out = { ...answers };
+  for (const f of (template?.steps || []).flatMap((s) => s.fields)) {
+    if (!isFieldVisible(f, out)) delete out[f.key];
+  }
+  return out;
+}
+
 export function buildContext(answers = {}, template = null) {
+  answers = template ? pruneHidden(template, answers) : answers;
   const ctx = { ...answers, ...dateFlags(answers.date) };
   const itemsField = template?.pricing?.base?.itemsField;
   const items = itemsField && Array.isArray(answers[itemsField]) ? answers[itemsField] : [];
@@ -378,6 +403,13 @@ export function estimateLabor(template, ctx, optionState = {}) {
 }
 
 // ---------- 템플릿 점검 (개발자 모드) ----------
+function whenFields(w) {
+  if (!w) return [];
+  if (Array.isArray(w.any)) return w.any.flatMap(whenFields);
+  if (Array.isArray(w.all)) return w.all.flatMap(whenFields);
+  return w.field ? [w.field] : [];
+}
+
 const KNOWN_FIELD_TYPES = ['text', 'tel', 'date', 'number', 'textarea', 'choice', 'stepper', 'checklist', 'extras', 'photos', 'items'];
 
 /** 템플릿 JSON의 흔한 실수를 찾아 [{level:'error'|'warn', msg}] 로 돌려준다. */
@@ -394,6 +426,15 @@ export function lintTemplate(t) {
   const fields = (t.steps || []).flatMap((s) => s.fields || []);
   const keys = new Set(fields.map((f) => f.key));
   for (const f of fields) if (!KNOWN_FIELD_TYPES.includes(f.type)) err(`알 수 없는 입력 형태: ${f.key} (${f.type})`);
+  const seen = new Set();
+  for (const f of fields) {
+    for (const ref of whenFields(f.showIf)) {
+      if (!keys.has(ref)) err(`"${f.key}" 의 showIf 가 없는 질문 "${ref}" 를 봅니다`);
+      else if (!seen.has(ref)) err(`"${f.key}" 의 showIf 질문 "${ref}" 가 뒤에 있습니다 (앞에서 먼저 물어야 함)`);
+    }
+    if (f.showIf && ['name', 'phone', 'region'].includes(f.key)) err(`공통 필드 "${f.key}" 는 숨길 수 없습니다`);
+    seen.add(f.key);
+  }
   for (const k of ['name', 'phone', 'region']) if (!keys.has(k)) err(`공통 필드 "${k}" 가 질문에 없습니다`);
   if (type === 'perUnit') {
     if (!keys.has(p.base.quantityField)) err(`수량 필드 "${p.base.quantityField}" 가 질문에 없습니다`);
