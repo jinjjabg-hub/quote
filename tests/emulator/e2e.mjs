@@ -65,12 +65,14 @@ try {
   await owner.getByRole('button', { name: /Google/ }).click();
   await owner.getByText('처음 오셨네요').waitFor();
   const shopField = (label) => owner.locator('label.field', { hasText: label }).locator('input');
-  await shopField('상호').fill('반짝입주청소');
-  await shopField('연락처').fill('010-1111-2222');
+  await shopField('업체명').fill('반짝입주청소');
+  await shopField('대표 전화번호').fill('010-1111-2222');
+  await shopField('서비스 가능 지역').fill('서울 송파구·강동구');
   await shopField('만두 ID').fill('@Banjjak');
-  await owner.getByRole('button', { name: '저장', exact: true }).click();
-  await owner.getByText('숫자만 고치고').waitFor();
-  const priceInput = (label) => owner.locator('label.price-row', { hasText: label }).locator('input');
+  await shot(owner, '0-owner-shop');
+  await owner.getByRole('button', { name: '업체 정보 저장하기' }).click();
+  await owner.getByText('다른 숫자만 고치세요').waitFor();
+  const priceInput = (label) => owner.locator('label.price-row, label.price-main', { hasText: label }).locator('input');
   await priceInput('평당 단가').fill('8000');
   assert.match(await owner.locator('.warn-box').innerText(), /분쟁/, '9,000원 미만 경고');
   await priceInput('평당 단가').fill('13000');
@@ -78,12 +80,12 @@ try {
   await priceInput('신축').fill('20');
   await priceInput('곰팡이 제거').fill('30000');
   await shot(owner, '1-owner-price');
-  await owner.getByRole('button', { name: '단가표 저장' }).click();
+  await owner.getByRole('button', { name: '단가표 저장하기' }).click();
   await owner.getByText('단가표를 저장했어요').waitFor();
   const uid = await owner.evaluate(async () => (await import('./js/firebase.js')).auth.currentUser.uid);
 
   // 2) 고객 입력
-  step('2) 고객: 34평, 신축, 곰팡이 예, 붙박이장 모름, 사진 2장');
+  step('2) 고객: 34평, 신축, 붙박이장 없음(조건부 질문), 오염 보통, 곰팡이 예, 스티커 모름, 사진 2장');
   const cust = await newPage();
   await cust.goto(`${BASE}q.html?shop=${uid}&emulator=1`);
   const next = () => cust.locator('.nav-row .btn.primary').click();
@@ -102,13 +104,22 @@ try {
   await cust.locator('input[type=number]').fill('34');
   await cust.getByRole('button', { name: '예, 신축' }).click();
   await next();
-  await next(); // 방·욕실·베란다 기본값 (베란다 2 = 기본 포함)
+  // 방·욕실·베란다 기본값 (베란다 2 = 기본 포함). 붙박이장 개수는 "있어요"를 골라야만 보인다 (showIf)
+  assert.equal(await cust.getByText('붙박이장 몇 개인가요?').count(), 0, '처음엔 개수 질문 숨김');
+  await cust.getByRole('button', { name: '있어요' }).click();
+  await cust.getByText('붙박이장 몇 개인가요?').waitFor();
+  await shot(cust, '2b-customer-conditional');
+  await cust.getByRole('button', { name: '없어요' }).click();
+  assert.equal(await cust.getByText('붙박이장 몇 개인가요?').count(), 0, '"없어요"면 다시 숨김');
+  await next();
+  await cust.getByRole('button', { name: /보통/ }).click(); // 오염 정도
+  await next();
   const items = cust.locator('.check-item');
   const n = await items.count();
   for (let i = 0; i < n; i += 1) {
     const item = items.nth(i);
     const q = await item.locator('.check-q').innerText();
-    const ans = /곰팡이/.test(q) ? '예' : /붙박이장/.test(q) ? '모름' : /(주차|엘리베이터)/.test(q) ? '예' : '아니오';
+    const ans = /곰팡이/.test(q) ? '예' : /스티커/.test(q) ? '모름' : /(주차|엘리베이터)/.test(q) ? '예' : '아니오';
     await item.getByRole('button', { name: ans, exact: true }).click();
   }
   await shot(cust, '3-customer-checklist');
@@ -127,8 +138,8 @@ try {
 
   // 3) 사장님 화면 자동 계산
   step('3) 사장님: 34 × 13,000 × 1.2 + 30,000 = 560,400 → 560,000원');
-  await owner.getByRole('button', { name: /견적 요청/ }).click();
-  const item = owner.locator('.req-item', { hasText: '김고객' });
+  await owner.getByRole('button', { name: /견적요청/ }).click();
+  const item = owner.locator('.req-card', { hasText: '김*객' }); // 목록에서는 이름 가림
   await item.waitFor();
   assert.match(await item.innerText(), /560,000원/);
   assert.match(await item.innerText(), /신규/);
@@ -138,22 +149,29 @@ try {
   await owner.locator('.total-box').waitFor();
   assert.match(await owner.locator('.total-box').innerText(), /560,000원/);
   const condValue = await owner.locator('label.field', { hasText: '현장 추가요금 조건' }).locator('textarea').inputValue();
-  assert.match(condValue, /붙박이장 내부/);
+  assert.match(condValue, /스티커/);
+  const lineLabels = await owner.locator('.line-label').evaluateAll((els) => els.map((e) => e.value).join(','));
+  assert.doesNotMatch(lineLabels, /붙박이장/, '붙박이장 없음 → 청구 안 됨');
+  await owner.locator('textarea[placeholder^="예) 방문 전"]').fill('주차 확인 필요');
+  await owner.locator('textarea[placeholder^="예) 방문 전"]').blur();
+  await owner.getByText('메모를 저장했어요').waitFor();
   await owner.locator('.photo-grid.view img[src]').nth(1).waitFor();
   await noLeak(owner, '사장님 상세');
   await shot(owner, '7-owner-detail');
-  await owner.getByRole('button', { name: '견적 발송' }).click();
+  await owner.getByRole('button', { name: '견적서 보내기' }).click();
   await owner.locator('dialog.sheet').waitFor();
   const viewUrl = await owner.getByRole('link', { name: '견적서 미리보기' }).getAttribute('href');
   await shot(owner, '8-owner-sent');
   await owner.getByRole('button', { name: '목록으로' }).click();
 
   // 4) 견적서
-  step('4) 견적서: 붙박이장 내부가 ⚠️ 추가요금 조건에 표시');
+  step('4) 견적서: 스티커 제거가 ⚠️ 추가요금 조건에 표시, 내부 메모는 안 보임');
   const view = await newPage();
   await view.goto(`${viewUrl}&emulator=1`);
   await view.locator('.cond').waitFor();
-  assert.match(await view.locator('.cond').innerText(), /붙박이장 내부/);
+  assert.match(await view.locator('.cond').innerText(), /스티커/);
+  assert.match(await view.locator('.quote-total').innerText(), /560,000원/);
+  assert.doesNotMatch(await view.locator('body').innerText(), /주차 확인 필요/, '내부 메모는 견적서에 없음');
   assert.match(await view.locator('.total-box').innerText(), /560,000원/);
   assert.match(await view.locator('.total-box').innerText(), /56,000원/); // 계약금 10%
   assert.equal(await view.locator('.badge.verified').count(), 1, '사진 확인 완료 배지');
@@ -165,20 +183,20 @@ try {
   step('5) 고객 예약 요청 → 사장님 목록이 "계약요청"으로 실시간 변경');
   await view.getByRole('button', { name: '이 견적으로 예약 요청' }).click();
   await view.getByRole('button', { name: /예약 요청 완료/ }).waitFor();
-  await owner.locator('.req-item', { hasText: '김고객' }).getByText('계약요청').waitFor({ timeout: 10000 });
+  await owner.locator('.req-card', { hasText: '김*객' }).getByText('계약요청').waitFor({ timeout: 10000 });
   await shot(owner, '10-owner-booking-requested');
 
   // 6) 테스트 모드
   step('6) 테스트 모드: 샘플 요청 만들기 → "테스트" 표시 → 테스트 견적서 → 한 번에 지우기');
   await owner.getByText('🧪 테스트 모드').click();
   await owner.getByRole('button', { name: '샘플 요청 1건 만들기' }).click();
-  const testItem = owner.locator('.req-item', { hasText: '테스트 고객' });
+  const testItem = owner.locator('.req-card', { has: owner.locator('.badge.st-test') });
   await testItem.waitFor();
   assert.match(await testItem.innerText(), /테스트/);
   assert.match(await testItem.innerText(), /\d{3},000원/); // 샘플도 같은 단가표로 자동 계산 (날짜에 따라 주말 할증 가능)
   await testItem.click();
   await owner.locator('.test-banner').waitFor();
-  await owner.getByRole('button', { name: '견적 발송' }).click();
+  await owner.getByRole('button', { name: '견적서 보내기' }).click();
   await owner.locator('dialog.sheet').waitFor();
   const testViewUrl = await owner.getByRole('link', { name: '견적서 미리보기' }).getAttribute('href');
   await owner.getByRole('button', { name: '목록으로' }).click();
@@ -192,7 +210,15 @@ try {
   await owner.getByRole('button', { name: /테스트 데이터 모두 지우기/ }).click();
   await testItem.waitFor({ state: 'detached', timeout: 10000 });
   await owner.getByText('테스트 데이터를 지웠어요').waitFor({ timeout: 10000 }); // 화면은 즉시 바뀌고 서버 삭제는 그 뒤에 끝남
-  assert.equal(await owner.locator('.req-item', { hasText: '김고객' }).count(), 1, '실제 요청은 남아 있어야 함');
+  assert.equal(await owner.locator('.req-card', { hasText: '김*객' }).count(), 1, '실제 요청은 남아 있어야 함');
+  await owner.getByRole('button', { name: '홈', exact: true }).click(); // 홈
+  await owner.locator('.stats').first().waitFor();
+  const stats = await owner.locator('.stats').first().innerText();
+  assert.match(stats, /계약 성공/);
+  await shot(owner, '12b-owner-home');
+  await owner.getByRole('button', { name: '내 링크', exact: true }).click(); // 내 링크
+  await owner.getByText('우리 업체 전용 견적 링크').waitFor();
+  await shot(owner, '12c-owner-link');
   const gone = await tview.evaluate(async (id) => {
     const m = await import('./js/firebase.js');
     return !(await m.getDoc(m.doc(m.db, 'quotes', id))).exists();

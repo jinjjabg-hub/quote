@@ -5,7 +5,7 @@ import {
 } from './firebase.js';
 import { loadTemplate } from './templates.js';
 import { visibleSteps, pruneHidden } from './calc.js';
-import { $, h, toast, compressImage, registerSW, showFatal, telHref, manduHref, setChildren } from './util.js';
+import { $, h, toast, compressImage, registerSW, showFatal, telHref, manduHref, setChildren, icon, footerNote } from './util.js';
 import { appConfig } from './config.js';
 
 registerSW();
@@ -55,12 +55,12 @@ function render() {
   state.step = Math.min(state.step, all.length - 1);
   const step = all[state.step];
   const pct = Math.round(((state.step + 1) / all.length) * 100);
-  setChildren(app, 
+  setChildren(app,
+    shopHeader(),
     isTest ? h('div.test-banner', {}, '🧪 테스트 모드: 사장님 확인용이며 실제 요청으로 집계되지 않습니다.') : null,
-    h('header.shop-head', {},
-      shop.logoUrl ? h('img.logo', { src: shop.logoUrl, alt: '' }) : null,
-      h('div.grow', {}, h('div.shop-name', {}, shop.name || '업체'), h('div.muted', {}, `${tpl.name} 견적 요청`)),
-      manduLink() ? h('a.btn.ghost.small', { href: manduLink(), target: '_blank', rel: 'noopener' }, '💬 채팅') : null),
+    state.step === 0 ? h('div.intro', {},
+      h('b', {}, `${tpl.name} 견적을 3분 만에 받아보세요`),
+      h('p.small', {}, [shop.intro, shop.serviceArea && `서비스 지역: ${shop.serviceArea}`].filter(Boolean).join('\n') || '질문에 답하고 사진을 올리면, 사장님이 확인 후 견적서를 보내드립니다.')) : null,
     h('div.progress', { role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100 },
       h('div.progress-bar', { style: `width:${pct}%` })),
     h('div.step-count.muted', {}, `${state.step + 1} / ${all.length}`),
@@ -68,6 +68,7 @@ function render() {
       h('h1', {}, step.title),
       step.description ? h('p.muted', {}, step.description) : null,
       ...step.fields.map(renderField)),
+    footerNote('입력하신 정보는 이 업체에만 전달됩니다.'),
     h('div.nav-row', {},
       state.step > 0 ? h('button.btn.ghost', { type: 'button', onclick: prev }, '이전') : h('span'),
       h('button.btn.primary', { type: 'button', onclick: next, disabled: state.submitting },
@@ -75,6 +76,15 @@ function render() {
   );
   const first = app.querySelector('.step input, .step textarea');
   if (first && first.type !== 'file') first.focus({ preventScroll: true });
+}
+
+// 상단 업체 바: 언제든 전화로 물어볼 수 있게 (DESIGN.md 1번)
+function shopHeader() {
+  return h('header.shop-head', {},
+    shop.logoUrl ? h('img.logo', { src: shop.logoUrl, alt: '' }) : h('div.logo-ph', {}, (shop.name || '업')[0]),
+    h('div.grow', {}, h('div.shop-name', {}, shop.name || '업체'), h('div.muted.small', {}, `${tpl.name} 견적 요청`)),
+    manduLink() ? h('a.btn.ghost.icon', { href: manduLink(), target: '_blank', rel: 'noopener', 'aria-label': '채팅 문의' }, icon('chat')) : null,
+    shop.phone ? h('a.btn.ok.small', { href: telHref(shop.phone) }, icon('call', true), '전화 상담') : null);
 }
 
 function renderField(f) {
@@ -96,18 +106,21 @@ function renderField(f) {
         rows: 4, value: v ?? '', placeholder: f.placeholder || '', maxLength: f.maxLength || 500,
         oninput: (e) => set(e.target.value),
       }));
-    case 'choice':
-      return fieldWrap(f, h('div.choices', {}, f.options.map((o) => h(`button.chip${v === o.value ? '.on' : ''}`, {
-        type: 'button', onclick: () => { set(o.value); render(); },
+    case 'choice': {
+      // 짧은 보기는 가로로, 긴 보기는 세로 카드로 (40~60대도 한눈에 읽게)
+      const long = f.options.length > 4 || f.options.some((o) => String(o.label).length > 8);
+      return fieldWrap(f, h(long ? 'div.choice-list' : 'div.choices.three', {}, f.options.map((o) => h(`button.chip${v === o.value ? '.on' : ''}`, {
+        type: 'button', 'aria-pressed': v === o.value, onclick: () => { set(o.value); render(); },
       }, o.label))));
+    }
     case 'stepper': {
       const val = Number(v ?? f.min ?? 0);
       const change = (d) => { set(Math.min(f.max ?? 99, Math.max(f.min ?? 0, val + d))); render(); };
-      return h('div.stepper-row', {}, h('span.label', {}, f.label),
+      return h('div.stepper-row', {}, h('span', {}, h('span.label', {}, f.label), f.hint ? h('span.hint', { style: 'margin-top:2px' }, f.hint) : null),
         h('div.stepper', {},
-          h('button.btn.round', { type: 'button', onclick: () => change(-1), 'aria-label': `${f.label} 줄이기` }, '−'),
+          h('button.btn.round', { type: 'button', onclick: () => change(-1), 'aria-label': `${f.label} 줄이기` }, icon('remove')),
           h('span.num', {}, val),
-          h('button.btn.round', { type: 'button', onclick: () => change(1), 'aria-label': `${f.label} 늘리기` }, '+')));
+          h('button.btn.round', { type: 'button', onclick: () => change(1), 'aria-label': `${f.label} 늘리기` }, icon('add'))));
     }
     case 'checklist':
       return h('div.checklist', {}, tpl.checklist.map((item) => h('div.check-item', {},
@@ -158,7 +171,7 @@ function renderPhotoSlot(slot) {
     },
   });
   return h('div.photo-slot', { onclick: (e) => { if (e.target !== input) input.click(); } },
-    blob ? h('img', { src: URL.createObjectURL(blob), alt: slot.label }) : h('div.photo-plus', {}, '+'),
+    blob ? h('img', { src: URL.createObjectURL(blob), alt: slot.label }) : h('div.photo-plus', {}, icon('add_a_photo')),
     h('div.photo-label', {}, slot.label, blob ? ' ✓' : ''),
     blob ? h('button.photo-del', {
       type: 'button', 'aria-label': `${slot.label} 사진 삭제`,
@@ -235,14 +248,15 @@ async function submit() {
 }
 
 function renderDone() {
-  setChildren(app, h('section.card.done', {},
-    h('div.done-icon', {}, '✓'),
+  setChildren(app, shopHeader(), h('section.card.done', {},
+    h('div.done-icon', {}, icon('check', true)),
     h('h1', {}, '요청이 접수되었습니다'),
     h('p', {}, `${shop.name || '사장님'}이 확인 후 견적을 보내드립니다.`),
     h('p.muted', {}, '보통 작업이 끝난 뒤 순서대로 확인합니다. 급하시면 전화 주세요.'),
     h('div.btn-col', {},
-      shop.phone ? h('a.btn.primary', { href: telHref(shop.phone) }, `📞 ${shop.phone} 전화하기`) : null,
-      manduLink() ? h('a.btn.ghost', { href: manduLink(), target: '_blank', rel: 'noopener' }, '💬 만두로 채팅 문의') : null)));
+      shop.phone ? h('a.btn.primary.big', { href: telHref(shop.phone) }, icon('call', true), `${shop.phone} 전화 상담하기`) : null,
+      manduLink() ? h('a.btn.ghost', { href: manduLink(), target: '_blank', rel: 'noopener' }, '💬 만두로 채팅 문의') : null)),
+    footerNote());
 }
 
 function manduLink() {

@@ -92,6 +92,40 @@ export function statusBadge(status) {
   return h(`span.badge.${s.cls}`, {}, s.label);
 }
 
+/** Material Symbols 아이콘. 이름은 https://fonts.google.com/icons */
+export function icon(name, fill = false) {
+  return h(`span.ms${fill ? '.fill' : ''}`, { 'aria-hidden': 'true' }, name);
+}
+
+export function tsToDate(ts) {
+  return ts?.toDate ? ts.toDate() : ts ? new Date(ts) : null;
+}
+
+/** "15분 전" 같은 상대 시각 */
+export function timeAgo(ts) {
+  const d = tsToDate(ts);
+  if (!d) return '';
+  const m = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (m < 1) return '방금';
+  if (m < 60) return `${m}분 전`;
+  if (m < 60 * 24) return `${Math.floor(m / 60)}시간 전`;
+  if (m < 60 * 24 * 7) return `${Math.floor(m / 1440)}일 전`;
+  return fmtDateTime(ts);
+}
+
+/** 목록에서 고객 이름 가리기 (김철수 → 김*수) */
+export function maskName(name) {
+  const s = String(name || '').trim();
+  if (s.length <= 1) return s;
+  if (s.length === 2) return `${s[0]}*`;
+  return s[0] + '*'.repeat(s.length - 2) + s.at(-1);
+}
+
+/** 견적서 하단 표시 (설계도 12장 "견적서 하단 표시") */
+export function footerNote(extra) {
+  return h('p.footer-note', {}, h('b', {}, '견적by 비즈마이'), extra ? `\n${extra}` : null);
+}
+
 export function fmtDateTime(ts) {
   const d = ts?.toDate ? ts.toDate() : ts ? new Date(ts) : null;
   if (!d) return '';

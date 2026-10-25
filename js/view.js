@@ -2,7 +2,7 @@
 // 견적 ID 자체가 추측 불가능한 열쇠 역할을 한다. (Firestore 규칙: 단건 get 만 허용)
 import { db, doc, getDoc, writeBatch, serverTimestamp, isConfigured } from './firebase.js';
 import { formatWon, toDateStr } from './calc.js';
-import { $, h, toast, registerSW, showFatal, telHref, manduHref, setChildren } from './util.js';
+import { $, h, toast, registerSW, showFatal, telHref, manduHref, setChildren, icon, footerNote } from './util.js';
 import { appConfig } from './config.js';
 
 registerSW();
@@ -27,18 +27,24 @@ function render() {
   const q = quote;
   const expired = q.validUntil && toDateStr(new Date()) > q.validUntil;
   const lines = q.lines || [];
-  setChildren(app, 
-    q.test ? h('div.test-banner', {}, '🧪 테스트 견적서입니다. 실제 견적이 아닙니다.') : null,
+  setChildren(app,
     h('header.quote-head', {},
-      q.shop?.logoUrl ? h('img.logo', { src: q.shop.logoUrl, alt: '' }) : null,
-      h('div', {},
+      q.shop?.logoUrl ? h('img.logo', { src: q.shop.logoUrl, alt: '' }) : h('div.logo-ph', {}, (q.shop?.name || '업')[0]),
+      h('div.grow', {},
         h('div.shop-name', {}, q.shop?.name || ''),
-        h('div.muted.small', {}, [q.shop?.ownerName && `대표 ${q.shop.ownerName}`, q.shop?.bizNo && `사업자 ${q.shop.bizNo}`].filter(Boolean).join(' · ')))),
+        h('div.muted.small', {}, [q.shop?.ownerName && `대표 ${q.shop.ownerName}`, q.shop?.bizNo && `사업자 ${q.shop.bizNo}`].filter(Boolean).join(' · '))),
+      q.shop?.phone ? h('a.btn.ok.small', { href: telHref(q.shop.phone) }, icon('call', true), '전화 상담') : null),
+    q.test ? h('div.test-banner', {}, '🧪 테스트 견적서입니다. 실제 견적이 아닙니다.') : null,
+
+    h('section.card.quote-total', {},
+      h('div.muted', {}, `${q.customer?.name || ''}님 ${q.templateName || ''} 견적 금액`),
+      h('div.amount', {}, formatWon(q.total)),
+      h('div.muted', {}, `계약금 ${q.depositPct || 0}% ${formatWon(q.deposit)} · ${q.validUntil || ''}까지 유효`),
+      q.verified ? h('div', { style: 'margin-top:10px' }, h('span.badge.verified', { title: '사진과 추가요금 체크리스트를 확인하고 낸 견적입니다' }, icon('photo_camera'), ' 사진 확인 완료 견적')) : null),
 
     h('section.card', {},
       h('div.quote-title', {},
-        h('h1', {}, `${q.templateName || ''} 견적서`),
-        q.verified ? h('span.badge.verified', { title: '사진과 추가요금 체크리스트를 확인하고 낸 견적입니다' }, '📷 사진 확인 완료 견적') : null),
+        h('h2', { style: 'margin:0' }, `${q.templateName || ''} 견적서`)),
       h('dl.kv', {},
         h('dt', {}, '견적 번호'), h('dd', {}, q.number || ''),
         h('dt', {}, '고객'), h('dd', {}, `${q.customer?.name || ''}님 · ${q.customer?.region || ''}`),
@@ -47,7 +53,7 @@ function render() {
         h('dt', {}, '유효기간'), h(`dd${expired ? '.risk' : ''}`, {}, `${q.validUntil || ''}까지${expired ? ' (만료)' : ''}`))),
 
     h('section.card', {},
-      h('h2', {}, '금액 내역'),
+      h('div.card-title', {}, icon('receipt_long'), '금액 내역'),
       h('table.lines-table', {}, h('tbody', {}, lines.map((l) => h('tr', {},
         h('td', {}, l.label, l.note ? h('div.muted.small', {}, l.note) : null),
         h('td.num', {}, formatWon(l.amount)))))),
@@ -62,11 +68,12 @@ function render() {
       h('p.muted.small', {}, '아래 경우에만 현장에서 추가요금이 발생합니다. 그 외 추가요금은 없습니다.'),
       h('ul', {}, q.conditions.map((c) => h('li', {}, h('b', {}, c.label), c.text ? ` — ${c.text}` : '')))) : null,
     q.cancelPolicy ? h('section.card', {}, h('h2', {}, '취소 규정'), h('p', {}, q.cancelPolicy)) : null,
+    footerNote('궁금한 점은 위 "전화 상담"으로 사장님께 바로 물어보세요.'),
 
     h('div.sticky-actions', {},
-      q.shop?.phone ? h('a.btn.ghost', { href: telHref(q.shop.phone) }, '📞 전화') : null,
+      q.shop?.phone ? h('a.btn.ghost.icon', { href: telHref(q.shop.phone), 'aria-label': '전화' }, icon('call')) : null,
       manduHref(appConfig.manduBaseUrl, q.shop?.manduId)
-        ? h('a.btn.ghost', { href: manduHref(appConfig.manduBaseUrl, q.shop.manduId), target: '_blank', rel: 'noopener' }, '💬 채팅') : null,
+        ? h('a.btn.ghost.icon', { href: manduHref(appConfig.manduBaseUrl, q.shop.manduId), target: '_blank', rel: 'noopener', 'aria-label': '채팅' }, icon('chat')) : null,
       bookingButton(expired)),
   );
 }
