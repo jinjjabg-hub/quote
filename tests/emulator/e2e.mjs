@@ -92,6 +92,7 @@ try {
   await cust.getByPlaceholder('홍길동').fill('김고객');
   await cust.getByPlaceholder('010-0000-0000').fill('010-3333-4444');
   assert.match(await cust.getByRole('link', { name: /채팅/ }).getAttribute('href'), /MANDU\/\?u=banjjak$/);
+  assert.equal(await cust.locator('.shop-head img.logo').count(), 0, '로고가 없으면 로고 자리를 그리지 않음');
   await noLeak(cust, '고객 화면');
   await shot(cust, '2-customer-step1');
   await next();
@@ -170,7 +171,7 @@ try {
   await view.goto(`${viewUrl}&emulator=1`);
   await view.locator('.cond').waitFor();
   assert.match(await view.locator('.cond').innerText(), /스티커/);
-  assert.match(await view.locator('.quote-total').innerText(), /560,000원/);
+  assert.equal(await view.locator('.shop-head, .quote-head').getByText('전화 상담').count(), 0, '견적서 상단에는 전화 버튼 없음 (하단에 있음)');
   assert.doesNotMatch(await view.locator('body').innerText(), /주차 확인 필요/, '내부 메모는 견적서에 없음');
   assert.match(await view.locator('.total-box').innerText(), /560,000원/);
   assert.match(await view.locator('.total-box').innerText(), /56,000원/); // 계약금 10%

@@ -29,26 +29,20 @@ function render() {
   const lines = q.lines || [];
   setChildren(app,
     h('header.quote-head', {},
-      q.shop?.logoUrl ? h('img.logo', { src: q.shop.logoUrl, alt: '' }) : h('div.logo-ph', {}, (q.shop?.name || '업')[0]),
+      q.shop?.logoUrl ? h('img.logo', { src: q.shop.logoUrl, alt: '' }) : null,
       h('div.grow', {},
         h('div.shop-name', {}, q.shop?.name || ''),
-        h('div.muted.small', {}, [q.shop?.ownerName && `대표 ${q.shop.ownerName}`, q.shop?.bizNo && `사업자 ${q.shop.bizNo}`].filter(Boolean).join(' · '))),
-      q.shop?.phone ? h('a.btn.ok.small', { href: telHref(q.shop.phone) }, icon('call', true), '전화 상담') : null),
+        h('div.shop-sub', {}, [q.shop?.ownerName && `대표 ${q.shop.ownerName}`, q.shop?.bizNo && `사업자 ${q.shop.bizNo}`].filter(Boolean).join(' · ')))),
     q.test ? h('div.test-banner', {}, '🧪 테스트 견적서입니다. 실제 견적이 아닙니다.') : null,
-
-    h('section.card.quote-total', {},
-      h('div.muted', {}, `${q.customer?.name || ''}님 ${q.templateName || ''} 견적 금액`),
-      h('div.amount', {}, formatWon(q.total)),
-      h('div.muted', {}, `계약금 ${q.depositPct || 0}% ${formatWon(q.deposit)} · ${q.validUntil || ''}까지 유효`),
-      q.verified ? h('div', { style: 'margin-top:10px' }, h('span.badge.verified', { title: '사진과 추가요금 체크리스트를 확인하고 낸 견적입니다' }, icon('photo_camera'), ' 사진 확인 완료 견적')) : null),
 
     h('section.card', {},
       h('div.quote-title', {},
-        h('h2', { style: 'margin:0' }, `${q.templateName || ''} 견적서`)),
+        h('h2', {}, `${q.templateName || ''} 견적서`),
+        q.verified ? h('span.badge.verified', { title: '사진과 추가요금 체크리스트를 확인하고 낸 견적입니다' }, icon('photo_camera'), '사진 확인 완료 견적') : null),
       h('dl.kv', {},
-        h('dt', {}, '견적 번호'), h('dd', {}, q.number || ''),
+        h('dt', {}, '견적 번호'), h('dd.strong', {}, q.number || ''),
         h('dt', {}, '고객'), h('dd', {}, `${q.customer?.name || ''}님 · ${q.customer?.region || ''}`),
-        q.service?.date ? [h('dt', {}, '작업 희망일'), h('dd', {}, `${q.service.date} ${q.service.timeSlot || ''}`)] : null,
+        q.service?.date ? [h('dt', {}, '작업 희망일'), h('dd.strong', {}, `${q.service.date} ${q.service.timeSlot || ''}`)] : null,
         q.service?.summary ? [h('dt', {}, '내용'), h('dd', {}, q.service.summary)] : null,
         h('dt', {}, '유효기간'), h(`dd${expired ? '.risk' : ''}`, {}, `${q.validUntil || ''}까지${expired ? ' (만료)' : ''}`))),
 
@@ -59,28 +53,29 @@ function render() {
         h('td.num', {}, formatWon(l.amount)))))),
       h('div.total-box', {},
         h('div', {}, '합계', h('b', {}, formatWon(q.total))),
-        h('div.muted', {}, `계약금 ${q.depositPct || 0}%`, h('span', {}, formatWon(q.deposit))))),
+        h('div.muted', {}, `계약금 ${q.depositPct || 0}% ${formatWon(q.deposit)}`))),
 
     section('✅ 포함 항목', q.included, 'ok'),
     section('❌ 불포함 항목', q.excluded, 'no'),
     q.conditions?.length ? h('section.card.cond', {},
       h('h2', {}, '⚠️ 현장 추가요금이 생기는 조건'),
-      h('p.muted.small', {}, '아래 경우에만 현장에서 추가요금이 발생합니다. 그 외 추가요금은 없습니다.'),
+      h('p.cond-note', {}, '아래 경우에만 현장에서 추가요금이 발생합니다. 그 외 추가요금은 없습니다.'),
       h('ul', {}, q.conditions.map((c) => h('li', {}, h('b', {}, c.label), c.text ? ` — ${c.text}` : '')))) : null,
-    q.cancelPolicy ? h('section.card', {}, h('h2', {}, '취소 규정'), h('p', {}, q.cancelPolicy)) : null,
-    footerNote('궁금한 점은 위 "전화 상담"으로 사장님께 바로 물어보세요.'),
+    q.cancelPolicy ? h('section.card.policy', {}, h('h2', {}, icon('info'), '취소 규정'), h('p', {}, q.cancelPolicy)) : null,
+    footerNote('궁금한 점은 아래 "전화" 버튼으로 사장님께 바로 물어보세요.'),
 
     h('div.sticky-actions', {},
-      q.shop?.phone ? h('a.btn.ghost.icon', { href: telHref(q.shop.phone), 'aria-label': '전화' }, icon('call')) : null,
+      q.shop?.phone ? h('a.btn.side', { href: telHref(q.shop.phone) }, icon('call'), '전화') : null,
       manduHref(appConfig.manduBaseUrl, q.shop?.manduId)
-        ? h('a.btn.ghost.icon', { href: manduHref(appConfig.manduBaseUrl, q.shop.manduId), target: '_blank', rel: 'noopener', 'aria-label': '채팅' }, icon('chat')) : null,
+        ? h('a.btn.side', { href: manduHref(appConfig.manduBaseUrl, q.shop.manduId), target: '_blank', rel: 'noopener' }, icon('chat'), '채팅') : null,
       bookingButton(expired)),
   );
 }
 
 function section(title, items, cls) {
   if (!items?.length) return null;
-  return h(`section.card.list-${cls}`, {}, h('h2', {}, title), h('ul', {}, items.map((t) => h('li', {}, t))));
+  const mark = cls === 'ok' ? 'check_circle' : 'cancel';
+  return h(`section.card.list-${cls}`, {}, h('h2', {}, title), h('ul.mark-list', {}, items.map((t) => h('li', {}, icon(mark), h('span', {}, t)))));
 }
 
 function bookingButton(expired) {
@@ -107,5 +102,5 @@ function bookingButton(expired) {
         e.target.disabled = false;
       }
     },
-  }, '이 견적으로 예약 요청');
+  }, '이 견적으로 예약 요청', icon('arrow_forward'));
 }

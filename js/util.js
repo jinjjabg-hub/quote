@@ -92,7 +92,8 @@ export function statusBadge(status) {
   return h(`span.badge.${s.cls}`, {}, s.label);
 }
 
-/** Material Symbols 아이콘. 이름은 https://fonts.google.com/icons */
+/** Material Symbols 아이콘. 이름은 https://fonts.google.com/icons
+ *  ★ 새 아이콘을 쓰면 HTML 4개(owner·q·view·dev)의 icon_names 목록에도 알파벳 순으로 추가 (쓰는 아이콘만 받아 가볍게) */
 export function icon(name, fill = false) {
   return h(`span.ms${fill ? '.fill' : ''}`, { 'aria-hidden': 'true' }, name);
 }

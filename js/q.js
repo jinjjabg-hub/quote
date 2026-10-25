@@ -61,16 +61,17 @@ function render() {
     state.step === 0 ? h('div.intro', {},
       h('b', {}, `${tpl.name} 견적을 3분 만에 받아보세요`),
       h('p.small', {}, [shop.intro, shop.serviceArea && `서비스 지역: ${shop.serviceArea}`].filter(Boolean).join('\n') || '질문에 답하고 사진을 올리면, 사장님이 확인 후 견적서를 보내드립니다.')) : null,
-    h('div.progress', { role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100 },
-      h('div.progress-bar', { style: `width:${pct}%` })),
-    h('div.step-count.muted', {}, `${state.step + 1} / ${all.length}`),
+    h('div.progress-wrap', {},
+      h('div.step-count', {}, `${state.step + 1} / ${all.length}`),
+      h('div.progress', { role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-label': '진행' },
+        h('div.progress-bar', { style: `width:${pct}%` }))),
     h('section.card.step', {},
       h('h1', {}, step.title),
       step.description ? h('p.muted', {}, step.description) : null,
       ...step.fields.map(renderField)),
     footerNote('입력하신 정보는 이 업체에만 전달됩니다.'),
     h('div.nav-row', {},
-      state.step > 0 ? h('button.btn.ghost', { type: 'button', onclick: prev }, '이전') : h('span'),
+      state.step > 0 ? h('button.btn.prev', { type: 'button', onclick: prev }, '이전') : null,
       h('button.btn.primary', { type: 'button', onclick: next, disabled: state.submitting },
         state.step === all.length - 1 ? (state.submitting ? '보내는 중…' : '견적 요청 보내기') : '다음')),
   );
@@ -78,13 +79,12 @@ function render() {
   if (first && first.type !== 'file') first.focus({ preventScroll: true });
 }
 
-// 상단 업체 바: 언제든 전화로 물어볼 수 있게 (DESIGN.md 1번)
+// 상단 업체 바. 로고는 올린 업체만, 채팅은 만두 ID가 있을 때만 (시안: 전화 버튼 없음, 전화는 접수 완료 화면에서)
 function shopHeader() {
   return h('header.shop-head', {},
-    shop.logoUrl ? h('img.logo', { src: shop.logoUrl, alt: '' }) : h('div.logo-ph', {}, (shop.name || '업')[0]),
-    h('div.grow', {}, h('div.shop-name', {}, shop.name || '업체'), h('div.muted.small', {}, `${tpl.name} 견적 요청`)),
-    manduLink() ? h('a.btn.ghost.icon', { href: manduLink(), target: '_blank', rel: 'noopener', 'aria-label': '채팅 문의' }, icon('chat')) : null,
-    shop.phone ? h('a.btn.ok.small', { href: telHref(shop.phone) }, icon('call', true), '전화 상담') : null);
+    shop.logoUrl ? h('img.logo', { src: shop.logoUrl, alt: '' }) : null,
+    h('div.grow', {}, h('div.shop-name', {}, shop.name || '업체'), h('div.shop-sub', {}, `${tpl.name} 견적 요청`)),
+    manduLink() ? h('a.btn-chat', { href: manduLink(), target: '_blank', rel: 'noopener' }, icon('chat'), '채팅') : null);
 }
 
 function renderField(f) {
@@ -99,7 +99,8 @@ function renderField(f) {
         oninput: (e) => set(f.type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value),
         onkeydown: (e) => { if (e.key === 'Enter') next(); },
       });
-      return fieldWrap(f, input);
+      // 단위(템플릿 unit)는 입력칸 안쪽 오른쪽에 표시
+      return fieldWrap(f, f.unit ? h('div.input-unit', {}, input, h('span', { 'aria-hidden': 'true' }, f.unit)) : input);
     }
     case 'textarea':
       return fieldWrap(f, h('textarea.input', {
@@ -111,7 +112,7 @@ function renderField(f) {
       const long = f.options.length > 4 || f.options.some((o) => String(o.label).length > 8);
       return fieldWrap(f, h(long ? 'div.choice-list' : 'div.choices.three', {}, f.options.map((o) => h(`button.chip${v === o.value ? '.on' : ''}`, {
         type: 'button', 'aria-pressed': v === o.value, onclick: () => { set(o.value); render(); },
-      }, o.label))));
+      }, v === o.value ? icon('check_circle', true) : null, o.label))));
     }
     case 'stepper': {
       const val = Number(v ?? f.min ?? 0);
@@ -123,20 +124,20 @@ function renderField(f) {
           h('button.btn.round', { type: 'button', onclick: () => change(1), 'aria-label': `${f.label} 늘리기` }, icon('add'))));
     }
     case 'checklist':
-      return h('div.checklist', {}, tpl.checklist.map((item) => h('div.check-item', {},
-        h('div.check-q', {}, item.label),
+      return h('div.checklist', {}, tpl.checklist.map((item, i) => h('div.check-item', {},
+        h('div.check-q', {}, h('span.check-no', {}, `${i + 1}.`), item.label),
         h('div.choices.three', {}, [['yes', '예'], ['no', '아니오'], ['unknown', '모름']].map(([val, label]) => h(
           `button.chip${state.checklist[item.key] === val ? '.on' : ''}`,
-          { type: 'button', onclick: () => { state.checklist[item.key] = val; saveDraft(); render(); } }, label,
+          { type: 'button', 'aria-pressed': state.checklist[item.key] === val, onclick: () => { state.checklist[item.key] = val; saveDraft(); render(); } }, label,
         ))))));
     case 'extras': {
       const opts = tpl.pricing.options.filter((o) => o.customerSelectable);
       return h('div.choices.col', {}, opts.map((o) => {
         const on = state.extras.includes(o.key);
         return h(`button.chip${on ? '.on' : ''}`, {
-          type: 'button',
+          type: 'button', 'aria-pressed': on,
           onclick: () => { state.extras = on ? state.extras.filter((k) => k !== o.key) : [...state.extras, o.key]; saveDraft(); render(); },
-        }, `${on ? '✓ ' : ''}${o.label}`);
+        }, on ? icon('check_circle', true) : null, o.label);
       }));
     }
     case 'photos': {
@@ -144,7 +145,7 @@ function renderField(f) {
       const used = Object.keys(state.photos).filter((k) => k.startsWith('extra')).length;
       const extras = Array.from({ length: Math.min(EXTRA_PHOTOS, used + 1) }, (_, i) => ({ key: `extra${i + 1}`, label: `기타 ${i + 1}` }));
       return h('div', {}, h('div.photo-grid', {}, [...tpl.photoSlots, ...extras].map(renderPhotoSlot)),
-        h('p.hint', {}, `권장 사진 외에 기타 사진을 ${EXTRA_PHOTOS}장까지 더 올릴 수 있어요.`));
+        h('p.hint.with-icon', {}, icon('info'), `권장 사진 외에 기타 사진을 ${EXTRA_PHOTOS}장까지 더 올릴 수 있어요.`));
     }
     default:
       return h('p.muted', {}, `알 수 없는 항목 유형: ${f.type}`);
@@ -170,14 +171,21 @@ function renderPhotoSlot(slot) {
       } catch (err) { toast(err.message); }
     },
   });
-  return h('div.photo-slot', { onclick: (e) => { if (e.target !== input) input.click(); } },
-    blob ? h('img', { src: URL.createObjectURL(blob), alt: slot.label }) : h('div.photo-plus', {}, icon('add_a_photo')),
-    h('div.photo-label', {}, slot.label, blob ? ' ✓' : ''),
+  // 칸(사진) + 아래 이름표. 올린 사진은 오른쪽 위 ✓, 왼쪽 위 ×
+  return h(`div.photo-cell${blob ? '.filled' : ''}`, {},
+    h('div.photo-slot', {
+      role: 'button', tabIndex: 0, 'aria-label': blob ? `${slot.label} 사진 바꾸기` : `${slot.label} 사진 추가`,
+      onclick: (e) => { if (e.target !== input) input.click(); },
+      onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } },
+    },
+    blob ? h('img', { src: URL.createObjectURL(blob), alt: slot.label }) : h('div.photo-plus', {}, icon('add')),
+    blob ? h('span.photo-ok', { 'aria-hidden': 'true' }, icon('check')) : null,
     blob ? h('button.photo-del', {
       type: 'button', 'aria-label': `${slot.label} 사진 삭제`,
       onclick: (e) => { e.stopPropagation(); delete state.photos[slot.key]; render(); },
-    }, '×') : null,
-    input);
+    }, icon('close')) : null,
+    input),
+    h('div.photo-label', {}, slot.label));
 }
 
 // ---------- 이동·검증 ----------
