@@ -15,3 +15,10 @@ export const appConfig = {
   // 만두(번역 메신저) 게스트 채팅 주소. 만두 ID를 붙이면 고객이 가입 없이 바로 채팅한다.
   manduBaseUrl: 'https://jinjjabg-hub.github.io/MANDU/',
 };
+
+// 주소 → 평수 자동 조회 (설계도 4-4장). 서버 함수 areaLookup 주소 (배포하면 터미널에 "Function URL" 로 나옴).
+// enabled: 실제 단지로 검증(dev.html "평수 조회 시험")이 끝나면 true 로. 그 전에는 고객 링크 끝에 &lookup=1 을 붙여 사장님만 시험.
+export const areaLookupConfig = {
+  url: 'https://asia-northeast3-quote-640f4.cloudfunctions.net/areaLookup',
+  enabled: false,
+};

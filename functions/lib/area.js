@@ -1,0 +1,296 @@
+// 주소 → 평수 자동 조회 (설계도 4-4장) — 순수 로직. Firebase·네트워크에 의존하지 않아 단위 테스트로 검증한다.
+//
+//   ① search  도로명주소 검색 API (JUSO_SEARCH_KEY)   "가야대로 팍스타운" → 단지 목록
+//   ② dongs   상세주소 API, 동 목록 (JUSO_DETAIL_KEY)
+//   ③ hos     상세주소 API, 층·호 목록 (JUSO_DETAIL_KEY)
+//   ④ area    건축HUB 전유공용면적 (BLD_KEY)          → 전용·공용 → 공급면적 → 평
+//
+// 키 값은 이 파일에 들어오지 않는다. handle() 이 keys 객체로 받아 URL 을 만들 때만 쓰고, 응답·오류 메시지에는 절대 넣지 않는다.
+
+export const JUSO_SEARCH_URL = 'https://business.juso.go.kr/addrlink/addrLinkApi.do';
+export const JUSO_DETAIL_URL = 'https://business.juso.go.kr/addrlink/addrDetailApi.do';
+export const BLD_AREA_URL = 'https://apis.data.go.kr/1613000/BldRgstHubService/getBrExposPubuseAreaInfo';
+
+export const PYEONG_M2 = 3.305785;
+
+// 공급면적 = 전용 + 주거공용. 아래 용도의 공용면적은 "기타공용"이라 분양 평수에 넣지 않는다.
+// ⚠️ 단지마다 대장 표기가 달라 실제 단지로 검증 필요 (첫 검증: 부산 가야대로 팍스타운). dev.html 에서 항목별로 확인한다.
+export const EXCLUDED_COMMON_RE = /주차|기계|전기|발전|변전|펌프|저수|정화|관리사무|관리실|경비|노인|경로|어린이|보육|주민|커뮤니티|근린|창고|기타공용|피트니스|휴게|방재|중앙감시|쓰레기|분리수거/;
+
+export class LookupError extends Error {
+  constructor(reason, message, status = 200) { super(message); this.reason = reason; this.status = status; }
+}
+
+// ---------- 입력 검증 ----------
+
+const DIGITS = (n) => (v) => typeof v === 'string' && new RegExp(`^\\d{1,${n}}$`).test(v);
+const REF_RULES = {
+  admCd: (v) => typeof v === 'string' && /^\d{10}$/.test(v),
+  rnMgtSn: (v) => typeof v === 'string' && /^\d{12}$/.test(v),
+  udrtYn: (v) => v === '0' || v === '1',
+  buldMnnm: DIGITS(5),
+  buldSlno: DIGITS(5),
+  mtYn: (v) => v === '0' || v === '1',
+  lnbrMnnm: DIGITS(4),
+  lnbrSlno: DIGITS(4),
+};
+
+/** 단지 식별값(검색 결과의 ref)이 형식에 맞는지. 외부 입력이라 그대로 믿지 않는다. */
+export function cleanRef(ref) {
+  if (!ref || typeof ref !== 'object') throw new LookupError('bad_input', '주소 정보가 올바르지 않습니다.', 400);
+  const out = {};
+  for (const [k, ok] of Object.entries(REF_RULES)) {
+    const v = ref[k] == null ? '' : String(ref[k]);
+    if (!ok(v)) throw new LookupError('bad_input', '주소 정보가 올바르지 않습니다.', 400);
+    out[k] = v;
+  }
+  return out;
+}
+
+/** 동·호 이름: 숫자·한글·영문·-·공백만, 20자 이하 */
+export function cleanUnit(v, { allowEmpty = true } = {}) {
+  const s = String(v ?? '').trim();
+  if (!s && allowEmpty) return '';
+  if (!/^[0-9A-Za-z가-힣\- ]{1,20}$/.test(s)) throw new LookupError('bad_input', '동·호 정보가 올바르지 않습니다.', 400);
+  return s;
+}
+
+/** 검색어: 도로명주소 API 가 거부하는 특수문자·SQL 예약어를 지운다 (API 안내 사항) */
+export function cleanKeyword(v) {
+  let s = String(v ?? '').replace(/[%=><\[\]{}()'"`;\\]/g, ' ').replace(/\s+/g, ' ').trim();
+  s = s.replace(/\b(OR|SELECT|INSERT|DELETE|UPDATE|CREATE|DROP|EXEC|UNION|FETCH|DECLARE|TRUNCATE)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+  if (s.length < 2) throw new LookupError('bad_input', '검색어를 2글자 이상 입력해주세요.', 400);
+  if (s.length > 60) throw new LookupError('bad_input', '검색어가 너무 깁니다.', 400);
+  return s;
+}
+
+// ---------- URL ----------
+
+/**
+ * 공공데이터포털 인증키는 "인코딩"·"디코딩" 두 가지가 있다. 어느 쪽이 저장돼 있어도 동작하게,
+ * 이미 % 인코딩된 키는 그대로, 아니면 한 번만 인코딩한다. (두 번 인코딩하면 SERVICE_KEY_IS_NOT_REGISTERED_ERROR)
+ */
+export function encodeServiceKey(key) {
+  const k = String(key || '').trim();
+  return /%[0-9A-Fa-f]{2}/.test(k) ? k : encodeURIComponent(k);
+}
+
+export function jusoSearchUrl(key, keyword) {
+  const p = new URLSearchParams({ confmKey: String(key).trim(), currentPage: '1', countPerPage: '10', keyword, resultType: 'json' });
+  return `${JUSO_SEARCH_URL}?${p}`;
+}
+
+export function jusoDetailUrl(key, ref, searchType, dongNm = '') {
+  const p = new URLSearchParams({
+    confmKey: String(key).trim(), admCd: ref.admCd, rnMgtSn: ref.rnMgtSn, udrtYn: ref.udrtYn,
+    buldMnnm: ref.buldMnnm, buldSlno: ref.buldSlno, searchType, resultType: 'json',
+  });
+  if (dongNm) p.set('dongNm', dongNm);
+  return `${JUSO_DETAIL_URL}?${p}`;
+}
+
+/** 건축물대장 조회 조건: 행정구역코드 10자리 = 시군구 5 + 법정동 5, 지번 본번·부번 4자리 */
+export function bldParams(ref, dongNm, hoNm) {
+  return {
+    sigunguCd: ref.admCd.slice(0, 5),
+    bjdongCd: ref.admCd.slice(5, 10),
+    platGbCd: ref.mtYn === '1' ? '1' : '0', // 0 대지, 1 산
+    bun: ref.lnbrMnnm.padStart(4, '0'),
+    ji: ref.lnbrSlno.padStart(4, '0'),
+    ...(dongNm ? { dongNm } : {}),
+    ...(hoNm ? { hoNm } : {}),
+  };
+}
+
+export function bldAreaUrl(key, params) {
+  const p = new URLSearchParams({ ...params, numOfRows: '100', pageNo: '1', _type: 'json' });
+  return `${BLD_AREA_URL}?serviceKey=${encodeServiceKey(key)}&${p}`;
+}
+
+// ---------- 응답 해석 ----------
+
+function jusoList(json) {
+  const common = json?.results?.common;
+  if (!common) throw new LookupError('upstream', '주소 검색 응답을 읽을 수 없습니다.', 502);
+  if (String(common.errorCode) !== '0') {
+    // E0001 승인되지 않은 키, E0005 검색어 없음, E0006 주소를 상세히 입력 등 — 메시지는 API 안내문(키 값 없음)
+    const msg = String(common.errorMessage || '주소 검색에 실패했습니다.');
+    const userFault = ['E0005', 'E0006', 'E0008', 'E0009', 'E0010', 'E0011', 'E0012', 'E0013', 'E0014', 'E0015'].includes(String(common.errorCode));
+    throw new LookupError(userFault ? 'bad_input' : 'upstream', msg, userFault ? 400 : 502);
+  }
+  return Array.isArray(json.results.juso) ? json.results.juso : [];
+}
+
+/** 도로명주소 검색 결과 → 화면용 목록 (같은 건물 중복 제거) */
+export function parseSearch(json) {
+  const seen = new Set();
+  const out = [];
+  for (const j of jusoList(json)) {
+    const ref = {
+      admCd: String(j.admCd || ''), rnMgtSn: String(j.rnMgtSn || ''), udrtYn: String(j.udrtYn ?? '0'),
+      buldMnnm: String(j.buldMnnm ?? ''), buldSlno: String(j.buldSlno ?? '0'),
+      mtYn: String(j.mtYn ?? '0'), lnbrMnnm: String(j.lnbrMnnm ?? ''), lnbrSlno: String(j.lnbrSlno ?? '0'),
+    };
+    try { cleanRef(ref); } catch { continue; }
+    const id = `${ref.admCd}-${ref.rnMgtSn}-${ref.buldMnnm}-${ref.buldSlno}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      roadAddr: String(j.roadAddrPart1 || j.roadAddr || ''),
+      jibunAddr: String(j.jibunAddr || ''),
+      bdNm: String(j.bdNm || ''),
+      apt: String(j.bdKdcd) === '1', // 1 공동주택
+      ref,
+    });
+  }
+  return out;
+}
+
+const naturalSort = (a, b) => a.localeCompare(b, 'ko', { numeric: true });
+
+export function parseDongs(json) {
+  const names = new Set(jusoList(json).map((j) => String(j.dongNm || '').trim()).filter(Boolean));
+  return [...names].sort(naturalSort);
+}
+
+export function parseHos(json) {
+  const seen = new Set();
+  const out = [];
+  for (const j of jusoList(json)) {
+    const hoNm = String(j.hoNm || '').trim();
+    if (!hoNm || seen.has(hoNm)) continue;
+    seen.add(hoNm);
+    out.push({ hoNm, floorNm: String(j.floorNm || '').trim() });
+  }
+  return out.sort((a, b) => naturalSort(a.hoNm, b.hoNm));
+}
+
+/** 건축물대장 응답의 item 목록. item 이 1개면 객체, 없으면 "" 로 오는 경우까지 처리 */
+export function bldItems(json) {
+  const header = json?.response?.header;
+  if (!header) throw new LookupError('upstream', '건축물대장 응답을 읽을 수 없습니다.', 502);
+  if (String(header.resultCode) !== '00') throw new LookupError('upstream', String(header.resultMsg || '건축물대장 조회에 실패했습니다.'), 502);
+  const item = json.response.body?.items?.item;
+  if (!item) return [];
+  return Array.isArray(item) ? item : [item];
+}
+
+/** JSON 대신 XML 오류(인증키 오류 등)가 오면 사유만 꺼낸다. 키 값은 응답에 없다. */
+export function bldTextError(text) {
+  const m = /<returnAuthMsg>([^<]+)<\/returnAuthMsg>|<resultMsg>([^<]+)<\/resultMsg>/.exec(String(text || ''));
+  return m ? (m[1] || m[2]).trim() : '건축물대장 응답 형식이 올바르지 않습니다.';
+}
+
+const unitKey = (s) => String(s || '').replace(/\s/g, '').replace(/(동|호)$/, '').replace(/^0+(?=\d)/, '');
+
+/** 대장의 동·호 표기("101동"/"101", "1203호"/"1203")가 달라도 같은 집인지 */
+export function sameUnit(a, b) {
+  return unitKey(a) === unitKey(b);
+}
+
+/** 동·호 이름 변형: 대장 조회는 정확히 일치해야 해서 흔한 표기를 순서대로 시도한다 */
+export function unitVariants(dongNm, hoNm) {
+  const d = String(dongNm || '').trim();
+  const h = String(hoNm || '').trim();
+  const dongs = d ? [...new Set([d, d.endsWith('동') ? d.slice(0, -1) : `${d}동`])] : [''];
+  const hos = [...new Set([h.endsWith('호') ? h : `${h}호`, h.endsWith('호') ? h.slice(0, -1) : h])];
+  const out = [];
+  for (const dd of dongs) for (const hh of hos) out.push([dd, hh]);
+  return out;
+}
+
+/** 전유·공용 항목 → 전용면적·공급면적·평 */
+export function computeArea(items, { dongNm = '', hoNm = '' } = {}) {
+  const mine = items.filter((it) => (!hoNm || !it.hoNm || sameUnit(it.hoNm, hoNm)) && (!dongNm || !it.dongNm || sameUnit(it.dongNm, dongNm)));
+  const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+  let exclusive = 0; let commonIn = 0; let commonOut = 0;
+  const breakdown = [];
+  for (const it of mine) {
+    const area = num(it.area);
+    const purpose = [it.mainPurpsCdNm, it.etcPurps].filter(Boolean).join(' / ');
+    const gb = String(it.exposPubuseGbCd) === '1' ? 'exclusive' : 'common';
+    let included = true;
+    if (gb === 'exclusive') exclusive += area;
+    else if (EXCLUDED_COMMON_RE.test(purpose)) { included = false; commonOut += area; }
+    else commonIn += area;
+    breakdown.push({ gb, purpose, area: round2(area), included, floor: String(it.flrNoNm || '') });
+  }
+  if (!exclusive) throw new LookupError('no_area', '건축물대장에서 이 집의 전용면적을 찾지 못했습니다.');
+  const supply = exclusive + commonIn;
+  return {
+    exclusiveM2: round2(exclusive),
+    supplyM2: round2(supply),
+    commonIncludedM2: round2(commonIn),
+    commonExcludedM2: round2(commonOut),
+    exclusivePyeong: round1(exclusive / PYEONG_M2),
+    pyeong: round1(supply / PYEONG_M2),
+    breakdown,
+  };
+}
+
+const round1 = (n) => Math.round(n * 10) / 10;
+const round2 = (n) => Math.round(n * 100) / 100;
+
+// ---------- 요청 처리 ----------
+
+async function getJson(fetchFn, url, what) {
+  let res;
+  try {
+    res = await fetchFn(url, { signal: AbortSignal.timeout(7000), headers: { accept: 'application/json' } });
+  } catch {
+    throw new LookupError('upstream', `${what} 서버가 응답하지 않습니다.`, 504);
+  }
+  const text = await res.text();
+  if (!res.ok) throw new LookupError('upstream', `${what} 서버 오류 (${res.status})`, 502);
+  try { return { json: JSON.parse(text), text }; } catch { return { json: null, text }; }
+}
+
+/**
+ * 요청 1건 처리. body: { action: 'search'|'dongs'|'hos'|'area', ... }
+ * keys: { jusoSearch, jusoDetail, bld } — 실행 시 Secret Manager 에서 읽은 값. 응답·오류에 넣지 않는다.
+ */
+export async function handle(body, { keys, fetchFn = fetch }) {
+  const action = body?.action;
+  if (action === 'search') {
+    const keyword = cleanKeyword(body.keyword);
+    const { json } = await getJson(fetchFn, jusoSearchUrl(keys.jusoSearch, keyword), '주소 검색');
+    const items = parseSearch(json);
+    if (!items.length) throw new LookupError('not_found', '검색 결과가 없습니다. 단지명이나 도로명을 다시 확인해주세요.');
+    return { items };
+  }
+  if (action === 'dongs') {
+    const ref = cleanRef(body.ref);
+    const { json } = await getJson(fetchFn, jusoDetailUrl(keys.jusoDetail, ref, 'dong'), '상세주소');
+    return { dongs: parseDongs(json) };
+  }
+  if (action === 'hos') {
+    const ref = cleanRef(body.ref);
+    const dongNm = cleanUnit(body.dongNm);
+    const { json } = await getJson(fetchFn, jusoDetailUrl(keys.jusoDetail, ref, 'floorho', dongNm), '상세주소');
+    const hos = parseHos(json);
+    if (!hos.length) throw new LookupError('no_units', '이 건물은 호수 정보가 없습니다.');
+    return { hos };
+  }
+  if (action === 'area') {
+    const ref = cleanRef(body.ref);
+    const dongNm = cleanUnit(body.dongNm);
+    const hoNm = cleanUnit(body.hoNm, { allowEmpty: false });
+    for (const [d, h] of unitVariants(dongNm, hoNm)) {
+      const { json, text } = await getJson(fetchFn, bldAreaUrl(keys.bld, bldParams(ref, d, h)), '건축물대장');
+      if (!json) throw new LookupError('upstream', bldTextError(text), 502);
+      const items = bldItems(json);
+      if (items.length) return computeArea(items, { dongNm, hoNm });
+    }
+    throw new LookupError('not_found', '건축물대장에서 이 집을 찾지 못했습니다.');
+  }
+  throw new LookupError('bad_input', '알 수 없는 요청입니다.', 400);
+}
+
+// 우리 화면에서 온 요청만 받는다 (공개 정보지만 남이 우리 할당량을 쓰지 못하게)
+export const ALLOWED_ORIGINS = [
+  'https://quote.bizmy.net',
+  'https://jinjjabg-hub.github.io',
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+  'http://127.0.0.1:8765',
+];

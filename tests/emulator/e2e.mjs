@@ -87,7 +87,25 @@ try {
   // 2) 고객 입력
   step('2) 고객: 34평, 신축, 붙박이장 없음(조건부 질문), 오염 보통, 곰팡이 예, 스티커 모름, 사진 2장');
   const cust = await newPage();
-  await cust.goto(`${BASE}q.html?shop=${uid}&emulator=1`);
+  // 주소 → 평수 자동 조회: 서버 함수는 가짜 응답으로 대신한다 (실제 공공 API 는 배포 후 dev.html 에서 검증)
+  const lookupCalls = [];
+  await cust.route(/cloudfunctions\.net\/areaLookup/, async (route) => {
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' };
+    if (route.request().method() === 'OPTIONS') { await route.fulfill({ status: 204, headers: cors }); return; }
+    const body = JSON.parse(route.request().postData() || '{}');
+    lookupCalls.push(body.action);
+    const REF = { admCd: '2623010500', rnMgtSn: '262303000001', udrtYn: '0', buldMnnm: '123', buldSlno: '0', mtYn: '0', lnbrMnnm: '456', lnbrSlno: '1' };
+    const replies = {
+      search: String(body.keyword || '').includes('없는')
+        ? { ok: false, reason: 'not_found', message: '검색 결과가 없습니다.' }
+        : { ok: true, items: [{ roadAddr: '부산광역시 부산진구 가야대로 000', jibunAddr: '', bdNm: '예시타운', apt: true, ref: REF }] },
+      dongs: { ok: true, dongs: ['101동', '102동'] },
+      hos: { ok: true, hos: [{ hoNm: '1203', floorNm: '12' }, { hoNm: '1204', floorNm: '12' }] },
+      area: { ok: true, exclusiveM2: 84.97, supplyM2: 112.35, commonIncludedM2: 27.38, commonExcludedM2: 43.3, exclusivePyeong: 25.7, pyeong: 34, breakdown: [] },
+    };
+    await route.fulfill({ contentType: 'application/json', headers: cors, body: JSON.stringify(replies[body.action]) });
+  });
+  await cust.goto(`${BASE}q.html?shop=${uid}&emulator=1&lookup=1`);
   const next = () => cust.locator('.nav-row .btn.primary').click();
   await cust.getByPlaceholder('홍길동').fill('김고객');
   await cust.getByPlaceholder('010-0000-0000').fill('010-3333-4444');
@@ -102,7 +120,25 @@ try {
   await cust.locator('input[type=date]').fill('2026-10-21'); // 수요일, 공휴일·손 없는 날 아님
   await cust.getByRole('button', { name: '오전', exact: true }).click();
   await next();
-  await cust.locator('input[type=number]').fill('34');
+  // 실패 → "직접 입력" 안내 → 다시 찾기 → 단지 → 동 → 호 → "공급 약 34평" → 맞아요 → 평수 칸 자동 입력
+  await cust.getByRole('button', { name: '주소로 평수 찾기' }).click();
+  await cust.locator('.lookup-input').fill('없는 주소');
+  await cust.getByRole('button', { name: '검색', exact: true }).click();
+  await cust.getByText('이 주소는 자동 조회가 안 돼요').waitFor();
+  await shot(cust, '3a-lookup-fail');
+  await cust.getByRole('button', { name: '다시 찾기' }).click();
+  await cust.locator('.lookup-input').fill('가야대로 예시타운');
+  await cust.locator('.lookup-input').press('Enter');
+  await cust.getByRole('button', { name: /예시타운/ }).click();
+  await cust.getByRole('button', { name: '101동' }).click();
+  await cust.getByRole('button', { name: '1203호' }).click();
+  await cust.getByText('공급 약 34평').waitFor();
+  await shot(cust, '3b-lookup-result');
+  await cust.getByRole('button', { name: /맞아요/ }).click();
+  assert.equal(await cust.locator('input[type=number]').inputValue(), '34', '대장 평수가 평수 칸에 들어감');
+  await cust.getByText('건축물대장으로 확인했어요').waitFor();
+  assert.deepEqual(lookupCalls, ['search', 'search', 'dongs', 'hos', 'area']);
+  await shot(cust, '3c-lookup-applied');
   await cust.getByRole('button', { name: '예, 신축' }).click();
   await next();
   // 방·욕실·베란다 기본값 (베란다 2 = 기본 포함). 붙박이장 개수는 "있어요"를 골라야만 보인다 (showIf)
@@ -149,6 +185,9 @@ try {
   await item.click();
   await owner.locator('.total-box').waitFor();
   assert.match(await owner.locator('.total-box').innerText(), /560,000원/);
+  const detailText = await owner.locator('body').innerText();
+  assert.match(detailText, /예시타운 101동 1203/, '사장님 상세: 단지명·동·호');
+  assert.match(detailText, /건축물대장 확인/, '사장님 상세: 평수 출처');
   const condValue = await owner.locator('label.field', { hasText: '현장 추가요금 조건' }).locator('textarea').inputValue();
   assert.match(condValue, /스티커/);
   const lineLabels = await owner.locator('.line-label').evaluateAll((els) => els.map((e) => e.value).join(','));
@@ -173,6 +212,7 @@ try {
   assert.match(await view.locator('.cond').innerText(), /스티커/);
   assert.equal(await view.locator('.shop-head, .quote-head').getByText('전화 상담').count(), 0, '견적서 상단에는 전화 버튼 없음 (하단에 있음)');
   assert.doesNotMatch(await view.locator('body').innerText(), /주차 확인 필요/, '내부 메모는 견적서에 없음');
+  assert.doesNotMatch(await view.locator('body').innerText(), /예시타운|1203/, '단지명·동·호는 공개 견적서에 없음');
   assert.match(await view.locator('.total-box').innerText(), /560,000원/);
   assert.match(await view.locator('.total-box').innerText(), /56,000원/); // 계약금 10%
   assert.equal(await view.locator('.badge.verified').count(), 1, '사진 확인 완료 배지');

@@ -6,6 +6,8 @@ import {
 } from './calc.js';
 import { $, h, toast, setChildren } from './util.js';
 import { devlog } from './devtools.js';
+import { newLookupState, renderLookupPanel } from './areaLookup.js';
+import { areaLookupConfig } from './config.js';
 
 const app = $('#app');
 const S = { list: [], id: null, tpl: null, pt: null, answers: {}, checklist: {}, photos: 0, overrides: { surcharges: {}, options: {} }, open: { price: false, dev: false } };
@@ -69,6 +71,7 @@ function render() {
     renderOverrides(r),
     renderPriceTable(),
     renderDevInfo(r),
+    renderLookupTest(),
   );
 }
 
@@ -213,6 +216,23 @@ function setPath(obj, path, val) {
   let o = obj;
   for (const k of ks.slice(0, -1)) o = o[k];
   o[ks.at(-1)] = val;
+}
+
+// 주소 → 평수 자동 조회 시험 (설계도 4-4장). 실제 서버 함수·공공 API 를 부른다 (배포 후, quote.bizmy.net 에서).
+// 고객 화면과 같은 패널에 항목별 면적 표를 더해 공급면적 계산 규칙을 실제 단지로 검증한다.
+S.lookup = newLookupState();
+S.lookup.open = true;
+function renderLookupTest() {
+  return h('section.card', {},
+    h('h2', {}, '⑥ 평수 조회 시험 (실제 건축물대장)'),
+    h('p.muted.small', {}, `서버 함수: ${areaLookupConfig.url || '(미설정)'} · 고객 화면 공개: ${areaLookupConfig.enabled ? '켜짐' : '꺼짐 (검증 후 js/config.js 에서 켬)'}`),
+    h('p.muted.small', {}, '첫 검증: 부산 가야대로 팍스타운. 공급 평수가 분양 평수와 같은지, 제외한 항목이 맞는지 확인하세요. 허용된 주소(quote.bizmy.net)에서 열어야 동작합니다.'),
+    renderLookupPanel(S.lookup, S.lookupApplied, {
+      debug: true,
+      rerender: render,
+      onApply: (info) => { S.lookupApplied = info; toast(`적용: 공급 ${info.supplyM2}㎡ → ${Math.round(info.pyeong)}평`); },
+      onManual: () => { S.lookup.open = true; },
+    }));
 }
 
 function renderDevInfo(r) {
