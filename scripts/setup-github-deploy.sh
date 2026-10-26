@@ -24,6 +24,7 @@ gcloud config set project "$PROJECT" >/dev/null 2>&1
 PN=$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')
 SA="$SA_NAME@$PROJECT.iam.gserviceaccount.com"
 RUNTIME_SA="$PN-compute@developer.gserviceaccount.com"   # 2세대 함수 기본 실행 계정
+APPENGINE_SA="$PROJECT@appspot.gserviceaccount.com"     # firebase-tools 가 배포 전에 actAs 권한을 검사하는 계정 (13~15.x 고정)
 
 say "1/4 API 켜기"
 gcloud services enable cloudfunctions.googleapis.com run.googleapis.com cloudbuild.googleapis.com \
@@ -49,6 +50,12 @@ done
 gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" --member="serviceAccount:$SA" \
   --role=roles/iam.serviceAccountUser --quiet >/dev/null
 ok "roles/iam.serviceAccountUser ($RUNTIME_SA 에만)"
+# firebase-tools 는 함수 종류와 상관없이 App Engine 기본 계정의 actAs 권한을 먼저 검사한다 (없으면 배포 중단)
+if gcloud iam service-accounts describe "$APPENGINE_SA" >/dev/null 2>&1; then
+  gcloud iam service-accounts add-iam-policy-binding "$APPENGINE_SA" --member="serviceAccount:$SA" \
+    --role=roles/iam.serviceAccountUser --quiet >/dev/null
+  ok "roles/iam.serviceAccountUser ($APPENGINE_SA 에만, 배포 전 검사용)"
+fi
 # 2세대 함수는 기본 실행 계정으로 빌드한다
 gcloud projects add-iam-policy-binding "$PROJECT" --member="serviceAccount:$RUNTIME_SA" \
   --role=roles/cloudbuild.builds.builder --condition=None --quiet >/dev/null
