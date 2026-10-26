@@ -25,6 +25,8 @@ export const areaLookup = onRequest({
   try {
     const data = await handle(req.body, {
       keys: { jusoSearch: JUSO_SEARCH_KEY.value(), jusoDetail: JUSO_DETAIL_KEY.value(), bld: BLD_KEY.value() },
+      // 바깥 서버 오류 응답(키는 *** 로 가림). Cloud Shell: gcloud functions logs read areaLookup --region=asia-northeast3 --gen2
+      log: (level, data) => logger[level === 'warn' ? 'warn' : 'info']('areaLookup 바깥 응답', data),
     });
     res.json({ ok: true, ...data });
   } catch (e) {

@@ -254,43 +254,73 @@ export function upstreamReason(text) {
   return raw.replace(/[^A-Za-z0-9_ ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
 }
 
-async function getJson(fetchFn, url, what) {
-  let res;
-  try {
-    res = await fetchFn(url, { signal: AbortSignal.timeout(7000), headers: { accept: 'application/json' } });
-  } catch (e) {
-    throw new LookupError('upstream', `${what} 서버에 연결하지 못했습니다 (${failCode(e)}).`, 504);
+// 요청 헤더 후보. 403 이면 다음 후보로 한 번 더 보낸다 (공공데이터포털 게이트웨이가 헤더에 따라 거부하는지 진단·우회)
+export const HEADER_TRIES = [
+  { accept: 'application/json' },
+  { accept: '*/*', 'user-agent': 'Mozilla/5.0 (compatible; bizmy-quote/1.0; +https://quote.bizmy.net)' },
+];
+
+/** 로그에 남길 본문에서 키 값(원문·인코딩)을 *** 로 가린다 */
+export function redact(text, secrets = []) {
+  let out = String(text || '');
+  for (const s of secrets.filter((x) => x && String(x).trim().length >= 8)) {
+    const k = String(s).trim();
+    for (const v of new Set([k, encodeURIComponent(k), encodeServiceKey(k), decodeURIComponentSafe(k)])) out = out.split(v).join('***');
   }
-  const text = await res.text();
-  if (!res.ok) {
-    const why = upstreamReason(text);
+  return out;
+}
+function decodeURIComponentSafe(s) { try { return decodeURIComponent(s); } catch { return s; } }
+
+async function getJson(fetchFn, url, what, { log = () => {}, secrets = [] } = {}) {
+  for (let i = 0; i < HEADER_TRIES.length; i += 1) {
+    let res;
+    try {
+      res = await fetchFn(url, { signal: AbortSignal.timeout(7000), headers: HEADER_TRIES[i] });
+    } catch (e) {
+      throw new LookupError('upstream', `${what} 서버에 연결하지 못했습니다 (${failCode(e)}).`, 504);
+    }
+    const text = await res.text();
+    if (res.ok) {
+      if (i > 0) log('info', { what, note: `헤더 후보 ${i + 1}번으로 성공`, attempt: i + 1 });
+      try { return { json: JSON.parse(text), text }; } catch { return { json: null, text }; }
+    }
+    // 실제 응답을 그대로(키만 가려서) 남긴다: 상태·형식·서버·본문 앞부분. 요청 URL 은 남기지 않는다(키 포함)
+    log('warn', {
+      what, attempt: i + 1, status: res.status,
+      contentType: res.headers?.get?.('content-type') || '',
+      server: res.headers?.get?.('server') || '',
+      body: redact(text, secrets).slice(0, 500),
+    });
+    if (res.status === 403 && i < HEADER_TRIES.length - 1) continue;
+    const why = upstreamReason(redact(text, secrets));
     throw new LookupError('upstream', `${what} 서버 오류 (${res.status}${why ? ` ${why}` : ''})`, 502);
   }
-  try { return { json: JSON.parse(text), text }; } catch { return { json: null, text }; }
+  throw new LookupError('upstream', `${what} 서버 오류`, 502);
 }
 
 /**
  * 요청 1건 처리. body: { action: 'search'|'dongs'|'hos'|'area', ... }
  * keys: { jusoSearch, jusoDetail, bld } — 실행 시 Secret Manager 에서 읽은 값. 응답·오류에 넣지 않는다.
  */
-export async function handle(body, { keys, fetchFn = fetch }) {
+export async function handle(body, { keys, fetchFn = fetch, log } = {}) {
   const action = body?.action;
+  const ctx = { log, secrets: Object.values(keys || {}) };
   if (action === 'search') {
     const keyword = cleanKeyword(body.keyword);
-    const { json } = await getJson(fetchFn, jusoSearchUrl(keys.jusoSearch, keyword), '주소 검색');
+    const { json } = await getJson(fetchFn, jusoSearchUrl(keys.jusoSearch, keyword), '주소 검색', ctx);
     const items = parseSearch(json);
     if (!items.length) throw new LookupError('not_found', '검색 결과가 없습니다. 단지명이나 도로명을 다시 확인해주세요.');
     return { items };
   }
   if (action === 'dongs') {
     const ref = cleanRef(body.ref);
-    const { json } = await getJson(fetchFn, jusoDetailUrl(keys.jusoDetail, ref, 'dong'), '상세주소');
+    const { json } = await getJson(fetchFn, jusoDetailUrl(keys.jusoDetail, ref, 'dong'), '상세주소', ctx);
     return { dongs: parseDongs(json) };
   }
   if (action === 'hos') {
     const ref = cleanRef(body.ref);
     const dongNm = cleanUnit(body.dongNm);
-    const { json } = await getJson(fetchFn, jusoDetailUrl(keys.jusoDetail, ref, 'floorho', dongNm), '상세주소');
+    const { json } = await getJson(fetchFn, jusoDetailUrl(keys.jusoDetail, ref, 'floorho', dongNm), '상세주소', ctx);
     const hos = parseHos(json);
     if (!hos.length) throw new LookupError('no_units', '이 건물은 호수 정보가 없습니다.');
     return { hos };
@@ -300,7 +330,7 @@ export async function handle(body, { keys, fetchFn = fetch }) {
     const dongNm = cleanUnit(body.dongNm);
     const hoNm = cleanUnit(body.hoNm, { allowEmpty: false });
     for (const [d, h] of unitVariants(dongNm, hoNm)) {
-      const { json, text } = await getJson(fetchFn, bldAreaUrl(keys.bld, bldParams(ref, d, h)), '건축물대장');
+      const { json, text } = await getJson(fetchFn, bldAreaUrl(keys.bld, bldParams(ref, d, h)), '건축물대장', ctx);
       if (!json) throw new LookupError('upstream', bldTextError(text), 502);
       const items = bldItems(json);
       if (items.length) return computeArea(items, { dongNm, hoNm });
