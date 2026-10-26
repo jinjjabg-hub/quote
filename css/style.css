@@ -556,6 +556,7 @@ dialog.sheet::backdrop { background: rgba(15,23,42,.45); }
 .lookup-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .lookup-actions .btn { flex: 1; min-height: 52px; }
 .lookup-fail { background: var(--warn-bg); color: var(--warn); border-radius: 12px; padding: 12px 14px; }
+.lookup-fail .small { word-break: break-all; margin-top: 4px; }
 .lookup-debug { margin-top: 12px; background: #fff; border-radius: 12px; padding: 12px; }
 .lookup-debug td { font-size: .85rem; }
 .page-q .area-lookup .btn.primary { background: var(--s-primary); }
