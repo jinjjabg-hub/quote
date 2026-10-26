@@ -546,6 +546,7 @@ dialog.sheet::backdrop { background: rgba(15,23,42,.45); }
 .lookup-q { font-weight: 700; margin: 4px 0 8px; }
 .lookup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; max-height: 320px; overflow-y: auto; }
 .lookup-chip { min-height: 48px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font: inherit; font-weight: 600; color: var(--text); cursor: pointer; }
+.lookup-chip.on { background: var(--primary-weak); border: 2px solid var(--primary); color: var(--primary-deep); }
 .area-lookup select.input { background: #fff; }
 .lookup-busy { display: flex; align-items: center; gap: 10px; color: var(--primary-deep); font-weight: 600; margin: 8px 0; }
 .spinner { width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--primary-soft); border-top-color: var(--primary); animation: spin .8s linear infinite; }

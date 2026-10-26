@@ -39,7 +39,7 @@ export async function callArea(action, payload = {}) {
 }
 
 export function newLookupState() {
-  return { open: false, stage: 'search', keyword: '', items: [], sel: null, dongs: [], dong: '', hos: [], ho: '', result: null, busy: false, error: '' };
+  return { open: false, stage: 'search', keyword: '', items: [], sel: null, dongs: [], dong: '', hos: [], ho: '', house: null, part: null, units: 1, result: null, busy: false, error: '' };
 }
 
 /**
@@ -70,14 +70,41 @@ export function renderLookupPanel(ls, applied, opts) {
     const { hos } = await callArea('hos', { ref: ls.sel.ref, dongNm: dong });
     ls.hos = hos; ls.stage = 'ho';
   });
+  // 일반주택(단독·다가구): 호별 면적이 없어 표제부(연면적)·층별개요(층 면적)로 "집 전체" 또는 "○층 ÷ 집 수"
+  const loadHouse = async () => {
+    const r = await callArea('house', { ref: ls.sel.ref });
+    ls.house = r;
+    if (!r.floors.length || (r.groundFloors <= 1 && r.households <= 1)) { houseResult(null, 1); return; }
+    ls.stage = 'house';
+  };
+  const houseResult = (floor, units) => {
+    const r = ls.house;
+    const m2 = floor ? Math.round((floor.m2 / units) * 100) / 100 : r.totalM2;
+    ls.part = floor ? floor.label : '집 전체';
+    ls.units = units;
+    ls.result = { kind: 'house', m2, pyeong: Math.round((m2 / 3.305785) * 10) / 10, floorM2: floor?.m2, purpose: r.purpose };
+    ls.stage = 'result';
+  };
+  const pickFloor = (floor) => {
+    ls.floor = floor;
+    const r = ls.house;
+    ls.units = r.households && r.groundFloors ? Math.min(4, Math.max(1, Math.round(r.households / r.groundFloors))) : 1;
+    ls.stage = 'houseUnits'; redraw();
+  };
   const pickBuilding = (item) => run(async () => {
     ls.sel = item;
+    if (!item.apt) { await loadHouse(); return; } // 공동주택이 아님 (단독·다가구)
     const { dongs } = await callArea('dongs', { ref: item.ref });
     ls.dongs = dongs;
     if (dongs.length) { ls.stage = 'dong'; return; }
     ls.dong = '';
-    const { hos } = await callArea('hos', { ref: item.ref, dongNm: '' }); // 동이 없는 건물 (오피스텔·나홀로 아파트)
-    ls.hos = hos; ls.stage = 'ho';
+    try {
+      const { hos } = await callArea('hos', { ref: item.ref, dongNm: '' }); // 동이 없는 건물 (오피스텔·나홀로 아파트)
+      ls.hos = hos; ls.stage = 'ho';
+    } catch (e) {
+      if (e?.reason !== 'no_units') throw e;
+      await loadHouse(); // 호 정보가 없는 건물 → 일반주택 방식으로
+    }
   });
   const pickHo = (ho) => run(async () => {
     ls.ho = ho;
@@ -90,13 +117,14 @@ export function renderLookupPanel(ls, applied, opts) {
     return h('div.area-lookup', {},
       applied ? h('div.lookup-applied', {}, icon('verified', true),
         h('div', {}, h('b', {}, '건축물대장으로 확인했어요'),
-          h('div.small', {}, `${placeLabel(applied)} · 전용 ${applied.exclusiveM2}㎡ · 공급 ${applied.supplyM2}㎡`))) : null,
+          h('div.small', {}, appliedText(applied)))) : null,
       h('button.btn-lookup', { type: 'button', onclick: () => { ls.open = true; ls.stage = 'search'; redraw(); setTimeout(() => document.querySelector('.lookup-input')?.focus(), 0); } },
         icon('search'), applied ? '다른 주소로 다시 찾기' : '주소로 평수 찾기'),
-      applied ? null : h('p.lookup-note', {}, '아파트·오피스텔은 주소만 고르면 건축물대장으로 정확한 평수를 찾아드려요.'));
+      applied ? null : h('p.lookup-note', {}, '아파트·빌라·주택 모두 주소만 고르면 건축물대장으로 평수를 찾아드려요.'));
   }
 
-  const crumbs = [ls.sel?.bdNm || ls.sel?.roadAddr, unitLabel(ls.dong, '동'), unitLabel(ls.ho, '호')].filter(Boolean);
+  const crumbs = [ls.sel?.bdNm || ls.sel?.roadAddr, unitLabel(ls.dong, '동'), unitLabel(ls.ho, '호'),
+    ls.stage === 'houseUnits' ? ls.floor?.label : ls.stage === 'result' && ls.result?.kind === 'house' ? ls.part : ''].filter(Boolean);
   const body = [];
   if (ls.busy) body.push(h('p.lookup-busy', { role: 'status' }, h('span.spinner', { 'aria-hidden': 'true' }), '찾는 중…'));
   else if (ls.stage === 'search' || ls.stage === 'pick') {
@@ -109,7 +137,7 @@ export function renderLookupPanel(ls, applied, opts) {
       h('button.btn.primary.small', { type: 'button', onclick: search }, '검색')));
     if (ls.stage === 'pick') {
       body.push(h('div.lookup-list', {}, ls.items.map((it) => h('button.lookup-item', { type: 'button', onclick: () => pickBuilding(it) },
-        icon('apartment'), h('span', {}, h('b', {}, it.bdNm || it.roadAddr), h('span.small', {}, it.roadAddr))))));
+        icon(it.apt ? 'apartment' : 'home'), h('span', {}, h('b', {}, it.bdNm || it.roadAddr), h('span.small', {}, it.bdNm ? it.roadAddr : it.jibunAddr || ''))))));
     } else body.push(h('p.lookup-note', {}, '단지명이나 도로명 주소를 입력하세요.'));
   } else if (ls.stage === 'dong') {
     body.push(h('p.lookup-q', {}, '몇 동인가요?'),
@@ -123,6 +151,39 @@ export function renderLookupPanel(ls, applied, opts) {
     } else {
       body.push(h('div.lookup-grid', {}, ls.hos.map((x) => h('button.lookup-chip', { type: 'button', onclick: () => pickHo(x.hoNm) }, unitLabel(x.hoNm, '호')))));
     }
+  } else if (ls.stage === 'house') {
+    const r = ls.house;
+    body.push(h('p.lookup-q', {}, '어디를 청소하나요?'),
+      h('div.lookup-list', {},
+        h('button.lookup-item', { type: 'button', onclick: () => { houseResult(null, 1); redraw(); } },
+          icon('home'), h('span', {}, h('b', {}, '집 전체'), h('span.small', {}, `연면적 ${r.totalM2}㎡ · 약 ${Math.round(r.totalPyeong)}평${r.purpose ? ` · ${r.purpose}` : ''}`))),
+        r.floors.map((f) => h('button.lookup-item', { type: 'button', onclick: () => pickFloor(f) },
+          icon('stairs'), h('span', {}, h('b', {}, `${f.label}만`), h('span.small', {}, `층 면적 ${f.m2}㎡ · 약 ${Math.round(f.pyeong)}평`))))),
+      h('p.lookup-note', {}, `건축물대장: ${r.groundFloors}층 건물${r.households ? ` · ${r.households}가구` : ''}`));
+  } else if (ls.stage === 'houseUnits') {
+    body.push(h('p.lookup-q', {}, `${ls.floor.label}에 몇 집이 사나요?`),
+      h('div.lookup-grid', {}, [1, 2, 3, 4].map((n) => h(`button.lookup-chip${ls.units === n ? '.on' : ''}`, { type: 'button', onclick: () => { houseResult(ls.floor, n); redraw(); } }, n === 4 ? '4집 이상' : `${n}집`))),
+      h('p.lookup-note', {}, '한 층을 여러 집이 나눠 쓰면 층 면적을 집 수로 나눠 계산해요.'));
+  } else if (ls.stage === 'result' && ls.result?.kind === 'house') {
+    const r = ls.result;
+    body.push(h('div.lookup-result', {},
+      h('div.small', {}, '건축물대장 기준 · 일반주택'),
+      h('div.lookup-big', {}, `약 ${Math.round(r.pyeong)}평`),
+      h('div.small', {}, ls.part === '집 전체'
+        ? `연면적 ${r.m2}㎡${r.purpose ? ` · ${r.purpose}` : ''}`
+        : `${ls.part} ${r.floorM2}㎡${ls.units > 1 ? ` ÷ ${ls.units}집` : ''} = ${r.m2}㎡`),
+      h('div.small', {}, '계단 등 공용 부분이 섞인 대략값이에요.'),
+      h('p.lookup-q', {}, '이 평수가 맞나요?')),
+    h('div.lookup-actions', {},
+      h('button.btn.primary', {
+        type: 'button',
+        onclick: () => {
+          onApply?.({ kind: 'house', pyeong: r.pyeong, areaM2: r.m2, bdNm: ls.sel.bdNm, roadAddr: ls.sel.roadAddr, part: ls.part, units: ls.units });
+          Object.assign(ls, newLookupState()); redraw();
+        },
+      }, icon('check_circle', true), '맞아요, 이 평수로'),
+      h('button.btn.soft', { type: 'button', onclick: manual }, '아니요, 직접 입력')));
+    if (debug) body.push(h('pre.json', {}, JSON.stringify(ls.house, null, 2)));
   } else if (ls.stage === 'result') {
     const r = ls.result;
     body.push(h('div.lookup-result', {},
@@ -160,6 +221,12 @@ export function renderLookupPanel(ls, applied, opts) {
     crumbs.length && ls.stage !== 'fail' ? h('div.lookup-crumbs', {}, crumbs.join(' › '),
       ls.busy ? null : h('button.link', { type: 'button', onclick: () => { reset(); redraw(); } }, '처음부터')) : null,
     body);
+}
+
+/** 적용한 조회 결과 한 줄 요약 (고객 화면 패널·사장님 상세 공용) */
+export function appliedText(a) {
+  if (a?.kind === 'house') return `${a.bdNm || a.roadAddr} · ${a.part}${a.units > 1 ? ` ÷ ${a.units}집` : ''} · ${a.areaM2}㎡ (일반주택, 대략값)`;
+  return `${placeLabel(a)} · 전용 ${a.exclusiveM2}㎡ · 공급 ${a.supplyM2}㎡`;
 }
 
 function breakdownTable(r) {

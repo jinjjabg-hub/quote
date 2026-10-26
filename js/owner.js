@@ -15,7 +15,7 @@ import {
   $, h, toast, copyText, pageUrl, compressImage, STATUS, statusBadge, fmtDateTime, optionLabel, telHref,
   registerSW, showFatal, MANDU_ID_RE, setChildren, icon, timeAgo, maskName, tsToDate, footerNote,
 } from './util.js';
-import { placeLabel } from './areaLookup.js';
+import { placeLabel, appliedText } from './areaLookup.js';
 
 registerSW();
 
@@ -559,10 +559,10 @@ function renderDetail() {
     h('section.card', {},
       h('div.card-title', {}, icon('location_on'), '시공 현장 정보'),
       h('div.box', {},
-        h('b', {}, site ? placeLabel(site) : req.customer?.region || '지역 미입력'),
+        h('b', {}, site ? placeLabel(site) || site.roadAddr : req.customer?.region || '지역 미입력'),
         site?.roadAddr ? h('div.muted', {}, site.roadAddr) : null,
         requestSummary(req).size ? h('div.muted', {}, `${requestSummary(req).size} · ${S.tpl.name}`) : null,
-        site ? h('div.small', { style: 'margin-top:4px' }, h('span.badge.verified', {}, icon('verified'), ' 건축물대장'), ` 전용 ${site.exclusiveM2}㎡ · 공급 ${site.supplyM2}㎡`) : null),
+        site ? h('div.small', { style: 'margin-top:4px' }, h('span.badge.verified', {}, icon('verified'), ' 건축물대장'), ` ${appliedText(site)}`) : null),
       a.date ? h('div.date-row', {}, h('span', {}, icon('calendar_month'), ' 희망 시공일'),
         h('b', {}, `${a.date}${a.timeSlot ? ` ${optionLabel(timeField, a.timeSlot)}` : ''}${dateTags.length ? ` (${dateTags.join('·')})` : ''}`)) : null),
     h('section.card', {},

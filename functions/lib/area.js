@@ -107,6 +107,14 @@ export function bldParams(ref, dongNm, hoNm) {
   };
 }
 
+const BLD_BASE = 'https://apis.data.go.kr/1613000/BldRgstHubService';
+
+/** 건축HUB 다른 상세기능 (표제부 getBrTitleInfo · 층별개요 getBrFlrOulnInfo) */
+export function bldUrl(op, key, params) {
+  const p = new URLSearchParams({ ...params, numOfRows: '100', pageNo: '1', _type: 'json' });
+  return `${BLD_BASE}/${op}?serviceKey=${encodeServiceKey(key)}&${p}`;
+}
+
 export function bldAreaUrl(key, params) {
   const p = new URLSearchParams({ ...params, numOfRows: '100', pageNo: '1', _type: 'json' });
   return `${BLD_AREA_URL}?serviceKey=${encodeServiceKey(key)}&${p}`;
@@ -241,6 +249,61 @@ export function computeArea(items, { dongNm = '', hoNm = '' } = {}) {
   };
 }
 
+// ---------- 일반주택 (단독·다가구: 호별 면적이 없는 일반건축물) ----------
+// 표제부(집 전체 연면적·주용도·가구 수)와 층별개요(층마다 면적)로 고객이 "집 전체" 또는 "○층 ÷ 가구 수"를 고르게 한다.
+// 층 면적에는 계단 등 공용 부분이 섞여 있어 아파트 공급면적보다 대략값이다 (화면에 표시).
+
+const FLOOR_GB = { 10: '지하', 20: '지상', 30: '옥탑' };
+
+/** 같은 대지에 건물이 여럿이면 주건축물(mainAtchGbCd 0) 중 연면적이 가장 큰 것 */
+export function pickMainBuilding(titles) {
+  const mains = titles.filter((t) => String(t.mainAtchGbCd ?? '0') === '0');
+  const list = mains.length ? mains : titles;
+  return [...list].sort((a, b) => (Number(b.totArea) || 0) - (Number(a.totArea) || 0))[0] || null;
+}
+
+/** 층별개요 → 층마다 면적 합 (한 층이 용도별로 여러 행으로 오는 경우 합산) */
+export function houseFloors(rows, main) {
+  const sameBuilding = (r) => String(r.mainAtchGbCd ?? '0') === String(main?.mainAtchGbCd ?? '0')
+    && (!main?.dongNm || !r.dongNm || String(r.dongNm).trim() === String(main.dongNm).trim());
+  const byFloor = new Map();
+  for (const r of rows.filter(sameBuilding)) {
+    const gb = Number(r.flrGbCd) || 20;
+    const no = Number(r.flrNo) || 0;
+    const key = `${gb}-${no}`;
+    const area = Number(r.area) > 0 ? Number(r.area) : 0;
+    const cur = byFloor.get(key) || {
+      key, gb, no, label: String(r.flrNoNm || `${FLOOR_GB[gb] || ''}${no}층`).trim(), m2: 0, purposes: new Set(),
+    };
+    cur.m2 += area;
+    if (r.etcPurps || r.mainPurpsCdNm) cur.purposes.add(String(r.etcPurps || r.mainPurpsCdNm).trim());
+    byFloor.set(key, cur);
+  }
+  const order = (f) => (f.gb === 10 ? -f.no : f.gb === 30 ? 1000 + f.no : f.no);
+  return [...byFloor.values()].filter((f) => f.m2 > 0).sort((a, b) => order(a) - order(b))
+    .map((f) => ({ key: f.key, label: f.label, underground: f.gb === 10, m2: round2(f.m2), pyeong: round1(f.m2 / PYEONG_M2), purpose: [...f.purposes].join(', ') }));
+}
+
+export function computeHouse(titles, floorRows) {
+  const main = pickMainBuilding(titles);
+  if (!main) throw new LookupError('not_found', '건축물대장에서 이 건물을 찾지 못했습니다.');
+  const totalM2 = Number(main.totArea) > 0 ? Number(main.totArea) : 0;
+  const floors = houseFloors(floorRows, main);
+  if (!totalM2 && !floors.length) throw new LookupError('no_area', '건축물대장에 면적 정보가 없습니다.');
+  const households = Number(main.fmlyCnt) || Number(main.hhldCnt) || Number(main.hoCnt) || 0;
+  return {
+    kind: 'house',
+    purpose: [main.mainPurpsCdNm, main.etcPurps].filter(Boolean).join(' / '),
+    bldNm: String(main.bldNm || '').trim(),
+    totalM2: round2(totalM2),
+    totalPyeong: round1(totalM2 / PYEONG_M2),
+    households,
+    groundFloors: Number(main.grndFlrCnt) || floors.filter((f) => !f.underground).length,
+    floors,
+    buildings: titles.filter((t) => String(t.mainAtchGbCd ?? '0') === '0').length || titles.length,
+  };
+}
+
 const round1 = (n) => Math.round(n * 10) / 10;
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -352,6 +415,19 @@ export async function handle(body, { keys, fetchFn = fetch, log } = {}) {
       if (items.length) return computeArea(items, { dongNm, hoNm });
     }
     throw new LookupError('not_found', '건축물대장에서 이 집을 찾지 못했습니다.');
+  }
+  if (action === 'house') {
+    const ref = cleanRef(body.ref);
+    const params = bldParams(ref, '', '');
+    const readItems = async (op) => {
+      const { json, text } = await getJson(fetchFn, bldUrl(op, keys.bld, params), '건축물대장', ctx);
+      if (!json) throw new LookupError('upstream', bldTextError(text), 502);
+      return bldItems(json);
+    };
+    const titles = await readItems('getBrTitleInfo');
+    if (!titles.length) throw new LookupError('not_found', '건축물대장에서 이 건물을 찾지 못했습니다.');
+    const floors = await readItems('getBrFlrOulnInfo');
+    return computeHouse(titles, floors);
   }
   throw new LookupError('bad_input', '알 수 없는 요청입니다.', 400);
 }
