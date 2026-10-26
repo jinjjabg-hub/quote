@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  handle, failCode, upstreamReason, parseSearch, parseDongs, parseHos, computeArea, bldItems, bldParams, bldAreaUrl, encodeServiceKey,
+  handle, failCode, upstreamReason, redact, HEADER_TRIES, parseSearch, parseDongs, parseHos, computeArea, bldItems, bldParams, bldAreaUrl, encodeServiceKey,
   cleanKeyword, cleanRef, unitVariants, sameUnit, bldTextError, LookupError, jusoSearchUrl,
 } from '../lib/area.js';
 
@@ -204,4 +204,30 @@ test('upstreamReason: 오류 응답의 사유만, 키·URL 은 남기지 않음'
   const fetchFn = async () => ({ ok: false, status: 403, text: async () => 'Forbidden' });
   const REF2 = { admCd: '2623010500', rnMgtSn: '262303000001', udrtYn: '0', buldMnnm: '123', buldSlno: '0', mtYn: '0', lnbrMnnm: '456', lnbrSlno: '1' };
   await assert.rejects(handle({ action: 'area', ref: REF2, dongNm: '', hoNm: '101' }, { keys: KEYS, fetchFn }), (e) => /\(403 Forbidden\)/.test(e.message));
+});
+
+test('403 이면 다른 헤더로 한 번 더 시도, 실제 응답은 키를 가려 로그에 남김', async () => {
+  const REF3 = { admCd: '2623010500', rnMgtSn: '262303000001', udrtYn: '0', buldMnnm: '123', buldSlno: '0', mtYn: '0', lnbrMnnm: '456', lnbrSlno: '1' };
+  const logs = [];
+  const log = (level, data) => logs.push({ level, data });
+  const headersSeen = [];
+  const hdr = (h) => ({ get: (k) => h[k] });
+  // 1차(accept json) 403 → 2차(user-agent) 성공
+  const fetchFn = async (url, opts) => {
+    headersSeen.push(opts.headers);
+    if (headersSeen.length === 1) return { ok: false, status: 403, headers: hdr({ 'content-type': 'text/plain', server: 'gw' }), text: async () => `Forbidden key=${KEYS.bld}` };
+    return { ok: true, status: 200, text: async () => JSON.stringify(bldOk(UNIT_ITEMS)) };
+  };
+  const r = await handle({ action: 'area', ref: REF3, dongNm: '101동', hoNm: '1203' }, { keys: KEYS, fetchFn, log });
+  assert.equal(r.exclusiveM2, 84.97);
+  assert.deepEqual(headersSeen.map((h) => Object.keys(h).sort().join(',')), [Object.keys(HEADER_TRIES[0]).sort().join(','), Object.keys(HEADER_TRIES[1]).sort().join(',')]);
+  const warn = logs.find((l) => l.level === 'warn').data;
+  assert.equal(warn.status, 403);
+  assert.equal(warn.server, 'gw');
+  assert.match(warn.body, /Forbidden key=\*\*\*/);
+  assert.ok(!JSON.stringify(logs).includes(KEYS.bld), '로그에 키 원문 없음');
+  // 두 번 다 403 이면 실패 (사유 포함)
+  const always403 = async () => ({ ok: false, status: 403, headers: hdr({}), text: async () => 'Forbidden' });
+  await assert.rejects(handle({ action: 'area', ref: REF3, dongNm: '', hoNm: '101' }, { keys: KEYS, fetchFn: always403, log }), (e) => /403 Forbidden/.test(e.message));
+  assert.equal(redact(`a ${encodeURIComponent(KEYS.bld)} b`, [KEYS.bld]), 'a *** b');
 });
