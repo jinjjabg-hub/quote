@@ -13,8 +13,13 @@ export const BLD_AREA_URL = 'https://apis.data.go.kr/1613000/BldRgstHubService/g
 
 export const PYEONG_M2 = 3.305785;
 
-// 공급면적 = 전용 + 주거공용. 아래 용도의 공용면적은 "기타공용"이라 분양 평수에 넣지 않는다.
-// ⚠️ 단지마다 대장 표기가 달라 실제 단지로 검증 필요 (첫 검증: 부산 가야대로 팍스타운). dev.html 에서 항목별로 확인한다.
+// 공급면적 = 전용 + 주거공용 (주택공급에 관한 규칙 제21조).
+//   주거공용: 공동주택 지상층의 계단·복도·현관·벽체 등 → 포함
+//   기타공용: 지하층, 부대시설·복리시설(관리사무소·경로당·주차장 등) → 제외
+// 판정: 공용 항목은 ① 주용도가 주거이고 ② 지상층이고 ③ 아래 기타공용 단어가 없을 때만 포함.
+// 검증: 더샵 남천프레스티지 전용 92.05㎡ → 공급 125.83㎡(38평형) (2026-10-26, dev.html ⑥ 항목별 표)
+export const RESIDENTIAL_RE = /아파트|공동주택|연립|다세대|다가구|주택|기숙사|오피스텔/;
+export const UNDERGROUND_RE = /^\s*지(?!상)|지하/;
 export const EXCLUDED_COMMON_RE = /주차|기계|전기|발전|변전|펌프|저수|정화|관리사무|관리실|경비|노인|경로|어린이|보육|주민|커뮤니티|근린|창고|기타공용|피트니스|휴게|방재|중앙감시|쓰레기|분리수거/;
 
 export class LookupError extends Error {
@@ -209,11 +214,19 @@ export function computeArea(items, { dongNm = '', hoNm = '' } = {}) {
     const area = num(it.area);
     const purpose = [it.mainPurpsCdNm, it.etcPurps].filter(Boolean).join(' / ');
     const gb = String(it.exposPubuseGbCd) === '1' ? 'exclusive' : 'common';
-    let included = true;
+    const floor = String(it.flrNoNm || '');
+    let note = '';
+    if (gb === 'common') {
+      const main = String(it.mainPurpsCdNm || '').trim();
+      if (UNDERGROUND_RE.test(floor) || String(it.flrGbCdNm || '').includes('지하')) note = '지하층';
+      else if (main && !RESIDENTIAL_RE.test(main)) note = `${main}(기타공용)`;
+      else if (EXCLUDED_COMMON_RE.test(purpose)) note = '기타공용';
+    }
+    const included = !note;
     if (gb === 'exclusive') exclusive += area;
-    else if (EXCLUDED_COMMON_RE.test(purpose)) { included = false; commonOut += area; }
-    else commonIn += area;
-    breakdown.push({ gb, purpose, area: round2(area), included, floor: String(it.flrNoNm || '') });
+    else if (included) commonIn += area;
+    else commonOut += area;
+    breakdown.push({ gb, purpose, area: round2(area), included, floor, ...(note ? { note } : {}) });
   }
   if (!exclusive) throw new LookupError('no_area', '건축물대장에서 이 집의 전용면적을 찾지 못했습니다.');
   const supply = exclusive + commonIn;

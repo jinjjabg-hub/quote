@@ -169,6 +169,6 @@ function breakdownTable(r) {
       r.breakdown.map((b) => h('tr', {},
         h('td', {}, b.gb === 'exclusive' ? '전유' : '공용', ' · ', b.purpose || '-', b.floor ? ` (${b.floor})` : ''),
         h('td.num', {}, `${b.area}㎡`),
-        h('td.num', {}, b.included ? '포함' : '제외'))))),
-    h('p.small', {}, `전용 ${r.exclusiveM2} + 주거공용 ${r.commonIncludedM2} = 공급 ${r.supplyM2}㎡ (제외한 기타공용 ${r.commonExcludedM2}㎡) → ${r.pyeong}평. 분양 평수와 다르면 제외 규칙(functions/lib/area.js)을 조정합니다.`));
+        h('td.num', {}, b.included ? '포함' : `제외${b.note ? ` · ${b.note}` : ''}`))))),
+    h('p.small', {}, `전용 ${r.exclusiveM2} + 주거공용 ${r.commonIncludedM2} = 공급 ${r.supplyM2}㎡ (제외한 기타공용 ${r.commonExcludedM2}㎡) → ${r.pyeong}평. 주거공용 = 주용도가 주거인 지상층 공용면적. 분양 평수와 다르면 functions/lib/area.js 규칙을 조정합니다.`));
 }
