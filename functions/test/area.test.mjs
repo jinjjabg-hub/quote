@@ -238,3 +238,26 @@ test('upstreamReason: 공공데이터포털 표준 오류에서 사유 번호·�
   assert.equal(upstreamReason(xml.replace(/</g, '&lt;').replace(/>/g, '&gt;')), '30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR');
   assert.equal(upstreamReason('<OpenAPI_ServiceResponse><cmmMsgHeader><errMsg>SERVICE ERROR</errMsg><returnAuthMsg>UNREGISTERED_IP_ERROR</returnAuthMsg><returnReasonCode>32</returnReasonCode></cmmMsgHeader></OpenAPI_ServiceResponse>'), '32 UNREGISTERED_IP_ERROR');
 });
+
+test('면적: 실제 단지 검증 — 더샵 남천프레스티지 202동 701호 (2026-10-26 dev.html ⑥ 항목별 표)', () => {
+  const C = (mainPurpsCdNm, etcPurps, area, flrNoNm) => ({ exposPubuseGbCd: '2', mainPurpsCdNm, etcPurps, area, flrNoNm, dongNm: '202동', hoNm: '701호' });
+  const rows = [
+    { exposPubuseGbCd: '1', mainPurpsCdNm: '아파트', etcPurps: '공동주택(아파트)', area: 92.05, flrNoNm: '7층', dongNm: '202동', hoNm: '701호' },
+    C('아파트', '벽체', 7.44, '7층'),
+    C('아파트', '계단실,복도', 26.34, '각층'),
+    C('부대시설', '계단실', 3.63, '지3~지1'),
+    C('복리시설', '입주자회의실', 0.23, '지1'),
+    C('부대시설', '기계실,전기실,발전기실', 0.47, '지3'),
+    C('복리시설', '경로당,어린이집', 0.6, '지1,1층'),
+    C('복리시설', '작은도서관,독서실,실내주민운동시설,홀,보일러/펌프실', 2.48, '지2,지1'),
+    C('부대시설', '경비실,관리사무소,방재실,MDF실', 0.32, '지2~1층'),
+    C('부대시설', '지하주차장', 50.4, '지3~1층'),
+  ];
+  const r = computeArea(rows, { dongNm: '202동', hoNm: '701' });
+  assert.equal(r.exclusiveM2, 92.05);
+  assert.equal(r.commonIncludedM2, 33.78, '벽체 + 계단실·복도(지상)만');
+  assert.equal(r.supplyM2, 125.83);
+  assert.equal(Math.round(r.pyeong), 38, '분양 38평형');
+  assert.equal(r.breakdown.find((b) => b.purpose.includes('입주자회의실')).note, '지하층');
+  assert.ok(r.breakdown.filter((b) => b.included).length === 3);
+});
