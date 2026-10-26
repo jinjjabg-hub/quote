@@ -233,12 +233,22 @@ const round2 = (n) => Math.round(n * 100) / 100;
 
 // ---------- 요청 처리 ----------
 
+/**
+ * 바깥 서버 접속 실패의 원인 코드 (예: timeout, UNABLE_TO_VERIFY_LEAF_SIGNATURE, ECONNRESET).
+ * 영문·숫자·_ 만 남겨 URL·키가 섞여 나갈 수 없게 한다.
+ */
+export function failCode(e) {
+  if (e?.name === 'TimeoutError' || e?.name === 'AbortError') return 'timeout';
+  const raw = e?.cause?.code || e?.code || e?.cause?.name || e?.name || 'unknown';
+  return String(raw).replace(/[^A-Za-z0-9_]/g, '').slice(0, 40) || 'unknown';
+}
+
 async function getJson(fetchFn, url, what) {
   let res;
   try {
     res = await fetchFn(url, { signal: AbortSignal.timeout(7000), headers: { accept: 'application/json' } });
-  } catch {
-    throw new LookupError('upstream', `${what} 서버가 응답하지 않습니다.`, 504);
+  } catch (e) {
+    throw new LookupError('upstream', `${what} 서버에 연결하지 못했습니다 (${failCode(e)}).`, 504);
   }
   const text = await res.text();
   if (!res.ok) throw new LookupError('upstream', `${what} 서버 오류 (${res.status})`, 502);
