@@ -98,7 +98,13 @@ try {
     const replies = {
       search: String(body.keyword || '').includes('없는')
         ? { ok: false, reason: 'not_found', message: '검색 결과가 없습니다.' }
-        : { ok: true, items: [{ roadAddr: '부산광역시 부산진구 가야대로 000', jibunAddr: '', bdNm: '예시타운', apt: true, ref: REF }] },
+        : String(body.keyword || '').includes('주택')
+          ? { ok: true, items: [{ roadAddr: '부산광역시 부산진구 가야로00번길 12', jibunAddr: '부산광역시 부산진구 가야동 345-6', bdNm: '', apt: false, ref: REF }] }
+          : { ok: true, items: [{ roadAddr: '부산광역시 부산진구 가야대로 000', jibunAddr: '', bdNm: '예시타운', apt: true, ref: REF }] },
+      house: {
+        ok: true, kind: 'house', purpose: '단독주택 / 다가구주택', bldNm: '', totalM2: 330.6, totalPyeong: 100, households: 6, groundFloors: 3, buildings: 1,
+        floors: [{ key: '20-1', label: '1층', underground: false, m2: 110.2, pyeong: 33.3 }, { key: '20-2', label: '2층', underground: false, m2: 220.4, pyeong: 66.7 }],
+      },
       dongs: { ok: true, dongs: ['101동', '102동'] },
       hos: { ok: true, hos: [{ hoNm: '1203', floorNm: '12' }, { hoNm: '1204', floorNm: '12' }] },
       area: { ok: true, exclusiveM2: 84.97, supplyM2: 112.35, commonIncludedM2: 27.38, commonExcludedM2: 43.3, exclusivePyeong: 25.7, pyeong: 34, breakdown: [] },
@@ -127,6 +133,20 @@ try {
   await cust.getByText('이 주소는 자동 조회가 안 돼요').waitFor();
   await shot(cust, '3a-lookup-fail');
   await cust.getByRole('button', { name: '다시 찾기' }).click();
+  // 일반주택(다가구): 집 전체 / 층 선택 → 그 층 집 수 → 층 면적 ÷ 집 수
+  await cust.locator('.lookup-input').fill('가야동 주택');
+  await cust.locator('.lookup-input').press('Enter');
+  await cust.getByRole('button', { name: /가야로00번길 12/ }).click();
+  await cust.getByText('어디를 청소하나요?').waitFor();
+  await cust.getByRole('button', { name: /2층만/ }).click();
+  await cust.getByText('2층에 몇 집이 사나요?').waitFor();
+  await cust.getByRole('button', { name: '2집', exact: true }).click();
+  await cust.getByText('약 33평').waitFor(); // 220.4 ÷ 2 = 110.2㎡ = 33.3평
+  assert.match(await cust.locator('.lookup-result').innerText(), /2층 220\.4㎡ ÷ 2집 = 110\.2㎡/);
+  await shot(cust, '3b0-lookup-house');
+  await cust.getByRole('button', { name: '아니요, 직접 입력' }).click();
+  // 아파트: 단지 → 동 → 호 → 공급 평수
+  await cust.getByRole('button', { name: '주소로 평수 찾기' }).click();
   await cust.locator('.lookup-input').fill('가야대로 예시타운');
   await cust.locator('.lookup-input').press('Enter');
   await cust.getByRole('button', { name: /예시타운/ }).click();
@@ -137,7 +157,7 @@ try {
   await cust.getByRole('button', { name: /맞아요/ }).click();
   assert.equal(await cust.locator('input[type=number]').inputValue(), '34', '대장 평수가 평수 칸에 들어감');
   await cust.getByText('건축물대장으로 확인했어요').waitFor();
-  assert.deepEqual(lookupCalls, ['search', 'search', 'dongs', 'hos', 'area']);
+  assert.deepEqual(lookupCalls, ['search', 'search', 'house', 'search', 'dongs', 'hos', 'area']);
   await shot(cust, '3c-lookup-applied');
   await cust.getByRole('button', { name: '예, 신축' }).click();
   await next();

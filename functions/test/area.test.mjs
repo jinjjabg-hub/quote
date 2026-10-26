@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  handle, failCode, upstreamReason, redact, HEADER_TRIES, parseSearch, parseDongs, parseHos, computeArea, bldItems, bldParams, bldAreaUrl, encodeServiceKey,
+  handle, failCode, upstreamReason, redact, HEADER_TRIES, computeHouse, houseFloors, pickMainBuilding, bldUrl, parseSearch, parseDongs, parseHos, computeArea, bldItems, bldParams, bldAreaUrl, encodeServiceKey,
   cleanKeyword, cleanRef, unitVariants, sameUnit, bldTextError, LookupError, jusoSearchUrl,
 } from '../lib/area.js';
 
@@ -260,4 +260,56 @@ test('면적: 실제 단지 검증 — 더샵 남천프레스티지 202동 701�
   assert.equal(Math.round(r.pyeong), 38, '분양 38평형');
   assert.equal(r.breakdown.find((b) => b.purpose.includes('입주자회의실')).note, '지하층');
   assert.ok(r.breakdown.filter((b) => b.included).length === 3);
+});
+
+// ---------- 일반주택 (단독·다가구) ----------
+const TITLE_DAGAGU = { mainAtchGbCd: '0', mainPurpsCdNm: '단독주택', etcPurps: '다가구주택', totArea: 330.6, grndFlrCnt: 3, ugrndFlrCnt: 1, fmlyCnt: 6, hhldCnt: 0, bldNm: '' };
+const TITLE_SHED = { mainAtchGbCd: '1', mainPurpsCdNm: '창고시설', totArea: 12, bldNm: '' }; // 부속건축물
+const FLOOR = (flrGbCd, flrNo, flrNoNm, area, etcPurps = '다가구주택', mainAtchGbCd = '0') => ({ flrGbCd: String(flrGbCd), flrNo, flrNoNm, area, etcPurps, mainPurpsCdNm: '단독주택', mainAtchGbCd });
+const FLOORS_DAGAGU = [
+  FLOOR(20, 1, '1층', 100.2), FLOOR(20, 1, '1층', 10, '계단실'), // 한 층이 용도별 두 행
+  FLOOR(20, 2, '2층', 110.2), FLOOR(20, 3, '3층', 110.2), FLOOR(10, 1, '지1층', 50),
+  FLOOR(20, 1, '1층', 12, '창고', '1'), // 부속건축물 → 제외
+];
+
+test('일반주택: 주건축물 고르기, 층별 합산(같은 층 여러 행), 부속건축물 제외, 지하→지상 순', () => {
+  assert.equal(pickMainBuilding([TITLE_SHED, TITLE_DAGAGU]).etcPurps, '다가구주택');
+  const floors = houseFloors(FLOORS_DAGAGU, TITLE_DAGAGU);
+  assert.deepEqual(floors.map((f) => f.label), ['지1층', '1층', '2층', '3층']);
+  assert.equal(floors.find((f) => f.label === '1층').m2, 110.2, '1층 = 100.2 + 계단실 10 (창고 부속건축물 제외)');
+  assert.equal(floors[0].underground, true);
+  const h = computeHouse([TITLE_SHED, TITLE_DAGAGU], FLOORS_DAGAGU);
+  assert.equal(h.kind, 'house');
+  assert.equal(h.totalM2, 330.6);
+  assert.equal(h.totalPyeong, 100);
+  assert.equal(h.households, 6);
+  assert.equal(h.groundFloors, 3);
+  assert.equal(h.buildings, 1);
+  assert.equal(h.floors.find((f) => f.label === '2층').pyeong, 33.3);
+});
+
+test('일반주택: 단독주택 1층짜리, 층별개요가 없어도 연면적만으로', () => {
+  const h = computeHouse([{ mainAtchGbCd: '0', mainPurpsCdNm: '단독주택', totArea: 99.17, grndFlrCnt: 1, fmlyCnt: 1 }], []);
+  assert.equal(h.totalPyeong, 30);
+  assert.deepEqual(h.floors, []);
+  assert.throws(() => computeHouse([], []), (e) => e.reason === 'not_found');
+  assert.throws(() => computeHouse([{ mainAtchGbCd: '0', totArea: 0 }], []), (e) => e.reason === 'no_area');
+});
+
+test('handle house: 표제부 → 층별개요 순서로 조회, 동·호 조건 없이', async () => {
+  const REF4 = { admCd: '2623010500', rnMgtSn: '262303000001', udrtYn: '0', buldMnnm: '12', buldSlno: '0', mtYn: '0', lnbrMnnm: '345', lnbrSlno: '6' };
+  const calls = [];
+  const fetchFn = async (url) => {
+    calls.push(url);
+    const body = url.includes('getBrTitleInfo') ? bldOk([TITLE_SHED, TITLE_DAGAGU]) : bldOk(FLOORS_DAGAGU);
+    return { ok: true, status: 200, text: async () => JSON.stringify(body) };
+  };
+  const h = await handle({ action: 'house', ref: REF4 }, { keys: KEYS, fetchFn });
+  assert.equal(h.floors.length, 4);
+  assert.match(calls[0], /getBrTitleInfo\?serviceKey=abc%2Bdef%2Fghi%3D%3D&sigunguCd=26230&bjdongCd=10500&platGbCd=0&bun=0345&ji=0006/);
+  assert.match(calls[1], /getBrFlrOulnInfo/);
+  assert.ok(!calls.some((u) => u.includes('dongNm') || u.includes('hoNm')));
+  const empty = async () => ({ ok: true, status: 200, text: async () => JSON.stringify(bldOk()) });
+  await assert.rejects(handle({ action: 'house', ref: REF4 }, { keys: KEYS, fetchFn: empty }), (e) => e.reason === 'not_found');
+  assert.match(bldUrl('getBrTitleInfo', 'k', { a: '1' }), /BldRgstHubService\/getBrTitleInfo\?serviceKey=k&a=1/);
 });
