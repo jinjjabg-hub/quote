@@ -231,3 +231,10 @@ test('403 이면 다른 헤더로 한 번 더 시도, 실제 응답은 키를 �
   await assert.rejects(handle({ action: 'area', ref: REF3, dongNm: '', hoNm: '101' }, { keys: KEYS, fetchFn: always403, log }), (e) => /403 Forbidden/.test(e.message));
   assert.equal(redact(`a ${encodeURIComponent(KEYS.bld)} b`, [KEYS.bld]), 'a *** b');
 });
+
+test('upstreamReason: 공공데이터포털 표준 오류에서 사유 번호·이름만 (이스케이프돼 와도)', () => {
+  const xml = '<OpenAPI_ServiceResponse><cmmMsgHeader><errMsg>SERVICE ERROR</errMsg><returnAuthMsg>SERVICE_KEY_IS_NOT_REGISTERED_ERROR</returnAuthMsg><returnReasonCode>30</returnReasonCode></cmmMsgHeader></OpenAPI_ServiceResponse>';
+  assert.equal(upstreamReason(xml), '30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR');
+  assert.equal(upstreamReason(xml.replace(/</g, '&lt;').replace(/>/g, '&gt;')), '30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR');
+  assert.equal(upstreamReason('<OpenAPI_ServiceResponse><cmmMsgHeader><errMsg>SERVICE ERROR</errMsg><returnAuthMsg>UNREGISTERED_IP_ERROR</returnAuthMsg><returnReasonCode>32</returnReasonCode></cmmMsgHeader></OpenAPI_ServiceResponse>'), '32 UNREGISTERED_IP_ERROR');
+});

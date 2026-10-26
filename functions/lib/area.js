@@ -248,10 +248,13 @@ export function failCode(e) {
  * 알려진 XML 태그 값이나 본문 첫 부분의 영문·숫자·_·공백만 남겨 키·URL 이 섞여 나갈 수 없게 한다.
  */
 export function upstreamReason(text) {
-  const t = String(text || '');
-  const m = /<(?:returnAuthMsg|returnReasonCode|resultMsg|errMsg)>([^<]{1,120})</.exec(t);
-  const raw = m ? m[1] : t.replace(/<[^>]*>/g, ' ');
-  return raw.replace(/[^A-Za-z0-9_ ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+  // 응답이 &lt;…&gt; 로 이스케이프돼 오는 경우도 있어 먼저 되돌린다
+  const t = String(text || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  const tag = (name) => (new RegExp(`<${name}>\\s*([^<]{1,120}?)\\s*</${name}>`).exec(t) || [])[1];
+  // 공공데이터포털 표준 오류: 사유 번호(returnReasonCode) + 사유(returnAuthMsg)가 핵심
+  const picked = [tag('returnReasonCode'), tag('returnAuthMsg')].filter(Boolean).join(' ')
+    || tag('resultMsg') || tag('errMsg') || t.replace(/<[^>]*>/g, ' ');
+  return picked.replace(/[^A-Za-z0-9_ ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
 }
 
 // 요청 헤더 후보. 403 이면 다음 후보로 한 번 더 보낸다 (공공데이터포털 게이트웨이가 헤더에 따라 거부하는지 진단·우회)
