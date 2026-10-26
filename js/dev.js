@@ -6,7 +6,7 @@ import {
 } from './calc.js';
 import { $, h, toast, setChildren } from './util.js';
 import { devlog } from './devtools.js';
-import { newLookupState, renderLookupPanel } from './areaLookup.js';
+import { newLookupState, renderLookupPanel, callArea } from './areaLookup.js';
 import { areaLookupConfig } from './config.js';
 
 const app = $('#app');
@@ -227,6 +227,16 @@ function renderLookupTest() {
     h('h2', {}, '⑥ 평수 조회 시험 (실제 건축물대장)'),
     h('p.muted.small', {}, `서버 함수: ${areaLookupConfig.url || '(미설정)'} · 고객 화면 공개: ${areaLookupConfig.enabled ? '켜짐' : '꺼짐 (검증 후 js/config.js 에서 켬)'}`),
     h('p.muted.small', {}, '첫 검증: 부산 가야대로 팍스타운. 공급 평수가 분양 평수와 같은지, 제외한 항목이 맞는지 확인하세요. 허용된 주소(quote.bizmy.net)에서 열어야 동작합니다.'),
+    h('div.btn-row', {},
+      h('button.btn.ghost.small', {
+        type: 'button',
+        onclick: async (e) => {
+          e.currentTarget.disabled = true;
+          try { S.diag = (await callArea('diag')).diag; } catch (err) { S.diag = { error: err.message }; }
+          render();
+        },
+      }, '서버 연결 진단 (나가는 IP · juso·data.go.kr 연결 시간)')),
+    S.diag ? h('pre.json', {}, JSON.stringify(S.diag, null, 2)) : null,
     renderLookupPanel(S.lookup, S.lookupApplied, {
       debug: true,
       rerender: render,

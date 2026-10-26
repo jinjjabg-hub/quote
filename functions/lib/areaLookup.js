@@ -4,13 +4,16 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { logger } from 'firebase-functions/v2';
 import { handle, LookupError, ALLOWED_ORIGINS } from './area.js';
+import { diagnose } from './netDiag.js';
+
+const REGION = 'asia-northeast3';
 
 const JUSO_SEARCH_KEY = defineSecret('JUSO_SEARCH_KEY');
 const JUSO_DETAIL_KEY = defineSecret('JUSO_DETAIL_KEY');
 const BLD_KEY = defineSecret('BLD_KEY'); // 읽기만 한다. 이 코드는 시크릿을 만들거나 바꾸지 않는다.
 
 export const areaLookup = onRequest({
-  region: 'asia-northeast3',
+  region: REGION,
   secrets: [JUSO_SEARCH_KEY, JUSO_DETAIL_KEY, BLD_KEY],
   cors: ALLOWED_ORIGINS,
   maxInstances: 5,
@@ -22,6 +25,12 @@ export const areaLookup = onRequest({
   const origin = req.get('origin') || '';
   if (!ALLOWED_ORIGINS.includes(origin)) { res.status(403).json({ ok: false, reason: 'origin', message: '허용되지 않은 출처입니다.' }); return; }
   const action = String(req.body?.action || '');
+  if (action === 'diag') { // 네트워크 진단: 나가는 IP + 바깥 서버 연결 시간 (키 사용 안 함)
+    const diag = await diagnose({ region: REGION });
+    logger.info('areaLookup 진단', diag);
+    res.json({ ok: true, diag });
+    return;
+  }
   try {
     const data = await handle(req.body, {
       keys: { jusoSearch: JUSO_SEARCH_KEY.value(), jusoDetail: JUSO_DETAIL_KEY.value(), bld: BLD_KEY.value() },
@@ -32,7 +41,8 @@ export const areaLookup = onRequest({
   } catch (e) {
     if (e instanceof LookupError) {
       // 사유 코드와 안내문만 기록 (주소·키 값은 기록하지 않음)
-      logger.info('areaLookup 실패', { action, reason: e.reason, message: e.message });
+      // 'message' 필드는 Cloud Logging 에서 로그 제목으로 쓰여 덮이므로 detail 로 남긴다
+      logger.info('areaLookup 실패', { action, reason: e.reason, detail: e.message });
       res.status(e.status).json({ ok: false, reason: e.reason, message: e.message });
       return;
     }
