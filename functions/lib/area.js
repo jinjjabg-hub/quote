@@ -243,6 +243,17 @@ export function failCode(e) {
   return String(raw).replace(/[^A-Za-z0-9_]/g, '').slice(0, 40) || 'unknown';
 }
 
+/**
+ * 오류 응답 본문에서 사유만 꺼낸다 (예: Forbidden, SERVICE_KEY_IS_NOT_REGISTERED_ERROR, Unauthorized).
+ * 알려진 XML 태그 값이나 본문 첫 부분의 영문·숫자·_·공백만 남겨 키·URL 이 섞여 나갈 수 없게 한다.
+ */
+export function upstreamReason(text) {
+  const t = String(text || '');
+  const m = /<(?:returnAuthMsg|returnReasonCode|resultMsg|errMsg)>([^<]{1,120})</.exec(t);
+  const raw = m ? m[1] : t.replace(/<[^>]*>/g, ' ');
+  return raw.replace(/[^A-Za-z0-9_ ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+}
+
 async function getJson(fetchFn, url, what) {
   let res;
   try {
@@ -251,7 +262,10 @@ async function getJson(fetchFn, url, what) {
     throw new LookupError('upstream', `${what} 서버에 연결하지 못했습니다 (${failCode(e)}).`, 504);
   }
   const text = await res.text();
-  if (!res.ok) throw new LookupError('upstream', `${what} 서버 오류 (${res.status})`, 502);
+  if (!res.ok) {
+    const why = upstreamReason(text);
+    throw new LookupError('upstream', `${what} 서버 오류 (${res.status}${why ? ` ${why}` : ''})`, 502);
+  }
   try { return { json: JSON.parse(text), text }; } catch { return { json: null, text }; }
 }
 

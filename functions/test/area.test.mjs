@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  handle, failCode, parseSearch, parseDongs, parseHos, computeArea, bldItems, bldParams, bldAreaUrl, encodeServiceKey,
+  handle, failCode, upstreamReason, parseSearch, parseDongs, parseHos, computeArea, bldItems, bldParams, bldAreaUrl, encodeServiceKey,
   cleanKeyword, cleanRef, unitVariants, sameUnit, bldTextError, LookupError, jusoSearchUrl,
 } from '../lib/area.js';
 
@@ -193,4 +193,15 @@ test('failCode: URL·키가 섞인 값이 와도 영문·숫자·_ 만 남긴다
   assert.equal(failCode({ code: 'https://x.kr/?confmKey=SECRET&a=1' }).includes('/'), false);
   assert.equal(failCode({ name: 'TimeoutError' }), 'timeout');
   assert.equal(failCode(null), 'unknown');
+});
+
+test('upstreamReason: 오류 응답의 사유만, 키·URL 은 남기지 않음', async () => {
+  assert.equal(upstreamReason('Forbidden'), 'Forbidden');
+  assert.equal(upstreamReason('<OpenAPI_ServiceResponse><cmmMsgHeader><returnAuthMsg>SERVICE_KEY_IS_NOT_REGISTERED_ERROR</returnAuthMsg></cmmMsgHeader></OpenAPI_ServiceResponse>'), 'SERVICE_KEY_IS_NOT_REGISTERED_ERROR');
+  const leaked = upstreamReason('error at https://apis.data.go.kr/x?serviceKey=abc%2Bdef');
+  assert.ok(!leaked.includes('%') && !leaked.includes('/') && !leaked.includes('='));
+  // HTTP 403 응답 → 안내문에 상태 코드와 사유
+  const fetchFn = async () => ({ ok: false, status: 403, text: async () => 'Forbidden' });
+  const REF2 = { admCd: '2623010500', rnMgtSn: '262303000001', udrtYn: '0', buldMnnm: '123', buldSlno: '0', mtYn: '0', lnbrMnnm: '456', lnbrSlno: '1' };
+  await assert.rejects(handle({ action: 'area', ref: REF2, dongNm: '', hoNm: '101' }, { keys: KEYS, fetchFn }), (e) => /\(403 Forbidden\)/.test(e.message));
 });
