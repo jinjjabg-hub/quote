@@ -3,7 +3,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/jinjjabg-hub/quote/main/scripts/setup-github-deploy.sh | bash
 #
 # 하는 일 (여러 번 실행해도 안전, 이미 된 것은 건너뜀)
-#   1. 필요한 API 켜기
+#   1. 필요한 API 켜기 (firebase-tools 는 함수 배포 때 Extensions·Cloud Billing API 도 확인한다)
 #   2. 배포 전용 계정 github-deploy 만들기 + 최소 권한
 #      - 시크릿은 "있는지·누가 읽는지"만 조회 (값 읽기·수정·삭제 권한 없음)
 #   3. 함수 실행 계정이 시크릿 3개를 읽을 수 있게 (시크릿 값은 건드리지 않음)
@@ -29,7 +29,7 @@ APPENGINE_SA="$PROJECT@appspot.gserviceaccount.com"     # firebase-tools 가 배
 say "1/4 API 켜기"
 gcloud services enable cloudfunctions.googleapis.com run.googleapis.com cloudbuild.googleapis.com \
   artifactregistry.googleapis.com secretmanager.googleapis.com iamcredentials.googleapis.com sts.googleapis.com \
-  eventarc.googleapis.com pubsub.googleapis.com firebase.googleapis.com --quiet
+  eventarc.googleapis.com pubsub.googleapis.com firebase.googleapis.com firebaseextensions.googleapis.com cloudbilling.googleapis.com --quiet
 ok "API"
 
 say "2/4 배포 전용 계정 ($SA)"
