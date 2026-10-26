@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  handle, parseSearch, parseDongs, parseHos, computeArea, bldItems, bldParams, bldAreaUrl, encodeServiceKey,
+  handle, failCode, parseSearch, parseDongs, parseHos, computeArea, bldItems, bldParams, bldAreaUrl, encodeServiceKey,
   cleanKeyword, cleanRef, unitVariants, sameUnit, bldTextError, LookupError, jusoSearchUrl,
 } from '../lib/area.js';
 
@@ -163,6 +163,11 @@ test('handle: 실패 → 사유 코드로 구분 (화면은 모두 "직접 입�
   await assert.rejects(handle({ action: 'hos', ref: REF, dongNm: '' }, { keys: KEYS, fetchFn: empty }), (e) => e.reason === 'no_units');
   const down = fakeFetch([[isSearch, new Error('timeout')]]);
   await assert.rejects(handle({ action: 'search', keyword: '가야대로' }, { keys: KEYS, fetchFn: down }), (e) => e.reason === 'upstream' && e.status === 504);
+  // 접속 실패 원인 코드가 안내문에 붙는다 (인증서·시간초과 구분용)
+  const certErr = Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('x'), { code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' }) });
+  await assert.rejects(handle({ action: 'search', keyword: '가야대로' }, { keys: KEYS, fetchFn: fakeFetch([[isSearch, certErr]]) }), (e) => /UNABLE_TO_VERIFY_LEAF_SIGNATURE/.test(e.message));
+  const slow = Object.assign(new Error('t'), { name: 'TimeoutError' });
+  await assert.rejects(handle({ action: 'search', keyword: '가야대로' }, { keys: KEYS, fetchFn: fakeFetch([[isSearch, slow]]) }), (e) => /\(timeout\)/.test(e.message));
   const xml = fakeFetch([[isBld, '<OpenAPI_ServiceResponse><cmmMsgHeader><returnAuthMsg>SERVICE_KEY_IS_NOT_REGISTERED_ERROR</returnAuthMsg></cmmMsgHeader></OpenAPI_ServiceResponse>']]);
   await assert.rejects(handle({ action: 'area', ref: REF, dongNm: '', hoNm: '101' }, { keys: KEYS, fetchFn: xml }), (e) => e.reason === 'upstream' && /NOT_REGISTERED/.test(e.message));
   await assert.rejects(handle({ action: 'hack' }, { keys: KEYS, fetchFn: empty }), (e) => e.status === 400);
@@ -181,4 +186,11 @@ test('키 값은 응답·오류 메시지에 절대 나오지 않는다', async 
   const all = JSON.stringify(outs) + err;
   for (const k of Object.values(KEYS)) assert.ok(!all.includes(k) && !all.includes(encodeURIComponent(k)), `키(${k.slice(0, 4)}…)가 응답에 노출됨`);
   assert.ok(jusoSearchUrl(KEYS.jusoSearch, '가야').includes('confmKey='), '키는 바깥 API 호출 URL 에만 쓰인다');
+});
+
+test('failCode: URL·키가 섞인 값이 와도 영문·숫자·_ 만 남긴다', () => {
+  assert.equal(failCode({ cause: { code: 'ECONNRESET' } }), 'ECONNRESET');
+  assert.equal(failCode({ code: 'https://x.kr/?confmKey=SECRET&a=1' }).includes('/'), false);
+  assert.equal(failCode({ name: 'TimeoutError' }), 'timeout');
+  assert.equal(failCode(null), 'unknown');
 });
