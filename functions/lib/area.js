@@ -277,11 +277,13 @@ export function houseFloors(rows, main) {
     };
     cur.m2 += area;
     if (r.etcPurps || r.mainPurpsCdNm) cur.purposes.add(String(r.etcPurps || r.mainPurpsCdNm).trim());
+    // 주거용 여부: 한 층에 주택 용도 행이 하나라도 있으면 주거층 (상가주택의 1층 음식점 등은 아님)
+    if (RESIDENTIAL_RE.test(`${r.mainPurpsCdNm || ''} ${r.etcPurps || ''}`)) cur.residential = true;
     byFloor.set(key, cur);
   }
   const order = (f) => (f.gb === 10 ? -f.no : f.gb === 30 ? 1000 + f.no : f.no);
   return [...byFloor.values()].filter((f) => f.m2 > 0).sort((a, b) => order(a) - order(b))
-    .map((f) => ({ key: f.key, label: f.label, underground: f.gb === 10, m2: round2(f.m2), pyeong: round1(f.m2 / PYEONG_M2), purpose: [...f.purposes].join(', ') }));
+    .map((f) => ({ key: f.key, label: f.label, underground: f.gb === 10, residential: !!f.residential, m2: round2(f.m2), pyeong: round1(f.m2 / PYEONG_M2), purpose: [...f.purposes].join(', ') }));
 }
 
 export function computeHouse(titles, floorRows) {
@@ -291,12 +293,19 @@ export function computeHouse(titles, floorRows) {
   const floors = houseFloors(floorRows, main);
   if (!totalM2 && !floors.length) throw new LookupError('no_area', '건축물대장에 면적 정보가 없습니다.');
   const households = Number(main.fmlyCnt) || Number(main.hhldCnt) || Number(main.hoCnt) || 0;
+  // 상가주택: 주거층과 상가층이 섞이면 "주택 부분 전체" = 주거층 면적 합 (연면적에는 상가가 들어 있음)
+  const homeFloors = floors.filter((f) => f.residential);
+  const mixedUse = homeFloors.length > 0 && homeFloors.length < floors.length;
+  const residentialM2 = mixedUse ? homeFloors.reduce((a, f) => a + f.m2, 0) : totalM2;
   return {
     kind: 'house',
     purpose: [main.mainPurpsCdNm, main.etcPurps].filter(Boolean).join(' / '),
     bldNm: String(main.bldNm || '').trim(),
     totalM2: round2(totalM2),
     totalPyeong: round1(totalM2 / PYEONG_M2),
+    mixedUse,
+    residentialM2: round2(residentialM2),
+    residentialPyeong: round1(residentialM2 / PYEONG_M2),
     households,
     groundFloors: Number(main.grndFlrCnt) || floors.filter((f) => !f.underground).length,
     floors,
