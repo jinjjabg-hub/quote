@@ -543,6 +543,8 @@ dialog.sheet::backdrop { background: rgba(15,23,42,.45); }
 .lookup-item .ms { color: var(--primary); vertical-align: 0; margin-top: 2px; }
 .lookup-item span { display: flex; flex-direction: column; min-width: 0; }
 .lookup-item .small { color: var(--muted); }
+.lookup-item.dim { background: var(--surface); }
+.lookup-item.dim b { color: var(--muted); }
 .lookup-q { font-weight: 700; margin: 4px 0 8px; }
 .lookup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; max-height: 320px; overflow-y: auto; }
 .lookup-chip { min-height: 48px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font: inherit; font-weight: 600; color: var(--text); cursor: pointer; }

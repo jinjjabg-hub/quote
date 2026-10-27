@@ -103,7 +103,11 @@ try {
           : { ok: true, items: [{ roadAddr: '부산광역시 부산진구 가야대로 000', jibunAddr: '', bdNm: '예시타운', apt: true, ref: REF }] },
       house: {
         ok: true, kind: 'house', purpose: '단독주택 / 다가구주택', bldNm: '', totalM2: 330.6, totalPyeong: 100, households: 6, groundFloors: 3, buildings: 1,
-        floors: [{ key: '20-1', label: '1층', underground: false, m2: 110.2, pyeong: 33.3 }, { key: '20-2', label: '2층', underground: false, m2: 220.4, pyeong: 66.7 }],
+        mixedUse: true, residentialM2: 220.4, residentialPyeong: 66.7,
+        floors: [
+          { key: '20-1', label: '1층', underground: false, residential: false, m2: 110.2, pyeong: 33.3, purpose: '제2종근린생활시설(일반음식점)' },
+          { key: '20-2', label: '2층', underground: false, residential: true, m2: 220.4, pyeong: 66.7, purpose: '다가구주택' },
+        ],
       },
       dongs: { ok: true, dongs: ['101동', '102동'] },
       hos: { ok: true, hos: [{ hoNm: '1203', floorNm: '12' }, { hoNm: '1204', floorNm: '12' }] },
@@ -138,6 +142,10 @@ try {
   await cust.locator('.lookup-input').press('Enter');
   await cust.getByRole('button', { name: /가야로00번길 12/ }).click();
   await cust.getByText('어디를 청소하나요?').waitFor();
+  // 상가주택: "주택 부분 전체"(상가 제외), 1층 음식점은 (상가)로 따로 표시
+  await cust.getByRole('button', { name: /주택 부분 전체/ }).waitFor();
+  assert.match(await cust.getByRole('button', { name: /주택 부분 전체/ }).innerText(), /220\.4㎡.*상가 제외/s);
+  assert.equal(await cust.getByRole('button', { name: /1층 \(상가\)/ }).count(), 1);
   await cust.getByRole('button', { name: /2층만/ }).click();
   await cust.getByText('2층에 몇 집이 사나요?').waitFor();
   await cust.getByRole('button', { name: '2집', exact: true }).click();

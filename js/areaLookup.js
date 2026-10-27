@@ -74,13 +74,15 @@ export function renderLookupPanel(ls, applied, opts) {
   const loadHouse = async () => {
     const r = await callArea('house', { ref: ls.sel.ref });
     ls.house = r;
-    if (!r.floors.length || (r.groundFloors <= 1 && r.households <= 1)) { houseResult(null, 1); return; }
+    const homes = r.floors.filter((f) => f.residential);
+    // 층 정보가 없거나, 주거층이 하나뿐이고 1가구면 고를 것이 없어 바로 결과
+    if (!r.floors.length || (homes.length <= 1 && r.households <= 1 && !r.mixedUse)) { houseResult(null, 1); return; }
     ls.stage = 'house';
   };
   const houseResult = (floor, units) => {
     const r = ls.house;
-    const m2 = floor ? Math.round((floor.m2 / units) * 100) / 100 : r.totalM2;
-    ls.part = floor ? floor.label : '집 전체';
+    const m2 = floor ? Math.round((floor.m2 / units) * 100) / 100 : r.residentialM2 ?? r.totalM2;
+    ls.part = floor ? floor.label : r.mixedUse ? '주택 부분 전체' : '집 전체';
     ls.units = units;
     ls.result = { kind: 'house', m2, pyeong: Math.round((m2 / 3.305785) * 10) / 10, floorM2: floor?.m2, purpose: r.purpose };
     ls.stage = 'result';
@@ -88,7 +90,9 @@ export function renderLookupPanel(ls, applied, opts) {
   const pickFloor = (floor) => {
     ls.floor = floor;
     const r = ls.house;
-    ls.units = r.households && r.groundFloors ? Math.min(4, Math.max(1, Math.round(r.households / r.groundFloors))) : 1;
+    const homes = Math.max(1, r.floors.filter((f) => f.residential).length);
+    ls.units = r.households ? Math.min(4, Math.max(1, Math.round(r.households / homes))) : 1;
+    if (r.households === 1 || !floor.residential) { houseResult(floor, 1); redraw(); return; } // 1가구·상가층은 나눌 필요 없음 (가구 수 모르면 물어봄)
     ls.stage = 'houseUnits'; redraw();
   };
   const pickBuilding = (item) => run(async () => {
@@ -153,12 +157,19 @@ export function renderLookupPanel(ls, applied, opts) {
     }
   } else if (ls.stage === 'house') {
     const r = ls.house;
+    // 주거층 먼저, 상가층(음식점·근린생활시설 등)은 뒤에 흐리게
+    const floors = [...r.floors.filter((f) => f.residential), ...r.floors.filter((f) => !f.residential)];
     body.push(h('p.lookup-q', {}, '어디를 청소하나요?'),
       h('div.lookup-list', {},
         h('button.lookup-item', { type: 'button', onclick: () => { houseResult(null, 1); redraw(); } },
-          icon('home'), h('span', {}, h('b', {}, '집 전체'), h('span.small', {}, `연면적 ${r.totalM2}㎡ · 약 ${Math.round(r.totalPyeong)}평${r.purpose ? ` · ${r.purpose}` : ''}`))),
-        r.floors.map((f) => h('button.lookup-item', { type: 'button', onclick: () => pickFloor(f) },
-          icon('stairs'), h('span', {}, h('b', {}, `${f.label}만`), h('span.small', {}, `층 면적 ${f.m2}㎡ · 약 ${Math.round(f.pyeong)}평`))))),
+          icon('home'), h('span', {}, h('b', {}, r.mixedUse ? '주택 부분 전체' : '집 전체'),
+            h('span.small', {}, r.mixedUse
+              ? `주거층 ${r.residentialM2}㎡ · 약 ${Math.round(r.residentialPyeong)}평 (상가 제외)`
+              : `연면적 ${r.totalM2}㎡ · 약 ${Math.round(r.totalPyeong)}평${r.purpose ? ` · ${r.purpose}` : ''}`))),
+        floors.map((f) => h(`button.lookup-item${f.residential ? '' : '.dim'}`, { type: 'button', onclick: () => pickFloor(f) },
+          icon(f.residential ? 'stairs' : 'storefront'),
+          h('span', {}, h('b', {}, f.residential ? `${f.label}만` : `${f.label} (상가)`),
+            h('span.small', {}, `층 면적 ${f.m2}㎡ · 약 ${Math.round(f.pyeong)}평${f.purpose ? ` · ${f.purpose}` : ''}`))))),
       h('p.lookup-note', {}, `건축물대장: ${r.groundFloors}층 건물${r.households ? ` · ${r.households}가구` : ''}`));
   } else if (ls.stage === 'houseUnits') {
     body.push(h('p.lookup-q', {}, `${ls.floor.label}에 몇 집이 사나요?`),
@@ -169,8 +180,8 @@ export function renderLookupPanel(ls, applied, opts) {
     body.push(h('div.lookup-result', {},
       h('div.small', {}, '건축물대장 기준 · 일반주택'),
       h('div.lookup-big', {}, `약 ${Math.round(r.pyeong)}평`),
-      h('div.small', {}, ls.part === '집 전체'
-        ? `연면적 ${r.m2}㎡${r.purpose ? ` · ${r.purpose}` : ''}`
+      h('div.small', {}, ls.part === '집 전체' || ls.part === '주택 부분 전체'
+        ? `${ls.part === '집 전체' ? '연면적' : '주거층 합계 (상가 제외)'} ${r.m2}㎡${r.purpose ? ` · ${r.purpose}` : ''}`
         : `${ls.part} ${r.floorM2}㎡${ls.units > 1 ? ` ÷ ${ls.units}집` : ''} = ${r.m2}㎡`),
       h('div.small', {}, '계단 등 공용 부분이 섞인 대략값이에요.'),
       h('p.lookup-q', {}, '이 평수가 맞나요?')),

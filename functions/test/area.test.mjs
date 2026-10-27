@@ -313,3 +313,21 @@ test('handle house: 표제부 → 층별개요 순서로 조회, 동·호 조건
   await assert.rejects(handle({ action: 'house', ref: REF4 }, { keys: KEYS, fetchFn: empty }), (e) => e.reason === 'not_found');
   assert.match(bldUrl('getBrTitleInfo', 'k', { a: '1' }), /BldRgstHubService\/getBrTitleInfo\?serviceKey=k&a=1/);
 });
+
+test('상가주택 (실제 검증: 부산 사상구 주례로 8, 2026-10-27): 1층 음식점은 상가, 주택 부분 = 주거층만', () => {
+  const title = { mainAtchGbCd: '0', mainPurpsCdNm: '단독주택', etcPurps: '제1종근린생활시설,단독주택', totArea: 89.32, grndFlrCnt: 2, fmlyCnt: 1 };
+  const floors = [
+    { flrGbCd: '20', flrNo: 1, flrNoNm: '1층', area: 44.66, mainPurpsCdNm: '제2종근린생활시설', etcPurps: '제2종근린생활시설(일반음식점)', mainAtchGbCd: '0' },
+    { flrGbCd: '20', flrNo: 2, flrNoNm: '2층', area: 44.66, mainPurpsCdNm: '단독주택', etcPurps: '단독주택', mainAtchGbCd: '0' },
+  ];
+  const h = computeHouse([title], floors);
+  assert.equal(h.mixedUse, true);
+  assert.deepEqual(h.floors.map((f) => [f.label, f.residential]), [['1층', false], ['2층', true]]);
+  assert.equal(h.totalM2, 89.32, '연면적은 그대로 (상가 포함)');
+  assert.equal(h.residentialM2, 44.66, '주택 부분 = 2층만');
+  assert.equal(Math.round(h.residentialPyeong), 14);
+  // 주거층만 있는 다가구는 상가주택 아님
+  const d = computeHouse([TITLE_DAGAGU], FLOORS_DAGAGU.filter((f) => f.flrGbCd !== '10'));
+  assert.equal(d.mixedUse, false);
+  assert.equal(d.residentialM2, d.totalM2);
+});
