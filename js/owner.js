@@ -16,6 +16,7 @@ import {
   registerSW, showFatal, MANDU_ID_RE, setChildren, icon, timeAgo, maskName, tsToDate, footerNote,
 } from './util.js';
 import { placeLabel, appliedText } from './areaLookup.js';
+import { subscribeStaff, renderSchedule } from './staffAdmin.js';
 
 registerSW();
 
@@ -23,6 +24,7 @@ const app = $('#app');
 const S = {
   user: null, shop: null, tpl: null, priceTable: null,
   requests: new Map(), filter: 'all', tab: 'home', unsub: null, detail: null,
+  staff: null, unsubStaff: null, sched: {},
 };
 
 if (!isConfigured) showFatal('Firebase 설정이 아직 없습니다. js/config.js 를 채운 뒤 다시 열어주세요. (배포.md 참고)');
@@ -32,11 +34,13 @@ window.addEventListener('hashchange', route);
 
 async function onUser(user) {
   S.unsub?.(); S.unsub = null;
+  S.unsubStaff?.(); S.unsubStaff = null; S.staff = null;
   S.user = user;
   if (!user) { renderLogin(); return; }
   setChildren(app, h('p.muted.center', {}, '불러오는 중…'));
   await loadShop();
   subscribeRequests();
+  subscribeStaffList();
   route();
 }
 
@@ -75,6 +79,14 @@ async function loadShop() {
   if (!S.shop.name) S.tab = 'shop'; // 처음이면 업체 정보부터
 }
 
+function subscribeStaffList() {
+  S.unsubStaff?.();
+  S.unsubStaff = subscribeStaff(S.user.uid, (list) => {
+    S.staff = list;
+    if (!S.detail && S.tab === 'schedule' && !document.querySelector('dialog[open]')) renderMain();
+  });
+}
+
 function subscribeRequests() {
   const q = query(collection(db, 'requests'), where('shopId', '==', S.user.uid));
   S.unsub = onSnapshot(q, (snap) => {
@@ -96,18 +108,22 @@ function shopLink() { return pageUrl('q.html', { shop: S.user.uid }); }
 const TABS = [
   ['home', '홈', 'grid_view'],
   ['list', '견적요청', 'assignment_late'],
+  ['schedule', '일정', 'calendar_month'],
   ['price', '단가표', 'payments'],
   ['link', '내 링크', 'link'],
-  ['shop', '업체 정보', 'storefront'],
 ];
-const TAB_TITLE = { home: '홈 대시보드', list: '견적 요청', price: '단가표 관리', link: '내 견적 링크', shop: '업체 정보' };
+// 업체 정보는 오른쪽 위 사람 아이콘에서 (아래 메뉴 5칸 유지)
+const TAB_TITLE = { home: '홈 대시보드', list: '견적 요청', schedule: '일정 · 직원', price: '단가표 관리', link: '내 견적 링크', shop: '업체 정보' };
 
 function goTab(k) { S.tab = k; renderMain(); window.scrollTo(0, 0); }
 
 function renderMain() {
   if (!S.shop) return;
   app.classList.add('has-nav');
-  const body = { home: renderHome, list: renderList, price: renderPriceForm, link: renderLinkTab, shop: renderShopForm }[S.tab] || renderHome;
+  const body = {
+    home: renderHome, list: renderList, price: renderPriceForm, link: renderLinkTab, shop: renderShopForm,
+    schedule: () => renderSchedule({ shopId: S.user.uid, shopName: S.shop.name, staff: S.staff, st: S.sched, rerender: renderMain }),
+  }[S.tab] || renderHome;
   setChildren(app,
     appBar(),
     body(),
@@ -122,7 +138,7 @@ function appBar() {
     h('div.grow', {},
       h('div.brand', {}, '비즈마이 견적', S.shop.name ? h('span.shop-chip', {}, icon('verified'), S.shop.name) : null),
       h('div.title', {}, TAB_TITLE[S.tab])),
-    h('button.avatar', { type: 'button', title: '로그아웃', 'aria-label': '로그아웃', onclick: () => { if (confirm('로그아웃할까요?')) signOut(auth); } }, icon('person', true)));
+    h('button.avatar', { type: 'button', title: '업체 정보', 'aria-label': '업체 정보', onclick: () => goTab('shop') }, icon('person', true)));
 }
 
 function waitingCount() {
@@ -438,6 +454,7 @@ function renderShopForm() {
       sectionTitle(3, '만두 채팅 연결', '선택'),
       text('manduId', '만두 ID', { placeholder: '예) banjjak (@ 없이)', hint: '넣으면 고객 화면·견적서에 "만두로 채팅 문의" 버튼이 생깁니다. 외국인 고객과도 자동 번역으로 대화할 수 있어요.' })),
     h('div.card', {}, renderDevSettings()),
+    h('button.btn.ghost.block', { type: 'button', onclick: () => { if (confirm('로그아웃할까요?')) signOut(auth); } }, icon('logout'), '로그아웃'),
     h('div.dock', {}, h('button.btn.primary', {
       onclick: async (e) => {
         if (!f.name || !f.phone) { toast('업체명과 전화번호는 꼭 입력해주세요.'); return; }

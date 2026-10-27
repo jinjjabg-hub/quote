@@ -565,6 +565,43 @@ dialog.sheet::backdrop { background: rgba(15,23,42,.45); }
 .page-q .area-lookup .btn.primary { background: var(--s-primary); }
 .page-q .area-lookup .btn.soft { background: #fff; color: var(--s-primary); }
 
+/* 일정 · 직원 (js/staffAdmin.js · js/staff.js, 설계도 10-1장) */
+.sched-nav { display: flex; align-items: center; gap: 10px; }
+.sched-nav .btn.icon { min-height: 44px; width: 44px; }
+.sched-count { display: flex; align-items: baseline; gap: 6px; margin: 14px 0 8px; }
+.sched-count b { font-size: 1.75rem; color: var(--primary-deep); }
+.staff-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.staff-chip { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 999px; background: var(--primary-weak); color: var(--primary-deep); font-weight: 600; }
+.mini-tag { font-size: .7rem; padding: 1px 6px; border-radius: 6px; background: #fef3c7; color: #92400e; font-weight: 700; margin-left: 4px; }
+.off-list { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.off-row { display: flex; justify-content: space-between; padding: 6px 0; }
+.week-scroll { overflow-x: auto; margin: 0 -6px; }
+table.week { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 460px; }
+table.week th { font-size: .8rem; font-weight: 600; color: var(--muted); text-align: center; line-height: 1.3; }
+table.week th.we { color: var(--danger); }
+table.week th.nm { text-align: left; color: var(--text); font-size: .9rem; white-space: nowrap; padding-right: 4px; }
+.wk-cell { width: 100%; min-height: 40px; border: 0; border-radius: 10px; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+.wk-cell.on { background: var(--primary); color: #fff; }
+.wk-cell.off { background: var(--surface); color: var(--muted); }
+.wk-cell.fixed { background: #e2e8f0; color: var(--muted); cursor: default; }
+tr.total td { text-align: center; color: var(--primary-deep); }
+.staff-list { list-style: none; padding: 0; margin: 0; }
+.staff-row { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin: 10px 0; }
+.staff-row .badge { margin-left: 6px; font-size: .75rem; }
+.staff-row.inactive { opacity: .6; }
+.choices.days .chip { min-width: 46px; justify-content: center; padding: 0 10px; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 14px; }
+.cal-head { text-align: center; font-size: .85rem; font-weight: 600; color: var(--muted); }
+.cal-head.we { color: var(--danger); }
+.cal-day { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 54px; border: 0; border-radius: 12px; font: inherit; cursor: pointer; background: var(--surface); color: var(--muted); }
+.cal-day .n { font-weight: 700; font-size: 1rem; }
+.cal-day .t { font-size: .7rem; }
+.cal-day.on { background: var(--primary); color: #fff; }
+.cal-day.fixed { background: #e2e8f0; }
+.cal-day.today { box-shadow: inset 0 0 0 2px var(--primary-deep); }
+.cal-day:disabled { cursor: default; opacity: .55; }
+.cal-day.on:disabled { opacity: .7; }
+
 /* 마우스가 있는 기기에서만 hover 색 (휴대폰은 탭한 뒤 hover 색이 남는 문제 방지) */
 @media (hover: hover) {
   .btn.primary:hover:not(:disabled) { background: var(--primary-deep); }
