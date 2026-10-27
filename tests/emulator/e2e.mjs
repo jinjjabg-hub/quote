@@ -294,6 +294,58 @@ try {
   }, new URL(testViewUrl).searchParams.get('id'));
   assert.equal(gone, true, '테스트 견적서도 삭제');
 
+  // 6b) 일정: 직원 등록 → 출근 명단 → 근무표에서 프리랜서 가능일 → 직원 초대 링크로 연결 → 본인 휴무일 → 사장님 화면 반영
+  step('6b) 일정: 정규·프리랜서 등록, 출근 명단, 초대 링크로 직원 연결, 직원이 고른 휴무일이 사장님 화면에 반영');
+  const WD = ['일', '월', '화', '수', '목', '금', '토'];
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const plus = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d; };
+  const target = plus(3); // 직원이 휴무로 고를 날 (지난 날은 못 고름)
+  const offDays = [plus(4).getDay(), plus(5).getDay()]; // 정기 휴무는 다른 요일로 → 오늘·target 은 근무일
+  await owner.getByRole('button', { name: '일정', exact: true }).click();
+  await owner.getByText('등록된 직원이 없어요').waitFor();
+  await owner.getByRole('button', { name: /직원 추가/ }).click();
+  const form = owner.locator('dialog.staff-form');
+  await form.locator('label.field', { hasText: '이름' }).locator('input').fill('김정규');
+  for (const i of offDays) await form.locator('.choices.days').getByRole('button', { name: WD[i], exact: true }).click();
+  await shot(owner, '12d-staff-form');
+  assert.doesNotMatch(await form.innerText(), /\b(null|undefined)\b/, '직원 추가 창에 null 글자 없음');
+  await form.getByRole('button', { name: '저장' }).click();
+  await owner.locator('.staff-row', { hasText: '김정규' }).waitFor();
+  await owner.getByRole('button', { name: /직원 추가/ }).click();
+  await form.locator('label.field', { hasText: '이름' }).locator('input').fill('박프리');
+  await form.getByRole('button', { name: '프리랜서' }).click();
+  await form.getByRole('button', { name: '저장' }).click();
+  await owner.locator('.staff-row', { hasText: '박프리' }).waitFor();
+  const count = () => owner.locator('.sched-count b').innerText();
+  assert.equal(await count(), '1명', '오늘: 정규 출근, 프리랜서는 가능일 아님');
+  assert.match(await owner.locator('.off-list').innerText(), /박프리\s*가능일 아님/);
+  await owner.locator('table.week tr', { hasText: '박프리' }).locator('button.wk-cell').first().click(); // 오늘 칸 → 가능일
+  await owner.waitForFunction(() => document.querySelector('.sched-count b')?.textContent === '2명');
+  await shot(owner, '12e-schedule');
+  const invite = await owner.evaluate(async () => {
+    const m = await import('./js/firebase.js');
+    const s = await import('./js/staffAdmin.js');
+    const uid = m.auth.currentUser.uid;
+    const { getDocs, collection } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js');
+    const snap = await getDocs(collection(m.db, 'shops', uid, 'staff'));
+    const kim = snap.docs.map((d) => ({ id: d.id, ...d.data() })).find((x) => x.name === '김정규');
+    return s.inviteUrl(uid, kim);
+  });
+  assert.match(invite, /staff\.html\?shop=.+&s=.+&k=[A-Za-z2-9]{24}$/);
+  const staffPage = await newPage();
+  await staffPage.goto(`${invite}&emulator=1&as=staff1`);
+  await staffPage.getByRole('button', { name: /Google/ }).click();
+  await staffPage.getByText('김정규님 근무 일정').waitFor();
+  assert.doesNotMatch(staffPage.url(), /&k=/, '초대 값은 주소창에서 지움');
+  if (target.getMonth() !== new Date().getMonth()) await staffPage.getByRole('button', { name: '다음 달' }).click();
+  await staffPage.locator(`.cal-day[aria-label^="${ymd(target)}"]`).click();
+  await staffPage.locator(`.cal-day[aria-label="${ymd(target)} 개인 휴무"]`).waitFor();
+  await shot(staffPage, '12f-staff-calendar');
+  for (let i = 0; i < 3; i += 1) await owner.getByRole('button', { name: '다음날' }).click();
+  await owner.locator('.off-list', { hasText: '김정규' }).waitFor({ timeout: 10000 });
+  assert.match(await owner.locator('.off-list').innerText(), /김정규\s*개인 휴무/);
+  assert.match(await owner.locator('.staff-row', { hasText: '김정규' }).innerText(), /연결됨/);
+
   // 7) 개발자 모드: 업종 시뮬레이터
   step('7) 개발자 모드: 업종 시뮬레이터 6개 업종 모두 계산·점검 통과, 값 바꾸면 결과 변경');
   const dev = await newPage();

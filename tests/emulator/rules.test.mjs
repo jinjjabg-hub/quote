@@ -112,6 +112,39 @@ test('사장님: 업체 최초 생성은 본인 uid 로만', async () => {
   await assertFails(setDoc(doc(other(), 'shops', 'someoneElse'), { ownerUid: OTHER, templateId: 'move-in-cleaning' }));
 });
 
+// ---------- 직원 (설계도 10-1장) ----------
+const STAFF_UID = 'staffUid789';
+const staffCtx = () => env.authenticatedContext(STAFF_UID).firestore();
+const TOKEN = 'Abcdefghijkmnopqrstuvwx';
+const staffDoc = (db, id = 's1') => doc(db, 'shops', OWNER, 'staff', id);
+const newStaff = (over = {}) => ({ name: '김정규', phone: '010-1111-2222', type: 'employee', weeklyOff: [1, 2], offDates: [], availDates: [], active: true, inviteToken: TOKEN, uid: null, ...over });
+
+test('직원: 사장님만 등록·수정·삭제, 남의 업체·형식 오류 거부', async () => {
+  await assertSucceeds(setDoc(staffDoc(owner()), newStaff()));
+  await assertFails(setDoc(staffDoc(other(), 's2'), newStaff()));
+  await assertFails(setDoc(staffDoc(owner(), 's3'), newStaff({ type: 'boss' })));
+  await assertFails(setDoc(staffDoc(owner(), 's4'), newStaff({ inviteToken: 'short' })));
+  await assertFails(setDoc(staffDoc(owner(), 's5'), newStaff({ salary: 1 })));
+  await assertSucceeds(updateDoc(staffDoc(owner()), { weeklyOff: [0, 6] }));
+  await assertFails(getDoc(staffDoc(other())));
+});
+
+test('직원: 초대 값이 맞을 때만 자기 계정 연결, 연결 후 자기 문서만 읽고 휴무일·가능일만 수정', async () => {
+  await assertSucceeds(setDoc(staffDoc(owner()), newStaff()));
+  await assertFails(getDoc(staffDoc(staffCtx())), '연결 전에는 못 읽음');
+  await assertFails(updateDoc(staffDoc(staffCtx()), { uid: STAFF_UID, inviteProof: 'wrong-token-xxxxxxxx', linkedAt: serverTimestamp() }));
+  await assertFails(updateDoc(staffDoc(staffCtx()), { uid: 'someoneElse', inviteProof: TOKEN, linkedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(staffDoc(staffCtx()), { uid: STAFF_UID, inviteProof: TOKEN, linkedAt: serverTimestamp() }));
+  await assertFails(updateDoc(staffDoc(other()), { uid: OTHER, inviteProof: TOKEN, linkedAt: serverTimestamp() }), '이미 연결되면 가로채기 불가');
+  await assertSucceeds(getDoc(staffDoc(staffCtx())));
+  await assertSucceeds(updateDoc(staffDoc(staffCtx()), { offDates: ['2026-11-04'], updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(staffDoc(staffCtx()), { weeklyOff: [] }), '정기 휴무는 사장님만');
+  await assertFails(updateDoc(staffDoc(staffCtx()), { name: '사장' }));
+  await assertFails(updateDoc(staffDoc(staffCtx()), { type: 'freelancer' }));
+  await assertSucceeds(setDoc(staffDoc(owner(), 's2'), newStaff({ name: '이정규' })));
+  await assertFails(getDoc(staffDoc(staffCtx(), 's2')), '다른 직원 문서는 못 읽음');
+});
+
 test('Storage: 고객 사진 업로드 O, 읽기 X, 사장님 읽기 O', async () => {
   const img = new Uint8Array([1, 2, 3]);
   const path = `requests/${OWNER}/n1/bath.jpg`;

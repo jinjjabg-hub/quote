@@ -49,6 +49,46 @@ service cloud.firestore {
       match /private/{docId} {
         allow read, write: if isOwner(shopId);
       }
+
+      // 직원 (설계도 10-1장). 사장님이 만들고 고친다.
+      // 연결된 직원은 자기 문서만 읽고, 개인 휴무일(offDates)·프리랜서 가능일(availDates)만 고친다.
+      // 연결: 초대 링크의 무작위 값(inviteToken)을 inviteProof 로 보내 맞을 때만 자기 uid 를 넣을 수 있다.
+      match /staff/{staffId} {
+        function dateList(v) { return v is list && v.size() <= 400; }
+        function validStaff() {
+          let d = request.resource.data;
+          return d.keys().hasOnly(['name', 'phone', 'type', 'weeklyOff', 'offDates', 'availDates', 'active', 'memo',
+                                   'inviteToken', 'inviteProof', 'uid', 'linkedAt', 'createdAt', 'updatedAt'])
+            && str(d.name, 30) && d.name.size() > 0
+            && (!('phone' in d) || str(d.phone, 30))
+            && d.type in ['employee', 'freelancer']
+            && (!('weeklyOff' in d) || (d.weeklyOff is list && d.weeklyOff.size() <= 7))
+            && (!('offDates' in d) || dateList(d.offDates))
+            && (!('availDates' in d) || dateList(d.availDates))
+            && (!('active' in d) || d.active is bool)
+            && (!('memo' in d) || str(d.memo, 200))
+            && str(d.inviteToken, 64) && d.inviteToken.size() >= 16;
+        }
+        function isSelf() { return signedIn() && resource.data.get('uid', null) == request.auth.uid; }
+        function selfEdit() {
+          let d = request.resource.data;
+          return d.diff(resource.data).affectedKeys().hasOnly(['offDates', 'availDates', 'updatedAt'])
+            && (!('offDates' in d) || dateList(d.offDates))
+            && (!('availDates' in d) || dateList(d.availDates));
+        }
+        function linking() {
+          return signedIn()
+            && resource.data.get('uid', null) == null
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.inviteProof == resource.data.inviteToken
+            && request.resource.data.linkedAt == request.time
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'inviteProof', 'linkedAt']);
+        }
+        allow read: if isOwner(shopId) || isSelf();
+        allow create: if isOwner(shopId) && validStaff();
+        allow update: if (isOwner(shopId) && validStaff()) || (isSelf() && selfEdit()) || linking();
+        allow delete: if isOwner(shopId);
+      }
     }
 
     // 고객 견적 요청

@@ -38,8 +38,9 @@ if (useEmulator) {
 
 export async function signInWithGoogle() {
   if (useEmulator) {
-    // 에뮬레이터: 가짜 구글 계정으로 즉시 로그인
-    const fake = JSON.stringify({ sub: 'test-owner', email: 'owner@example.com', email_verified: true, name: '테스트 사장님' });
+    // 에뮬레이터: 가짜 구글 계정으로 즉시 로그인 (?as=staff1 이면 다른 계정 — 직원 화면 시험용)
+    const who = (new URLSearchParams(location.search).get('as') || 'owner').replace(/[^a-z0-9]/gi, '').slice(0, 20) || 'owner';
+    const fake = JSON.stringify({ sub: `test-${who}`, email: `${who}@example.com`, email_verified: true, name: who === 'owner' ? '테스트 사장님' : `테스트 ${who}` });
     await signInWithCredential(auth, GoogleAuthProvider.credential(fake));
     return;
   }
