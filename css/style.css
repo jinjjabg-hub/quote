@@ -590,6 +590,47 @@ tr.total td { text-align: center; color: var(--primary-deep); }
 .staff-row .badge { margin-left: 6px; font-size: .75rem; }
 .staff-row.inactive { opacity: .6; }
 .choices.days .chip { min-width: 46px; justify-content: center; padding: 0 10px; }
+.view-tabs { margin: 4px 0 12px; }
+.view-tabs .chip { flex: 1; justify-content: center; gap: 6px; }
+.sched-jump { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 8px; }
+.sched-jump .input { width: auto; min-height: 40px; padding: 6px 10px; font-size: .9rem; }
+.board-scroll { overflow-x: auto; margin: 0 -6px; padding: 0 6px; }
+.board { min-width: 560px; }
+.board-row { display: flex; align-items: stretch; border-top: 1px solid var(--line); min-height: 44px; }
+.board-row.head { border-top: 0; min-height: 22px; }
+.board-row.need .board-name { color: var(--danger); font-weight: 700; }
+.board-row.off .board-name { color: var(--muted); }
+.board-name { width: 68px; flex: none; display: flex; flex-direction: column; justify-content: center; font-size: .85rem; font-weight: 600; line-height: 1.2; }
+.board-track { position: relative; flex: 1; }
+.board-line { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--line); }
+.board-tick { position: absolute; bottom: 2px; transform: translateX(-50%); font-size: .7rem; color: var(--muted); }
+.job-block { position: absolute; top: 5px; bottom: 5px; border: 0; border-radius: 8px; background: var(--primary); color: #fff; font: inherit; font-size: .72rem; font-weight: 700; padding: 0 6px; text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer; }
+.job-block.short { background: var(--danger-weak); color: var(--danger); box-shadow: inset 0 0 0 1.5px var(--danger); }
+.job-list { list-style: none; padding: 0; margin: 0; }
+.job-card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin: 10px 0; cursor: pointer; }
+.job-card.short { border-left: 4px solid var(--danger); }
+.job-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.job-time { color: var(--primary-deep); }
+.badge.src { font-size: .72rem; padding: 1px 8px; }
+.crew { margin-left: auto; display: inline-flex; align-items: center; gap: 3px; font-size: .85rem; font-weight: 700; color: var(--ok-deep); }
+.crew .ms { font-size: 18px; }
+.crew.short { color: var(--danger); }
+.job-title { font-weight: 700; margin: 6px 0 2px; }
+.staff-chips.small { margin-top: 8px; gap: 6px; }
+.staff-chips.small .staff-chip { padding: 3px 10px; font-size: .85rem; }
+.job-form .input.time, .job-form .input.num { margin-top: 8px; width: 140px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.warn-text { color: var(--danger); font-weight: 700; }
+.ok-text { color: var(--ok-deep); font-weight: 700; }
+.cand-list { list-style: none; padding: 0; margin: 6px 0 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.cand + .cand { border-top: 1px solid var(--line); }
+.cand label { display: flex; align-items: center; gap: 10px; padding: 10px 12px; min-height: 48px; cursor: pointer; }
+.cand input { width: 20px; height: 20px; accent-color: var(--primary); }
+.cand .small { color: var(--ok-deep); }
+.cand.bad .small { color: var(--warn); }
+.cand.on { background: var(--primary-weak); }
+.cand.on.bad { background: var(--warn-bg); }
+.job-more { margin-top: 4px; }
 .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 14px; }
 .cal-head { text-align: center; font-size: .85rem; font-weight: 600; color: var(--muted); }
 .cal-head.we { color: var(--danger); }

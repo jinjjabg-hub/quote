@@ -145,6 +145,21 @@ test('직원: 초대 값이 맞을 때만 자기 계정 연결, 연결 후 자�
   await assertFails(getDoc(staffDoc(staffCtx(), 's2')), '다른 직원 문서는 못 읽음');
 });
 
+test('일정: 사장님만 읽고 씀, 형식 검사 (직원·남은 못 읽음)', async () => {
+  const j = { date: '2026-11-04', start: '09:00', hours: 4.5, crew: 2, staffIds: [], title: '입주청소 34평', place: '부산 수영구', customer: '김고객', phone: '010', memo: '', source: 'phone', status: 'scheduled' };
+  const ref = (db, id = 'j1') => doc(db, 'shops', OWNER, 'jobs', id);
+  await assertSucceeds(setDoc(ref(owner()), j));
+  await assertFails(setDoc(ref(owner(), 'j2'), { ...j, start: '9시' }));
+  await assertFails(setDoc(ref(owner(), 'j3'), { ...j, crew: 0 }));
+  await assertFails(setDoc(ref(owner(), 'j4'), { ...j, source: 'hack' }));
+  await assertFails(setDoc(ref(owner(), 'j5'), { ...j, price: 1 }));
+  await assertSucceeds(updateDoc(ref(owner()), { staffIds: ['s1', 's2'] }));
+  await assertFails(getDoc(ref(other())));
+  await assertFails(setDoc(ref(other(), 'j6'), j));
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'shops', OWNER, 'staff', 's1'), newStaff({ uid: STAFF_UID })));
+  await assertFails(getDoc(ref(staffCtx())), '직원 열람은 아직 닫혀 있음');
+});
+
 test('Storage: 고객 사진 업로드 O, 읽기 X, 사장님 읽기 O', async () => {
   const img = new Uint8Array([1, 2, 3]);
   const path = `requests/${OWNER}/n1/bath.jpg`;

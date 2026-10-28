@@ -302,6 +302,8 @@ try {
   const target = plus(3); // 직원이 휴무로 고를 날 (지난 날은 못 고름)
   const offDays = [plus(4).getDay(), plus(5).getDay()]; // 정기 휴무는 다른 요일로 → 오늘·target 은 근무일
   await owner.getByRole('button', { name: '일정', exact: true }).click();
+  await owner.getByText('이날 일정이 없어요').waitFor();
+  await owner.getByRole('tab', { name: '직원·근무' }).click();
   await owner.getByText('등록된 직원이 없어요').waitFor();
   await owner.getByRole('button', { name: /직원 추가/ }).click();
   const form = owner.locator('dialog.staff-form');
@@ -345,6 +347,62 @@ try {
   await owner.locator('.off-list', { hasText: '김정규' }).waitFor({ timeout: 10000 });
   assert.match(await owner.locator('.off-list').innerText(), /김정규\s*개인 휴무/);
   assert.match(await owner.locator('.staff-row', { hasText: '김정규' }).innerText(), /연결됨/);
+
+  // 6c) 일정 ②단계: 빠른 등록 + 배정, 겹침 경고, 배정 필요 표시, 계약확정 → 자동 등록
+  step('6c) 일정: 숨고 일정 빠른 등록·2명 배정, 같은 시간대 겹침 경고, 인원 부족 표시, 계약확정하면 일정 자동 등록');
+  await owner.getByRole('button', { name: '오늘로' }).click();
+  await owner.getByRole('tab', { name: '일정' }).click();
+  await owner.getByText('이날 일정이 없어요').waitFor();
+  const jobForm = owner.locator('dialog.job-form');
+  const openNew = async () => { await owner.getByRole('button', { name: /일정 등록/ }).click(); await jobForm.waitFor(); };
+  await openNew();
+  await jobForm.getByRole('button', { name: '10:00' }).click();
+  await jobForm.getByRole('button', { name: '3시간' }).click();
+  await jobForm.locator('label.field', { hasText: '일 내용' }).locator('input').fill('에어컨 청소 3대');
+  await jobForm.getByRole('button', { name: '숨고' }).click();
+  await jobForm.locator('.cand', { hasText: '김정규' }).locator('input').check();
+  await jobForm.locator('.cand', { hasText: '박프리' }).locator('input').check();
+  assert.match(await jobForm.locator('.field', { hasText: '직원 배정' }).innerText(), /2명 배정 완료/);
+  assert.doesNotMatch(await jobForm.innerText(), /\b(null|undefined)\b/, '일정 창에 null 글자 없음');
+  await shot(owner, '12g-job-form');
+  await jobForm.getByRole('button', { name: '저장' }).click();
+  await owner.locator('.job-card', { hasText: '에어컨 청소 3대' }).waitFor();
+  assert.match(await owner.locator('.job-card', { hasText: '에어컨 청소 3대' }).innerText(), /10:00~13:00[\s\S]*숨고[\s\S]*2명 배정 완료/);
+  await openNew();
+  await jobForm.getByRole('button', { name: '13:00' }).click(); // 10~13시 일 + 이동 60분 → 13시 시작은 겹침
+  await jobForm.getByRole('button', { name: '1명' }).click();
+  await jobForm.locator('label.field', { hasText: '일 내용' }).locator('input').fill('현관 청소');
+  assert.match(await jobForm.locator('.cand', { hasText: '김정규' }).innerText(), /겹침: 10:00 에어컨 청소 3대/);
+  await jobForm.locator('.cand', { hasText: '김정규' }).locator('input').check();
+  await jobForm.locator('.warn-box', { hasText: '김정규: 겹침' }).waitFor();
+  await jobForm.locator('.cand', { hasText: '김정규' }).locator('input').uncheck();
+  await jobForm.getByRole('button', { name: '저장' }).click();
+  await owner.locator('.job-card', { hasText: '현관 청소' }).waitFor();
+  assert.match(await owner.locator('.job-card', { hasText: '현관 청소' }).innerText(), /1명 중 0명 배정/);
+  await owner.getByText('인원이 모자란 일정 1건').waitFor();
+  assert.equal(await owner.locator('.board-row.need .job-block').count(), 1, '일정표 "배정 필요" 줄');
+  assert.equal(await owner.locator('.board-row', { hasText: '김정규' }).locator('.job-block').count(), 1);
+  await shot(owner, '12h-schedule-board');
+  await owner.locator('.bottom-nav').getByRole('button', { name: /^견적요청/ }).click();
+  await owner.locator('.req-card', { hasText: '김*객' }).click();
+  await owner.getByRole('button', { name: '계약확정' }).click();
+  await owner.getByText(/일정에 등록했어요/).waitFor({ timeout: 10000 });
+  const reqId = /req=([\w-]+)/.exec(owner.url())[1];
+  const auto = await owner.evaluate(async (id) => {
+    const m = await import('./js/firebase.js');
+    const d = await m.getDoc(m.doc(m.db, 'shops', m.auth.currentUser.uid, 'jobs', `q_${id}`));
+    return d.exists() ? d.data() : null;
+  }, reqId);
+  assert.ok(auto, '계약확정 → 일정 자동 생성');
+  assert.equal(auto.date, '2026-10-21');
+  assert.equal(auto.source, 'quote');
+  assert.ok(auto.crew >= 1 && auto.hours > 0, '견적의 인력 예상값');
+  assert.match(auto.title, /입주청소/);
+  await owner.getByRole('button', { name: '뒤로 가기' }).click();
+  await owner.getByRole('button', { name: '일정', exact: true }).click();
+  await owner.getByLabel('날짜 바로 가기').fill('2026-10-21');
+  await owner.locator('.job-card', { hasText: '견적앱' }).waitFor({ timeout: 10000 });
+  assert.match(await owner.locator('.job-card', { hasText: '견적앱' }).innerText(), new RegExp(`${auto.crew}명 중 0명 배정`));
 
   // 7) 개발자 모드: 업종 시뮬레이터
   step('7) 개발자 모드: 업종 시뮬레이터 6개 업종 모두 계산·점검 통과, 값 바꾸면 결과 변경');

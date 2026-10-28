@@ -80,3 +80,107 @@ export function newToken(rand = (n) => crypto.getRandomValues(new Uint8Array(n))
   const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
   return [...rand(24)].map((b) => abc[b % abc.length]).join('');
 }
+
+// ---------- ②단계: 일정(jobs) · 일정표 ----------
+// 일정 문서: { date 'YYYY-MM-DD', start 'HH:MM', hours, crew(필요 인원), staffIds[](배정), title, place, customer,
+//             source: 'quote'|'phone'|'soomgo'|'referral'|'other', status: 'scheduled'|'done'|'canceled', requestId? }
+
+export const TRAVEL_MIN = 60; // 현장 사이 이동 시간 기본값 (설계도 10장). 겹침 판정에 쓴다
+export const DAY_START = 8;   // 일정표 표시 범위 (시)
+export const DAY_END = 21;
+export const SOURCES = { quote: '견적앱', phone: '전화', soomgo: '숨고', referral: '소개', other: '기타' };
+
+// 견적 희망 시간대 → 시작 시각 (템플릿 timeSlot 값. 없는 값은 오전 9시)
+export const SLOT_START = { first: '08:00', am: '09:00', pm: '13:00', any: '09:00' };
+
+export function toMin(hhmm) {
+  const [h, m] = String(hhmm || '').split(':').map(Number);
+  return Number.isFinite(h) ? h * 60 + (Number.isFinite(m) ? m : 0) : NaN;
+}
+export function toHHMM(min) {
+  const m = Math.max(0, Math.round(min));
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+export function jobEnd(job) {
+  return toHHMM(toMin(job.start) + (Number(job.hours) || 0) * 60);
+}
+
+/** 같은 날 두 일정이 겹치는지 (사이에 이동 시간 travel 분이 필요) */
+export function overlaps(a, b, travel = TRAVEL_MIN) {
+  if (a.date !== b.date) return false;
+  const as = toMin(a.start); const ae = as + (Number(a.hours) || 0) * 60;
+  const bs = toMin(b.start); const be = bs + (Number(b.hours) || 0) * 60;
+  return as < be + travel && bs < ae + travel;
+}
+
+const live = (j) => j.status !== 'canceled';
+
+/** 그날 일정 (취소 제외, 시작 시각 순) */
+export function jobsOn(jobs, dateStr) {
+  return jobs.filter((j) => j.date === dateStr && live(j)).sort((a, b) => toMin(a.start) - toMin(b.start) || String(a.title).localeCompare(String(b.title)));
+}
+
+/** 배정 인원 상태: 모자람 / 맞음 / 많음 */
+export function crewStatus(job) {
+  const need = Number(job.crew) || 0;
+  const have = (job.staffIds || []).length;
+  return { need, have, short: Math.max(0, need - have), state: have < need ? 'short' : have > need ? 'over' : 'full' };
+}
+
+/**
+ * 이 일정에 넣을 수 있는 직원 목록과 이유. 이미 배정된 사람도 포함(selected).
+ * ok: 그날 출근 + 다른 일정과 안 겹침 / reason: '휴무 사유' 또는 '겹침: 10:00 ○○'
+ */
+export function candidatesFor(job, staffList, jobs, travel = TRAVEL_MIN) {
+  const others = jobs.filter((j) => j.id !== job.id && live(j) && j.date === job.date);
+  return staffList.filter((s) => s.active !== false).map((s) => {
+    const selected = (job.staffIds || []).includes(s.id);
+    const w = workStatus(s, job.date);
+    if (!w.working) return { staff: s, selected, ok: false, reason: w.reason };
+    const clash = others.find((o) => (o.staffIds || []).includes(s.id) && overlaps(job, o, travel));
+    if (clash) return { staff: s, selected, ok: false, reason: `겹침: ${clash.start} ${clash.title}` };
+    return { staff: s, selected, ok: true, reason: '' };
+  }).sort((a, b) => b.selected - a.selected || b.ok - a.ok || String(a.staff.name).localeCompare(b.staff.name, 'ko'));
+}
+
+/** 직원별로 그날 맡은 일정 (일정표 행) */
+export function boardRows(staffList, jobs, dateStr) {
+  const day = jobsOn(jobs, dateStr);
+  const rows = staffList.filter((s) => s.active !== false).map((s) => ({
+    staff: s, status: workStatus(s, dateStr), jobs: day.filter((j) => (j.staffIds || []).includes(s.id)),
+  })).filter((r) => r.status.working || r.jobs.length); // 쉬는 날인데 배정된 경우도 보여서 고치게
+  return { rows, unassigned: day.filter((j) => crewStatus(j).short > 0) };
+}
+
+/** 일정표 블록 위치 (% 단위, DAY_START~DAY_END 범위로 자름) */
+export function blockPos(job) {
+  const span = (DAY_END - DAY_START) * 60;
+  const s = Math.min(Math.max(toMin(job.start) - DAY_START * 60, 0), span);
+  const e = Math.min(Math.max(toMin(job.start) + (Number(job.hours) || 0) * 60 - DAY_START * 60, 0), span);
+  return { left: (s / span) * 100, width: Math.max(((e - s) / span) * 100, 2) };
+}
+
+/**
+ * 견적 요청 → 일정 (계약확정 때 자동 등록). 날짜가 없으면 null.
+ * labor: calculateQuote(...).labor ({ crew, hours }) — 없으면 기본 2명 × 4시간
+ */
+export function jobFromRequest(req, { templateName = '', labor = null, sizeText = '' } = {}) {
+  const a = req.answers || {};
+  if (!a.date) return null;
+  const site = Object.values(a).find((v) => v && typeof v === 'object' && (v.roadAddr || v.bdNm)) || null; // areaLookup 결과
+  return {
+    date: a.date,
+    start: SLOT_START[a.timeSlot] || '09:00',
+    hours: Number(labor?.hours) || 4,
+    crew: Number(labor?.crew) || 2,
+    staffIds: [],
+    title: [templateName, sizeText].filter(Boolean).join(' '),
+    place: site ? [site.bdNm, site.dongNm, site.hoNm].filter(Boolean).join(' ') || site.roadAddr || '' : (req.customer?.region || ''),
+    customer: req.customer?.name || '',
+    phone: req.customer?.phone || '',
+    source: 'quote',
+    requestId: req.id,
+    status: 'scheduled',
+    memo: '',
+  };
+}

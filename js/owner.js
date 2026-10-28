@@ -17,6 +17,8 @@ import {
 } from './util.js';
 import { placeLabel, appliedText } from './areaLookup.js';
 import { subscribeStaff, renderSchedule } from './staffAdmin.js';
+import { subscribeJobs, ensureQuoteJob } from './jobsAdmin.js';
+import { jobFromRequest, shiftDate } from './schedule.js';
 
 registerSW();
 
@@ -25,6 +27,7 @@ const S = {
   user: null, shop: null, tpl: null, priceTable: null,
   requests: new Map(), filter: 'all', tab: 'home', unsub: null, detail: null,
   staff: null, unsubStaff: null, sched: {},
+  jobs: null, unsubJobs: null, jobWin: null, // 일정: 보고 있는 날짜 앞뒤 구간만 구독
 };
 
 if (!isConfigured) showFatal('Firebase 설정이 아직 없습니다. js/config.js 를 채운 뒤 다시 열어주세요. (배포.md 참고)');
@@ -35,6 +38,7 @@ window.addEventListener('hashchange', route);
 async function onUser(user) {
   S.unsub?.(); S.unsub = null;
   S.unsubStaff?.(); S.unsubStaff = null; S.staff = null;
+  S.unsubJobs?.(); S.unsubJobs = null; S.jobs = null; S.jobWin = null;
   S.user = user;
   if (!user) { renderLogin(); return; }
   setChildren(app, h('p.muted.center', {}, '불러오는 중…'));
@@ -87,6 +91,18 @@ function subscribeStaffList() {
   });
 }
 
+// 고른 날짜가 구독 구간(앞 7일 ~ 뒤 35일) 밖으로 나가면 다시 구독
+function ensureJobs(date) {
+  if (S.jobWin && date >= S.jobWin.from && date <= S.jobWin.to) return;
+  S.unsubJobs?.();
+  S.jobs = null;
+  S.jobWin = { from: shiftDate(date, -7), to: shiftDate(date, 35) };
+  S.unsubJobs = subscribeJobs(S.user.uid, S.jobWin.from, S.jobWin.to, (list) => {
+    S.jobs = list;
+    if (!S.detail && S.tab === 'schedule' && !document.querySelector('dialog[open]')) renderMain();
+  });
+}
+
 function subscribeRequests() {
   const q = query(collection(db, 'requests'), where('shopId', '==', S.user.uid));
   S.unsub = onSnapshot(q, (snap) => {
@@ -122,7 +138,11 @@ function renderMain() {
   app.classList.add('has-nav');
   const body = {
     home: renderHome, list: renderList, price: renderPriceForm, link: renderLinkTab, shop: renderShopForm,
-    schedule: () => renderSchedule({ shopId: S.user.uid, shopName: S.shop.name, staff: S.staff, st: S.sched, rerender: renderMain }),
+    schedule: () => {
+      S.sched.date = S.sched.date || toDateStr(new Date());
+      ensureJobs(S.sched.date);
+      return renderSchedule({ shopId: S.user.uid, shopName: S.shop.name, staff: S.staff, jobs: S.jobs, st: S.sched, rerender: renderMain });
+    },
   }[S.tab] || renderHome;
   setChildren(app,
     appBar(),
@@ -530,12 +550,29 @@ function statusActions(req) {
     const batch = writeBatch(db);
     batch.update(doc(db, 'requests', req.id), { status, updatedAt: serverTimestamp() });
     if (req.quoteId) batch.update(doc(db, 'quotes', req.quoteId), { status, updatedAt: serverTimestamp() });
-    return batch.commit().then(() => toast(`'${STATUS[status].label}'(으)로 바꿨어요.`)).catch((e) => toast(e.message));
+    return batch.commit()
+      .then(() => (status === 'confirmed' ? addQuoteJob(req) : toast(`'${STATUS[status].label}'(으)로 바꿨어요.`)))
+      .catch((e) => toast(e.message));
   };
   return h('span.status-actions', {},
     req.status !== 'confirmed' && req.status !== 'new' ? h('button.btn.small.ok', { onclick: () => set('confirmed') }, '계약확정') : null,
     req.status !== 'hold' ? h('button.btn.small.ghost', { onclick: () => set('hold') }, '보류') : null,
     req.status === 'hold' ? h('button.btn.small.ghost', { onclick: () => set(req.quoteId ? 'sent' : 'new') }, '보류 해제') : null);
+}
+
+// 계약확정 → 일정 자동 등록 (설계도 10-1장 ②단계). 인원·시간은 견적의 인력 예상값
+async function addQuoteJob(req) {
+  let labor = null;
+  try { labor = calculateQuote(S.tpl, S.priceTable, req).labor; } catch { /* 템플릿 불일치 → 기본값 */ }
+  const job = jobFromRequest(req, { templateName: S.tpl.name, labor, sizeText: requestSummary(req).size });
+  try {
+    const r = await ensureQuoteJob(S.user.uid, job);
+    toast({
+      created: `계약확정! ${job.date} ${job.start} 일정에 등록했어요. 일정 탭에서 직원을 배정하세요.`,
+      exists: '계약확정했어요. (일정은 이미 등록되어 있어요)',
+      nodate: '계약확정했어요. 희망일이 없어 일정은 일정 탭에서 직접 등록해주세요.',
+    }[r], 3500);
+  } catch (e) { toast(`계약확정은 됐지만 일정 등록 실패: ${e.message}`, 4000); }
 }
 
 function renderDetail() {
