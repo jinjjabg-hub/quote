@@ -78,10 +78,11 @@ service cloud.firestore {
       // 연결: 초대 링크의 무작위 값(inviteToken)을 inviteProof 로 보내 맞을 때만 자기 uid 를 넣을 수 있다.
       match /staff/{staffId} {
         function dateList(v) { return v is list && v.size() <= 400; }
+        function tokenList(v) { return v is list && v.size() <= 5; } // 알림 받을 기기 (③단계)
         function validStaff() {
           let d = request.resource.data;
           return d.keys().hasOnly(['name', 'phone', 'type', 'weeklyOff', 'offDates', 'availDates', 'active', 'memo',
-                                   'inviteToken', 'inviteProof', 'uid', 'linkedAt', 'createdAt', 'updatedAt'])
+                                   'inviteToken', 'inviteProof', 'uid', 'linkedAt', 'pushTokens', 'createdAt', 'updatedAt'])
             && str(d.name, 30) && d.name.size() > 0
             && (!('phone' in d) || str(d.phone, 30))
             && d.type in ['employee', 'freelancer']
@@ -90,12 +91,14 @@ service cloud.firestore {
             && (!('availDates' in d) || dateList(d.availDates))
             && (!('active' in d) || d.active is bool)
             && (!('memo' in d) || str(d.memo, 200))
+            && (!('pushTokens' in d) || tokenList(d.pushTokens))
             && str(d.inviteToken, 64) && d.inviteToken.size() >= 16;
         }
         function isSelf() { return signedIn() && resource.data.get('uid', null) == request.auth.uid; }
         function selfEdit() {
           let d = request.resource.data;
-          return d.diff(resource.data).affectedKeys().hasOnly(['offDates', 'availDates', 'updatedAt'])
+          return d.diff(resource.data).affectedKeys().hasOnly(['offDates', 'availDates', 'pushTokens', 'updatedAt'])
+            && (!('pushTokens' in d) || tokenList(d.pushTokens))
             && (!('offDates' in d) || dateList(d.offDates))
             && (!('availDates' in d) || dateList(d.availDates));
         }

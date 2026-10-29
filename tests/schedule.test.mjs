@@ -109,3 +109,42 @@ test('견적 요청 → 일정: 희망일·시간대·인력 예상으로, 날�
   assert.equal(jobFromRequest({ ...req, answers: { timeSlot: 'am' } }), null);
   assert.deepEqual([jobFromRequest({ id: 'r2', answers: { date: D } }).start, jobFromRequest({ id: 'r2', answers: { date: D } }).crew], ['09:00', 2], '정보가 없으면 9시·2명×4시간');
 });
+
+// ③단계: 자동 배정 제안
+import { suggestCrew, suggestDay } from '../js/schedule.js';
+
+const W = '2026-11-05'; // 목요일
+const e1 = { id: 'e1', name: '가정규', type: 'employee', weeklyOff: [] };
+const e2 = { id: 'e2', name: '나정규', type: 'employee', weeklyOff: [] };
+const e3 = { id: 'e3', name: '다정규', type: 'employee', weeklyOff: [4] }; // 목 정기 휴무
+const f1 = { id: 'f1', name: '라프리', type: 'freelancer', availDates: [W] };
+const crew = [e1, e2, e3, f1];
+
+test('추천: 정규 먼저, 휴무 제외, 프리랜서는 빈자리', () => {
+  const j = { id: 'j', date: W, start: '09:00', hours: 4, crew: 3, staffIds: [] };
+  const s = suggestCrew(j, crew, [j]);
+  assert.deepEqual(s.staffIds, ['e1', 'e2', 'f1']);
+  assert.equal(s.missing, 0);
+  const big = suggestCrew({ ...j, crew: 5 }, crew, [j]);
+  assert.equal(big.missing, 2, '출근 3명뿐 → 2명 모자람');
+});
+
+test('추천: 이미 배정된 사람은 그대로, 그 주에 일이 적은 사람 먼저', () => {
+  const past = { id: 'p', date: '2026-11-03', start: '09:00', hours: 8, crew: 1, staffIds: ['e1'] }; // 가정규는 이번 주 8시간
+  const j = { id: 'j', date: W, start: '09:00', hours: 4, crew: 2, staffIds: ['f1'] };
+  const s = suggestCrew(j, crew, [past, j]);
+  assert.deepEqual(s.staffIds, ['f1', 'e2']);
+  assert.deepEqual(s.added.map((x) => x.name), ['나정규']);
+});
+
+test('하루 전체 추천: 이른 일정부터, 앞에서 고른 사람은 겹치는 일정에 안 넣음', () => {
+  const a = { id: 'a', date: W, start: '09:00', hours: 4, crew: 2, staffIds: [] };
+  const b = { id: 'b', date: W, start: '10:00', hours: 2, crew: 2, staffIds: [] }; // a 와 겹침
+  const c = { id: 'c', date: W, start: '18:00', hours: 2, crew: 1, staffIds: ['e1'] }; // 이미 다 참
+  const out = suggestDay([b, c, a], crew, W);
+  assert.deepEqual(out.map((o) => o.job.id), ['a', 'b']);
+  assert.deepEqual(out[0].staffIds, ['e2', 'e1'], '가정규는 그날 이미 2시간 → 나정규 먼저');
+  assert.deepEqual(out[1].staffIds, ['f1']);
+  assert.equal(out[1].missing, 1);
+  assert.equal(out[0].job, a, '원래 일정 객체를 돌려줌');
+});

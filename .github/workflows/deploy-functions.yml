@@ -23,7 +23,7 @@ env:
   GCP_WIF_PROVIDER: projects/700989757565/locations/global/workloadIdentityPools/github/providers/github-quote
   GCP_DEPLOY_SA: github-deploy@quote-640f4.iam.gserviceaccount.com
   # 배포할 함수 목록. 새 함수를 만들면 여기에 추가 (목록에 없는 함수는 건드리지 않음)
-  FUNCTIONS: functions:areaLookup
+  FUNCTIONS: functions:areaLookup,functions:notifyJob
 
 jobs:
   deploy:
