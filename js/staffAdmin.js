@@ -1,8 +1,9 @@
-// 사장님 화면 "일정" 탭 — ①단계: 직원·근무 설정 (설계도 10-1장)
+// 사장님 화면 "일정" 탭 — ①단계: 직원·근무 설정 (설계도 10-1장). 일정(②단계)은 jobsAdmin.js
 // 날짜별 출근 명단, 7일 근무표(칸을 누르면 개인 휴무/프리랜서 가능일 전환), 직원 등록·수정, 초대 링크.
 import { db, doc, collection, setDoc, updateDoc, onSnapshot, serverTimestamp } from './firebase.js';
 import { h, icon, toast, copyText, pageUrl, setChildren } from './util.js';
 import { toDateStr } from './calc.js';
+import { renderJobs } from './jobsAdmin.js';
 import { WEEKDAYS, dayOfWeek, shiftDate, dateRange, workStatus, roster, toggleDay, pruneDates, newToken } from './schedule.js';
 
 const today = () => toDateStr(new Date());
@@ -19,38 +20,57 @@ export function subscribeStaff(shopId, onChange) {
 }
 
 /**
- * @param ctx { shopId, shopName, staff: [] | null, st: { date }, rerender }
+ * @param ctx { shopId, shopName, staff: [] | null, jobs: [] | null, st: { date, view }, rerender }
+ * view: 'jobs' 일정(②단계) | 'staff' 직원·근무(①단계)
  */
 export function renderSchedule(ctx) {
   const { staff, st } = ctx;
   st.date = st.date || today();
+  st.view = st.view || 'jobs';
   if (!staff) return h('p.muted.center', {}, '직원 목록을 불러오는 중…');
   const go = (n) => { st.date = n === 0 ? today() : shiftDate(st.date, n); ctx.rerender(); };
-  const active = staff.filter((s) => s.active !== false);
-  const r = roster(staff, st.date);
+  const views = [['jobs', '일정', 'event'], ['staff', '직원·근무', 'group']];
 
   return h('section', {},
+    h('div.choices.view-tabs', { role: 'tablist' }, views.map(([k, l, ic]) => h(`button.chip.small${st.view === k ? '.on' : ''}`, {
+      type: 'button', role: 'tab', 'aria-selected': st.view === k, onclick: () => { st.view = k; ctx.rerender(); },
+    }, icon(ic), l))),
     h('div.card', {},
       h('div.sched-nav', {},
         h('button.btn.soft.icon', { type: 'button', 'aria-label': '전날', onclick: () => go(-1) }, icon('chevron_left')),
         h('div.grow.center', {}, h('b', {}, dayLabel(st.date)), st.date === today() ? h('div.small.muted', {}, '오늘') : null),
         h('button.btn.soft.icon', { type: 'button', 'aria-label': '다음날', onclick: () => go(1) }, icon('chevron_right'))),
-      st.date !== today() ? h('div.center', {}, h('button.link', { type: 'button', onclick: () => go(0) }, '오늘로')) : null,
-      h('div.sched-count', {}, h('span', {}, '출근'), h('b', {}, `${r.working.length}명`), h('span.muted', {}, ` / 재직 ${active.length}명`)),
-      r.working.length
-        ? h('div.staff-chips', {}, r.working.map((s) => h('span.staff-chip', {}, s.name, s.type === 'freelancer' ? h('span.mini-tag', {}, '프리') : null)))
-        : h('p.muted.small', {}, active.length ? '이날 출근하는 사람이 없어요.' : '아래에서 직원을 먼저 등록하세요.'),
-      r.off.length ? h('div.off-list', {}, h('div.small.muted', {}, '쉬는 사람'),
-        r.off.map((o) => h('div.off-row', {}, h('span', {}, o.staff.name), h('span.muted.small', {}, o.reason)))) : null),
+      h('div.sched-jump', {},
+        st.date !== today() ? h('button.link', { type: 'button', onclick: () => go(0) }, '오늘로') : null,
+        h('input.input.small', { type: 'date', value: st.date, 'aria-label': '날짜 바로 가기', onchange: (e) => { if (e.target.value) { st.date = e.target.value; ctx.rerender(); } } })),
+      st.view === 'staff' ? renderRoster(staff, st.date) : null),
+    st.view === 'jobs' ? renderJobs(ctx) : renderStaffView(ctx));
+}
 
+function renderRoster(staff, date) {
+  const active = staff.filter((s) => s.active !== false);
+  const r = roster(staff, date);
+  return [
+    h('div.sched-count', {}, h('span', {}, '출근'), h('b', {}, `${r.working.length}명`), h('span.muted', {}, ` / 재직 ${active.length}명`)),
+    r.working.length
+      ? h('div.staff-chips', {}, r.working.map((s) => h('span.staff-chip', {}, s.name, s.type === 'freelancer' ? h('span.mini-tag', {}, '프리') : null)))
+      : h('p.muted.small', {}, active.length ? '이날 출근하는 사람이 없어요.' : '아래에서 직원을 먼저 등록하세요.'),
+    r.off.length ? h('div.off-list', {}, h('div.small.muted', {}, '쉬는 사람'),
+      r.off.map((o) => h('div.off-row', {}, h('span', {}, o.staff.name), h('span.muted.small', {}, o.reason)))) : null,
+  ];
+}
+
+function renderStaffView(ctx) {
+  const { staff } = ctx;
+  const active = staff.filter((s) => s.active !== false);
+  return h('div', {},
     active.length ? renderWeek(ctx, active) : null,
-
     h('div.section-head', {}, h('h2', {}, icon('group'), ' 직원 ', h('span.pill-count', {}, active.length)),
       h('button.btn.primary.small', { type: 'button', onclick: () => openStaffForm(ctx, null) }, icon('person_add'), '직원 추가')),
     staff.length ? h('ul.staff-list', {}, staff.map((s) => renderStaffRow(ctx, s)))
       : h('div.card.empty', {}, h('p', {}, h('b', {}, '등록된 직원이 없어요.')),
         h('p.muted', {}, '정규 직원은 정기 휴무 요일을, 프리랜서는 일할 수 있는 날을 기준으로 출근을 계산해요.')),
-    h('p.footer-note', {}, '직원에게 초대 링크를 보내면 본인이 휴무일(프리랜서는 가능일)을 직접 설정할 수 있어요.\n일정 배정·알림은 다음 단계에서 붙습니다.'));
+    h('p.footer-note', {}, '직원에게 초대 링크를 보내면 본인이 휴무일(프리랜서는 가능일)을 직접 설정할 수 있어요.\n배정된 직원에게 알림 보내기는 다음 단계에서 붙습니다.'));
 }
 
 // 7일 근무표: 칸을 누르면 정규는 개인 휴무, 프리랜서는 가능일을 켜고 끈다 (정기 휴무 요일은 직원 정보에서)
