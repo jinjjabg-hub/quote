@@ -398,11 +398,47 @@ try {
   assert.equal(auto.source, 'quote');
   assert.ok(auto.crew >= 1 && auto.hours > 0, '견적의 인력 예상값');
   assert.match(auto.title, /입주청소/);
+
+  // 6d) 예약 확정 안내 (설계도 10-2장): 계약확정하면 바로 안내 창 → 고객 견적서 맨 위에 확정 카드
+  step('6d) 확정 안내: 계약확정 → 안내 창(날짜·시간·인원·준비사항) → 고객 견적서에 확정 카드, 내부 정보 없음');
+  const bk = owner.locator('dialog.booking-form');
+  await bk.waitFor();
+  assert.equal(await bk.locator('input[type=date]').inputValue(), '2026-10-21');
+  assert.match(await bk.locator('textarea').inputValue(), /전기·수도/, '업종 기본 준비사항');
+  await bk.locator('textarea').fill('전기·수도 확인\n- 주차는 지하 2층');
+  await bk.getByRole('button', { name: /안내 만들기/ }).click();
+  await bk.getByText('확정 안내가 준비됐어요').waitFor();
+  const bkMsg = await bk.locator('pre.msg').innerText();
+  assert.match(bkMsg, /예약이 확정되었습니다/);
+  assert.match(bkMsg, /10월 21일 \(수\) \d{2}:\d{2} 도착/);
+  assert.match(bkMsg, /- 주차는 지하 2층/);
+  assert.match(bkMsg, /view\.html\?id=/);
+  assert.doesNotMatch(bkMsg, /주차 확인 필요|김정규|박프리/, '내부 메모·직원 이름 없음');
+  await shot(owner, '12i-booking-sheet');
+  await bk.getByRole('button', { name: '닫기' }).click();
+  await view.reload();
+  await view.locator('.booking-card').waitFor();
+  const card = await view.locator('.booking-card').innerText();
+  assert.match(card, /예약이 확정되었어요/);
+  assert.match(card, /10월 21일 \(수\)/);
+  assert.match(card, /주차는 지하 2층/);
+  assert.match(card, new RegExp(`${auto.crew}명이 방문해요`));
+  await view.getByRole('button', { name: '예약 확정 ✓' }).waitFor();
+  assert.doesNotMatch(await view.locator('body').innerText(), /주차 확인 필요|김정규|박프리|숨고/, '고객 화면에 내부 정보 없음');
+  await noLeak(view, '확정 안내 견적서');
+  await shot(view, '12j-customer-booking');
   await owner.getByRole('button', { name: '뒤로 가기' }).click();
   await owner.getByRole('button', { name: '일정', exact: true }).click();
   await owner.getByLabel('날짜 바로 가기').fill('2026-10-21');
   await owner.locator('.job-card', { hasText: '견적앱' }).waitFor({ timeout: 10000 });
   assert.match(await owner.locator('.job-card', { hasText: '견적앱' }).innerText(), new RegExp(`${auto.crew}명 중 0명 배정`));
+  // 일정 탭에서 시간을 바꾸면 고객 확정 안내도 따라 바뀜
+  await owner.locator('.job-card', { hasText: '견적앱' }).click();
+  await jobForm.getByRole('button', { name: '14:00' }).click();
+  await jobForm.getByRole('button', { name: '저장' }).click();
+  await owner.getByText(/고객 확정 안내도 바뀐 시간으로/).waitFor({ timeout: 10000 });
+  await view.reload();
+  await view.locator('.booking-card', { hasText: '14:00 도착' }).waitFor();
 
   // 7) 개발자 모드: 업종 시뮬레이터
   step('7) 개발자 모드: 업종 시뮬레이터 6개 업종 모두 계산·점검 통과, 값 바꾸면 결과 변경');
