@@ -5,6 +5,7 @@ import { h, icon, toast, setChildren, telHref } from './util.js';
 import {
   SOURCES, DAY_START, DAY_END, TRAVEL_MIN, toMin, jobEnd, jobsOn, crewStatus, candidatesFor, boardRows, blockPos,
 } from './schedule.js';
+import { syncBooking } from './bookingAdmin.js';
 
 const START_CHIPS = ['08:00', '09:00', '10:00', '13:00', '14:00'];
 const HOUR_CHIPS = [2, 3, 4, 5, 6, 8];
@@ -169,7 +170,9 @@ export function openJobForm(ctx, job) {
     try {
       if (job) await updateDoc(doc(db, 'shops', ctx.shopId, 'jobs', job.id), data);
       else await setDoc(doc(collection(db, 'shops', ctx.shopId, 'jobs')), { ...data, createdAt: serverTimestamp() });
-      toast(job ? '저장했어요.' : '일정을 등록했어요.');
+      // 견적앱 일정이면 고객 견적서의 확정 안내도 같은 날짜·시간으로 (설계도 10-2장)
+      const changed = job?.requestId ? await syncBooking({ ...job, ...data }).catch(() => false) : false;
+      toast(changed ? '저장했어요. 고객 확정 안내도 바뀐 시간으로 고쳤어요 — 고객에게 다시 알려주세요.' : job ? '저장했어요.' : '일정을 등록했어요.', changed ? 4500 : 2200);
       ctx.st.date = f.date; // 다른 날로 등록했으면 그날로 이동
       close();
     } catch (e) { toast(`저장 실패: ${e.message}`); btn.disabled = false; }
@@ -184,7 +187,8 @@ export function openJobForm(ctx, job) {
     try {
       if (job.source === 'quote') await updateDoc(doc(db, 'shops', ctx.shopId, 'jobs', job.id), { status: 'canceled', updatedAt: serverTimestamp() });
       else await deleteDoc(doc(db, 'shops', ctx.shopId, 'jobs', job.id));
-      toast(job.source === 'quote' ? '일정을 취소했어요.' : '일정을 삭제했어요.'); close();
+      const changed = job.requestId ? await syncBooking(job, { canceled: true }).catch(() => false) : false;
+      toast(changed ? '일정을 취소했어요. 고객 견적서에도 "취소"로 표시돼요 — 고객에게 연락해주세요.' : job.source === 'quote' ? '일정을 취소했어요.' : '일정을 삭제했어요.', changed ? 4500 : 2200); close();
     } catch (e) { toast(`실패: ${e.message}`); }
   };
   draw();

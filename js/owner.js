@@ -18,6 +18,7 @@ import {
 import { placeLabel, appliedText } from './areaLookup.js';
 import { subscribeStaff, renderSchedule } from './staffAdmin.js';
 import { subscribeJobs, ensureQuoteJob } from './jobsAdmin.js';
+import { openBookingSheet } from './bookingAdmin.js';
 import { jobFromRequest, shiftDate } from './schedule.js';
 
 registerSW();
@@ -551,11 +552,12 @@ function statusActions(req) {
     batch.update(doc(db, 'requests', req.id), { status, updatedAt: serverTimestamp() });
     if (req.quoteId) batch.update(doc(db, 'quotes', req.quoteId), { status, updatedAt: serverTimestamp() });
     return batch.commit()
-      .then(() => (status === 'confirmed' ? addQuoteJob(req) : toast(`'${STATUS[status].label}'(으)로 바꿨어요.`)))
+      .then(() => (status === 'confirmed' ? addQuoteJob(req).then(() => openBooking(req)) : toast(`'${STATUS[status].label}'(으)로 바꿨어요.`)))
       .catch((e) => toast(e.message));
   };
   return h('span.status-actions', {},
     req.status !== 'confirmed' && req.status !== 'new' ? h('button.btn.small.ok', { onclick: () => set('confirmed') }, '계약확정') : null,
+    req.status === 'confirmed' ? h('button.btn.small.ok', { onclick: () => openBooking(req) }, '확정 안내') : null,
     req.status !== 'hold' ? h('button.btn.small.ghost', { onclick: () => set('hold') }, '보류') : null,
     req.status === 'hold' ? h('button.btn.small.ghost', { onclick: () => set(req.quoteId ? 'sent' : 'new') }, '보류 해제') : null);
 }
@@ -574,6 +576,15 @@ async function addQuoteJob(req) {
     }[r], 3500);
   } catch (e) { toast(`계약확정은 됐지만 일정 등록 실패: ${e.message}`, 4000); }
 }
+
+// 고객에게 예약 확정 안내 (설계도 10-2장)
+function openBooking(req) {
+  let labor = null;
+  try { labor = calculateQuote(S.tpl, S.priceTable, req).labor; } catch { /* 기본값 */ }
+  return openBookingSheet({ shopId: S.user.uid, shop: S.shop, tpl: S.tpl, req: currentReqFor(req), labor, sizeText: requestSummary(req).size })
+    .catch((e) => toast(`확정 안내 창을 열지 못했어요: ${e.message}`, 4000));
+}
+const currentReqFor = (req) => S.requests.get(req.id) || req;
 
 function renderDetail() {
   app.classList.remove('has-nav');
@@ -637,9 +648,14 @@ function renderDetail() {
         : h('p.muted', {}, '사진 없음. 현장 추가요금 조건을 꼼꼼히 적어주세요.')),
     renderQuoteEditor(req),
     renderOwnerMemo(req),
-    h('div.dock', {},
-      h('button.btn.primary', { onclick: (e) => sendQuote(req, e.currentTarget) }, icon('send'), req.quoteId ? '견적서 다시 보내기' : '견적서 보내기'),
-      h('div.dock-note', {}, h('span', {}, '견적서 링크 + 안내 문구 생성'), h('span', {}, '카톡·문자로 전달'))),
+    req.status === 'confirmed'
+      // 계약확정 뒤에는 견적서를 다시 만들면 확정 내용이 지워지므로, 아래 버튼은 확정 안내로 바꾼다
+      ? h('div.dock', {},
+        h('button.btn.primary', { onclick: () => openBooking(req) }, icon('event_available'), '고객에게 확정 안내'),
+        h('div.dock-note', {}, h('span', {}, '방문 날짜·시간·준비사항'), h('span', {}, '견적서 링크에 표시')))
+      : h('div.dock', {},
+        h('button.btn.primary', { onclick: (e) => sendQuote(req, e.currentTarget) }, icon('send'), req.quoteId ? '견적서 다시 보내기' : '견적서 보내기'),
+        h('div.dock-note', {}, h('span', {}, '견적서 링크 + 안내 문구 생성'), h('span', {}, '카톡·문자로 전달'))),
   );
   renderDetailStatus();
 }
@@ -763,6 +779,7 @@ async function sendQuote(req, btn) {
   const d = S.detail;
   const pt = S.priceTable;
   const t = finalizeLines(d.lines, pt.policy.depositPct);
+  if (currentReq().status === 'confirmed' && !confirm('계약확정된 요청이에요. 견적서를 다시 만들면 고객 확정 안내가 지워지고 상태가 "견적발송"으로 돌아가요. 계속할까요?')) return;
   if (!S.shop.name || !S.shop.phone) { toast('업체 정보(상호·연락처)를 먼저 저장해주세요.'); return; }
   if (!confirm(`합계 ${formatWon(t.total)} (계약금 ${formatWon(t.deposit)})\n이 금액으로 견적서를 만들까요?`)) return;
   btn.disabled = true;

@@ -4,6 +4,7 @@ import { db, doc, getDoc, writeBatch, serverTimestamp, isConfigured } from './fi
 import { formatWon, toDateStr } from './calc.js';
 import { $, h, toast, registerSW, showFatal, telHref, manduHref, setChildren, icon, footerNote } from './util.js';
 import { appConfig } from './config.js';
+import { dateKo, timeKo } from './booking.js';
 
 registerSW();
 
@@ -34,6 +35,7 @@ function render() {
         h('div.shop-name', {}, q.shop?.name || ''),
         h('div.shop-sub', {}, [q.shop?.ownerName && `대표 ${q.shop.ownerName}`, q.shop?.bizNo && `사업자 ${q.shop.bizNo}`].filter(Boolean).join(' · ')))),
     q.test ? h('div.test-banner', {}, '🧪 테스트 견적서입니다. 실제 견적이 아닙니다.') : null,
+    bookingCard(q),
 
     h('section.card', {},
       h('div.quote-title', {},
@@ -72,6 +74,26 @@ function render() {
   );
 }
 
+// 예약 확정 안내 (설계도 10-2장): 사장님이 "확정 안내"를 보내면 같은 링크 맨 위에 표시
+function bookingCard(q) {
+  const b = q.booking;
+  if (!b) return null;
+  if (b.canceled) {
+    return h('section.card.booking-card.canceled', {},
+      h('div.booking-head', {}, icon('event_busy'), h('b', {}, '예약 일정이 취소되었어요')),
+      h('p', {}, '자세한 내용은 업체에 전화로 문의해주세요.'));
+  }
+  if (q.status !== 'confirmed') return null;
+  return h('section.card.booking-card', {},
+    h('div.booking-head', {}, icon('event_available', true), h('b', {}, '예약이 확정되었어요')),
+    h('div.booking-when', {}, dateKo(b.date)),
+    h('div.booking-time', {}, timeKo(b)),
+    b.crew ? h('div.booking-crew', {}, icon('group'), ` ${b.crew}명이 방문해요`) : null,
+    b.notice?.length ? h('div.booking-notice', {}, h('b', {}, '준비해주실 것'),
+      h('ul.mark-list', {}, b.notice.map((n) => h('li', {}, icon('check_circle'), h('span', {}, n))))) : null,
+    h('p.small.muted', {}, '일정 변경은 아래 "전화" 버튼으로 업체에 말씀해주세요.'));
+}
+
 function section(title, items, cls) {
   if (!items?.length) return null;
   const mark = cls === 'ok' ? 'check_circle' : 'cancel';
@@ -79,9 +101,8 @@ function section(title, items, cls) {
 }
 
 function bookingButton(expired) {
-  if (quote.status === 'booking_requested' || quote.status === 'confirmed') {
-    return h('button.btn.primary', { disabled: true }, '예약 요청 완료 ✓');
-  }
+  if (quote.status === 'confirmed') return h('button.btn.primary', { disabled: true }, '예약 확정 ✓');
+  if (quote.status === 'booking_requested') return h('button.btn.primary', { disabled: true }, '예약 요청 완료 ✓');
   if (expired) return h('button.btn.primary', { disabled: true }, '유효기간이 지났어요 · 전화 문의');
   return h('button.btn.primary', {
     onclick: async (e) => {

@@ -590,6 +590,15 @@ tr.total td { text-align: center; color: var(--primary-deep); }
 .staff-row .badge { margin-left: 6px; font-size: .75rem; }
 .staff-row.inactive { opacity: .6; }
 .choices.days .chip { min-width: 46px; justify-content: center; padding: 0 10px; }
+.booking-card { border: 2px solid var(--ok); background: #f0fdf7; }
+.booking-card.canceled { border-color: var(--danger); background: #fff5f5; }
+.booking-head { display: flex; align-items: center; gap: 8px; color: var(--ok-deep); font-size: 1.1rem; }
+.booking-card.canceled .booking-head { color: var(--danger); }
+.booking-when { font-size: 1.5rem; font-weight: 800; margin: 10px 0 2px; }
+.booking-time { font-weight: 700; color: var(--primary-deep); }
+.booking-crew { display: flex; align-items: center; gap: 4px; margin-top: 6px; color: var(--muted); }
+.booking-notice { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.booking-form textarea.input { min-height: 110px; }
 .view-tabs { margin: 4px 0 12px; }
 .view-tabs .chip { flex: 1; justify-content: center; gap: 6px; }
 .sched-jump { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 8px; }
