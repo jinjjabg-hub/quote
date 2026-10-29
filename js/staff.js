@@ -6,6 +6,7 @@ import {
 } from './firebase.js';
 import { $, h, toast, registerSW, showFatal, setChildren, icon, footerNote } from './util.js';
 import { toDateStr } from './calc.js';
+import { pushReady, pushState, enablePush, thisDeviceToken } from './push.js';
 import { WEEKDAYS, dayOfWeek, monthDates, workStatus, toggleDay, pruneDates, shiftDate } from './schedule.js';
 
 registerSW();
@@ -95,6 +96,7 @@ function render() {
     h('header.appbar', {},
       h('div.grow', {}, h('div.brand', {}, S.shopName || '비즈마이 견적'), h('div.title', {}, `${me.name}님 근무 일정`)),
       h('button.avatar', { type: 'button', title: '로그아웃', 'aria-label': '로그아웃', onclick: () => { if (confirm('로그아웃할까요?')) signOut(auth); } }, icon('logout'))),
+    renderPush(me),
     h('div.notice', {}, free
       ? h('p', {}, h('b', {}, '일할 수 있는 날을 눌러 주세요.'), '\n누른 날만 일정 배정 대상이 돼요. 다시 누르면 취소돼요.')
       : h('p', {}, h('b', {}, '쉬고 싶은 날을 눌러 주세요.'), `\n정기 휴무: ${(me.weeklyOff || []).length ? [...me.weeklyOff].sort().map((i) => WEEKDAYS[i]).join('·') : '없음'} (사장님 설정)`)),
@@ -108,7 +110,32 @@ function render() {
         Array.from({ length: lead }, () => h('div.cal-blank')),
         days.map(cell)),
       h('p.small.muted', {}, free ? '파란 칸 = 일할 수 있는 날' : '파란 칸 = 근무 · 회색 = 휴무 · 정휴 = 정기 휴무(사장님만 변경)')),
-    h('p.footer-note', {}, '일정이 배정되면 이 화면과 알림으로 알려드려요 (준비 중).'));
+    h('p.footer-note', {}, '일정이 배정·변경·취소되면 휴대폰 알림으로 알려드려요.'));
+}
+
+// 일정 알림 받기 (설계도 10-1장 ③단계)
+function renderPush(me) {
+  if (!pushReady()) return null; // 사장님 쪽 알림 설정 전
+  const st = pushState();
+  const on = st === 'granted' && (me.pushTokens || []).includes(thisDeviceToken());
+  const card = (cls, ic, title, ...rest) => h(`section.card.push-card.${cls}`, {}, h('div.push-head', {}, icon(ic, cls === 'on'), h('b', {}, title)), ...rest);
+  if (on) return card('on', 'notifications_active', '이 휴대폰으로 일정 알림을 받고 있어요');
+  if (st === 'ios-install') {
+    return card('off', 'notifications_off', '아이폰은 홈 화면에 추가해야 알림을 받아요',
+      h('p.small', {}, '사파리 아래 공유 버튼(□↑) → "홈 화면에 추가" → 홈 화면의 "근무" 앱을 열고 여기서 "알림 받기"를 눌러주세요. (iOS 16.4 이상)'));
+  }
+  if (st === 'unsupported') return card('off', 'notifications_off', '이 브라우저는 알림을 지원하지 않아요', h('p.small', {}, '크롬이나 삼성 인터넷으로 이 링크를 열어주세요.'));
+  if (st === 'denied') return card('off', 'notifications_off', '알림이 차단돼 있어요', h('p.small', {}, '휴대폰 설정 → 알림 → 이 앱(또는 브라우저)의 알림을 켠 뒤 다시 열어주세요.'));
+  return card('off', 'notifications', '일정이 배정되면 알림으로 받을까요?',
+    h('p.small', {}, '새 일정·시간 변경·취소를 바로 알려드려요.'),
+    h('button.btn.primary.block', {
+      type: 'button',
+      onclick: async (e) => {
+        e.currentTarget.disabled = true;
+        try { await enablePush(S.shopId, S.staffId, me.pushTokens || []); toast('알림을 켰어요.'); render(); }
+        catch (err) { toast(err.message, 4000); render(); }
+      },
+    }, icon('notifications'), '알림 받기'));
 }
 
 async function toggle(d) {

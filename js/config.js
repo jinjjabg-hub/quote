@@ -22,3 +22,11 @@ export const areaLookupConfig = {
   url: 'https://asia-northeast3-quote-640f4.cloudfunctions.net/areaLookup',
   enabled: false,
 };
+
+// 일정 배정 알림 (설계도 10-1장 ③단계). 직원 휴대폰 푸시(FCM).
+// vapidKey: Firebase 콘솔 → 프로젝트 설정 → 클라우드 메시징 → 웹 푸시 인증서 → "키 쌍 생성"의 공개 키 (비밀값 아님).
+// 비어 있으면 직원 화면의 "알림 받기"와 알림 발송이 꺼져 있다.
+export const pushConfig = {
+  vapidKey: '',
+  notifyUrl: 'https://asia-northeast3-quote-640f4.cloudfunctions.net/notifyJob',
+};

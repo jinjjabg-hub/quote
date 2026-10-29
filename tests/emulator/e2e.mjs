@@ -440,6 +440,54 @@ try {
   await view.reload();
   await view.locator('.booking-card', { hasText: '14:00 도착' }).waitFor();
 
+  // 6e) ③단계: 추천 배정 + 직원 알림 (서버 함수는 가짜 응답으로 대신, 보낸 요청 내용을 확인)
+  step('6e) 추천 배정: 인원 부족 일정 한 번에 추천 → 배정 → 알림 요청, 추천할 사람이 없으면 안내, 직원 화면 "알림 받기"');
+  const notifyCalls = [];
+  await owner.route('**/notifyJob', async (route) => {
+    notifyCalls.push({ body: route.request().postDataJSON(), auth: route.request().headers().authorization || '' });
+    await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ ok: true, sent: ['김정규'], noToken: ['박프리'] }) });
+  });
+  await owner.evaluate(() => { globalThis.__pushTest = true; });
+  await owner.getByRole('button', { name: '오늘로' }).click();
+  await openNew();
+  await jobForm.getByRole('button', { name: '2명' }).click();
+  await jobForm.locator('input.time').fill('18:00');
+  await jobForm.locator('input.time').dispatchEvent('change');
+  await jobForm.locator('label.field', { hasText: '일 내용' }).locator('input').fill('저녁 사무실 청소');
+  await jobForm.getByRole('button', { name: '저장' }).click();
+  await owner.locator('.job-card', { hasText: '저녁 사무실 청소' }).waitFor();
+  await owner.getByText('인원이 모자란 일정 2건').waitFor();
+  await owner.getByRole('button', { name: /추천 배정/ }).click();
+  const sg = owner.locator('dialog.suggest-form');
+  await sg.waitFor();
+  assert.match(await sg.locator('.suggest-item', { hasText: '저녁 사무실 청소' }).innerText(), /\+ 김정규, 박프리/, '정규 먼저');
+  assert.match(await sg.locator('.suggest-item', { hasText: '현관 청소' }).innerText(), /1명 모자람/, '13시 일정은 겹쳐서 추천 불가');
+  await shot(owner, '12k-suggest-day');
+  notifyCalls.length = 0;
+  const applied = owner.waitForRequest('**/notifyJob');
+  await sg.getByRole('button', { name: '추천대로 배정' }).click();
+  await applied;
+  await owner.getByText('김정규님께 알림 보냄 · 박프리님은 알림 꺼짐 (전화로 알려주세요)').waitFor({ timeout: 10000 });
+  assert.equal(notifyCalls.length, 1);
+  assert.match(notifyCalls[0].auth, /^Bearer .+/, '로그인 토큰을 붙여 보냄');
+  const eveningId = await owner.evaluate(async () => {
+    const m = await import('./js/firebase.js');
+    const { getDocs, collection } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js');
+    const snap = await getDocs(collection(m.db, 'shops', m.auth.currentUser.uid, 'jobs'));
+    return snap.docs.find((d) => d.data().title === '저녁 사무실 청소').id;
+  });
+  assert.equal(notifyCalls[0].body.jobId, eveningId);
+  assert.match(await owner.locator('.job-card', { hasText: '저녁 사무실 청소' }).innerText(), /2명 배정 완료/);
+  await owner.locator('.job-card', { hasText: '현관 청소' }).click();
+  await jobForm.getByRole('button', { name: /추천으로 채우기/ }).click();
+  await owner.getByText('추천할 수 있는 직원이 없어요').waitFor();
+  await jobForm.getByRole('button', { name: '닫기' }).click();
+  await staffPage.evaluate(() => { globalThis.__pushTest = true; });
+  await staffPage.getByRole('button', { name: '다음 달' }).click(); // 다시 그리기
+  await staffPage.locator('.push-card').waitFor();
+  assert.match(await staffPage.locator('.push-card').innerText(), /알림 받기|지원하지 않아요|차단/);
+  await shot(staffPage, '12l-staff-push');
+
   // 7) 개발자 모드: 업종 시뮬레이터
   step('7) 개발자 모드: 업종 시뮬레이터 6개 업종 모두 계산·점검 통과, 값 바꾸면 결과 변경');
   const dev = await newPage();

@@ -160,6 +160,19 @@ test('일정: 사장님만 읽고 씀, 형식 검사 (직원·남은 못 읽음)
   await assertFails(getDoc(ref(staffCtx())), '직원 열람은 아직 닫혀 있음');
 });
 
+test('알림: 직원은 자기 기기 토큰(최대 5개)만 저장, 알림 기록(jobNotices)은 아무도 못 읽고 못 씀', async () => {
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'shops', OWNER, 'staff', 'p1'), newStaff({ uid: STAFF_UID })));
+  const ref = (db) => doc(db, 'shops', OWNER, 'staff', 'p1');
+  await assertSucceeds(updateDoc(ref(staffCtx()), { pushTokens: ['tok1'] }));
+  await assertFails(updateDoc(ref(staffCtx()), { pushTokens: ['1', '2', '3', '4', '5', '6'] }));
+  await assertFails(updateDoc(ref(other()), { pushTokens: ['x'] }));
+  await assertSucceeds(updateDoc(ref(owner()), { pushTokens: [] }), '사장님은 직원 문서 전체 수정 가능');
+  const note = (db) => doc(db, 'shops', OWNER, 'jobNotices', 'j1');
+  await assertFails(getDoc(note(owner())));
+  await assertFails(setDoc(note(owner()), { staff: {} }));
+  await assertFails(getDoc(note(staffCtx())));
+});
+
 test('Storage: 고객 사진 업로드 O, 읽기 X, 사장님 읽기 O', async () => {
   const img = new Uint8Array([1, 2, 3]);
   const path = `requests/${OWNER}/n1/bath.jpg`;

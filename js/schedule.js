@@ -184,3 +184,52 @@ export function jobFromRequest(req, { templateName = '', labor = null, sizeText 
     memo: '',
   };
 }
+
+// ---------- ③단계: 자동 배정 제안 (설계도 10-1장) ----------
+// 원칙: 앱은 "제안"만, 확정은 사장님. 정규 직원 먼저(프리랜서는 빈자리), 그날·그 주 일이 적은 사람 먼저.
+
+/** 직원별 일한 시간 (live 일정, 날짜 구간 [from, to]) */
+function hoursBy(jobs, from, to) {
+  const m = new Map();
+  for (const j of jobs) {
+    if (!live(j) || j.date < from || j.date > to) continue;
+    for (const id of j.staffIds || []) m.set(id, (m.get(id) || 0) + (Number(j.hours) || 0));
+  }
+  return m;
+}
+
+/**
+ * 한 일정의 모자란 자리를 채울 추천. 이미 배정된 사람은 그대로 둔다.
+ * @returns { staffIds: 추천 반영 후 전체, added: [staff], missing: 그래도 모자란 수 }
+ */
+export function suggestCrew(job, staffList, jobs, travel = TRAVEL_MIN) {
+  const have = [...new Set(job.staffIds || [])];
+  const need = Math.max(0, (Number(job.crew) || 0) - have.length);
+  const day = hoursBy(jobs.filter((j) => j.id !== job.id), job.date, job.date);
+  const week = hoursBy(jobs.filter((j) => j.id !== job.id), shiftDate(job.date, -6), job.date);
+  const pool = candidatesFor(job, staffList, jobs, travel)
+    .filter((c) => c.ok && !have.includes(c.staff.id))
+    .map((c) => c.staff)
+    .sort((a, b) => (a.type === 'freelancer') - (b.type === 'freelancer')
+      || (day.get(a.id) || 0) - (day.get(b.id) || 0)
+      || (week.get(a.id) || 0) - (week.get(b.id) || 0)
+      || String(a.name).localeCompare(b.name, 'ko'));
+  const added = pool.slice(0, need);
+  return { staffIds: [...have, ...added.map((s) => s.id)], added, missing: need - added.length };
+}
+
+/**
+ * 그날 인원이 모자란 일정 전체에 대한 추천 (이른 시간부터, 앞에서 고른 사람을 반영해 겹치지 않게)
+ * @returns [{ job, staffIds, added, missing }]  (추가할 사람이 없거나 모자라지 않은 일정은 빠짐, missing 만 있는 건 포함)
+ */
+export function suggestDay(jobs, staffList, dateStr, travel = TRAVEL_MIN) {
+  let work = jobs.map((j) => ({ ...j, staffIds: [...(j.staffIds || [])] }));
+  const out = [];
+  for (const job of jobsOn(work, dateStr)) {
+    if (crewStatus(job).short === 0) continue;
+    const s = suggestCrew(job, staffList, work, travel);
+    out.push({ job: jobs.find((j) => j.id === job.id), ...s });
+    work = work.map((j) => (j.id === job.id ? { ...j, staffIds: s.staffIds } : j));
+  }
+  return out;
+}

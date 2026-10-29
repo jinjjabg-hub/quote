@@ -70,7 +70,7 @@ function renderStaffView(ctx) {
     staff.length ? h('ul.staff-list', {}, staff.map((s) => renderStaffRow(ctx, s)))
       : h('div.card.empty', {}, h('p', {}, h('b', {}, '등록된 직원이 없어요.')),
         h('p.muted', {}, '정규 직원은 정기 휴무 요일을, 프리랜서는 일할 수 있는 날을 기준으로 출근을 계산해요.')),
-    h('p.footer-note', {}, '직원에게 초대 링크를 보내면 본인이 휴무일(프리랜서는 가능일)을 직접 설정할 수 있어요.\n배정된 직원에게 알림 보내기는 다음 단계에서 붙습니다.'));
+    h('p.footer-note', {}, '직원에게 초대 링크를 보내면 본인이 휴무일(프리랜서는 가능일)을 직접 설정할 수 있어요.\n일정을 배정하면 알림을 켠 직원에게 휴대폰 알림이 가요.'));
 }
 
 // 7일 근무표: 칸을 누르면 정규는 개인 휴무, 프리랜서는 가능일을 켜고 끈다 (정기 휴무 요일은 직원 정보에서)
@@ -109,7 +109,8 @@ function renderStaffRow(ctx, s) {
   return h(`li.staff-row${s.active === false ? '.inactive' : ''}`, {},
     h('div.grow', {},
       h('div', {}, h('b', {}, s.name), s.active === false ? h('span.badge', {}, '퇴사·비활성') : null,
-        s.uid ? h('span.badge.st-ok', {}, '연결됨') : h('span.badge', {}, '미연결')),
+        s.uid ? h('span.badge.st-ok', {}, '연결됨') : h('span.badge', {}, '미연결'),
+        s.uid ? h(`span.badge${s.pushTokens?.length ? '.st-ok' : ''}`, {}, s.pushTokens?.length ? '알림 켬' : '알림 꺼짐') : null),
       h('div.small.muted', {}, [off, s.phone].filter(Boolean).join(' · '))),
     s.uid || s.active === false ? null : h('button.btn.soft.small', { type: 'button', onclick: () => copyInvite(ctx, s) }, icon('link'), '초대 링크'),
     h('button.btn.ghost.small', { type: 'button', onclick: () => openStaffForm(ctx, s) }, '수정'));

@@ -3,7 +3,7 @@
 import { db, doc, getDoc, setDoc, updateDoc, serverTimestamp } from './firebase.js';
 import { h, icon, toast, copyText, pageUrl, setChildren } from './util.js';
 import { jobFromRequest } from './schedule.js';
-import { ensureQuoteJob } from './jobsAdmin.js';
+import { ensureQuoteJob, notifyAfterSave } from './jobsAdmin.js';
 import { defaultNotice, parseNotice, bookingFrom, bookingMessage, bookingChanged, dateKo } from './booking.js';
 
 const settingsRef = (shopId) => doc(db, 'shops', shopId, 'private', 'settings');
@@ -84,6 +84,7 @@ export async function openBookingSheet(o) {
         await ensureQuoteJob(shopId, { ...base, ...slot });
       } else if (bookingChanged(slot, job)) {
         await updateDoc(jobRef, { ...slot, updatedAt: serverTimestamp() });
+        notifyAfterSave(shopId, jobRef.id); // 배정된 직원에게 시간 변경 알림
       }
       if (req.quoteId) await updateDoc(doc(db, 'quotes', req.quoteId), { booking: { ...booking, sentAt: serverTimestamp() }, updatedAt: serverTimestamp() });
       if (f.keep) await setDoc(settingsRef(shopId), { bookingNotice: notice }, { merge: true });

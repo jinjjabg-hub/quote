@@ -54,6 +54,7 @@ export async function signInWithGoogle() {
   }
 }
 
+export { app };
 export {
   onAuthStateChanged, signOut, doc, collection, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where,
   serverTimestamp, writeBatch, storageRef, uploadBytes, getDownloadURL, deleteObject,

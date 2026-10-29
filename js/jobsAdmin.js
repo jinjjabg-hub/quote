@@ -1,11 +1,12 @@
-// 사장님 화면 "일정" 탭 — ②단계: 일정표 · 빠른 등록 · 수동 배정 (설계도 10-1장)
+// 사장님 화면 "일정" 탭 — ②단계: 일정표 · 빠른 등록 · 수동 배정, ③단계: 추천 배정 · 직원 알림 (설계도 10-1장)
 // 일정은 견적앱 밖(전화·숨고·소개)에서도 들어오므로 직접 등록이 기본이고, 견적앱 계약확정은 자동 등록한다.
 import { db, doc, collection, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp } from './firebase.js';
 import { h, icon, toast, setChildren, telHref } from './util.js';
 import {
-  SOURCES, DAY_START, DAY_END, TRAVEL_MIN, toMin, jobEnd, jobsOn, crewStatus, candidatesFor, boardRows, blockPos,
+  SOURCES, DAY_START, DAY_END, TRAVEL_MIN, toMin, jobEnd, jobsOn, crewStatus, candidatesFor, boardRows, blockPos, suggestCrew, suggestDay,
 } from './schedule.js';
 import { syncBooking } from './bookingAdmin.js';
+import { notifyJob, notifyText } from './push.js';
 
 const START_CHIPS = ['08:00', '09:00', '10:00', '13:00', '14:00'];
 const HOUR_CHIPS = [2, 3, 4, 5, 6, 8];
@@ -36,6 +37,11 @@ function clip(j) {
   return { ...j, title: (j.title || '').slice(0, 60), place: (j.place || '').slice(0, 120), customer: (j.customer || '').slice(0, 30), phone: (j.phone || '').slice(0, 30), memo: (j.memo || '').slice(0, 300) };
 }
 
+/** 저장 뒤 배정 직원에게 알림 (바뀐 사람에게만, 서버가 판단). 결과는 따로 한 줄 안내 */
+export function notifyAfterSave(shopId, jobId) {
+  return notifyJob(shopId, jobId).then((r) => { const t = notifyText(r); if (t) toast(t, 4000); return r; });
+}
+
 /** ctx: { shopId, staff, jobs (null=불러오는 중), st: { date } } */
 export function renderJobs(ctx) {
   const { staff, st } = ctx;
@@ -47,7 +53,8 @@ export function renderJobs(ctx) {
     h('div.section-head', {},
       h('h2', {}, icon('event'), ' 이날 일정 ', h('span.pill-count', {}, day.length)),
       h('button.btn.primary.small', { type: 'button', onclick: () => openJobForm(ctx, null) }, icon('add'), '일정 등록')),
-    short ? h('div.warn-box', {}, `인원이 모자란 일정 ${short}건 — 눌러서 직원을 배정하세요.`) : null,
+    short ? h('div.warn-box.short-box', {}, h('span.grow', {}, `인원이 모자란 일정 ${short}건`),
+      h('button.btn.soft.small', { type: 'button', onclick: () => openSuggestDay(ctx) }, icon('auto_awesome'), '추천 배정')) : null,
     day.length ? renderBoard(ctx, board) : null,
     day.length
       ? h('ul.job-list', {}, day.map((j) => renderJobCard(ctx, j)))
@@ -136,7 +143,8 @@ export function openJobForm(ctx, job) {
         chips(['phone', 'soomgo', 'referral', 'other'], f.source, (v) => SOURCES[v], (v) => { f.source = v; })),
       text('메모', 'memo', { maxLength: 300, placeholder: '예) 현관 비번 1234, 주차 가능' }),
 
-      h('div.field', {}, h('span.label', {}, '직원 배정 ', h(`span${c.short > 0 ? '.warn-text' : '.ok-text'}`, {}, crewText(c))),
+      h('div.field', {}, h('div.assign-head', {}, h('span.label', {}, '직원 배정 ', h(`span${c.short > 0 ? '.warn-text' : '.ok-text'}`, {}, crewText(c))),
+        c.short > 0 && cands.length ? h('button.btn.soft.small', { type: 'button', onclick: recommend }, icon('auto_awesome'), '추천으로 채우기') : null),
         cands.length ? h('ul.cand-list', {}, cands.map((x) => h(`li.cand${x.ok ? '' : '.bad'}${x.selected ? '.on' : ''}`, {},
           h('label', {},
             h('input', { type: 'checkbox', checked: x.selected, onchange: (e) => {
@@ -157,6 +165,15 @@ export function openJobForm(ctx, job) {
         h('button.btn.danger.small', { type: 'button', onclick: remove }, job.source === 'quote' ? '일정 취소' : '삭제')) : null);
   };
 
+  // 정규 직원 먼저, 그날·그 주 일이 적은 사람 먼저 (설계도 10-1장 ③단계). 체크만 해두고 저장은 사장님이
+  const recommend = () => {
+    const s = suggestCrew({ ...f, id: job?.id }, ctx.staff, ctx.jobs || []);
+    f.staffIds = s.staffIds;
+    draw();
+    if (!s.added.length) toast('추천할 수 있는 직원이 없어요. 휴무·겹침을 확인해주세요.', 3000);
+    else if (s.missing) toast(`${s.added.map((x) => x.name).join(', ')}님을 넣었어요. 그래도 ${s.missing}명 모자라요.`, 3500);
+  };
+
   const save = async (btn) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) { toast('날짜를 골라주세요.'); return; }
     if (!f.title.trim()) { toast('일 내용을 입력해주세요. 예) 입주청소 34평'); return; }
@@ -168,13 +185,15 @@ export function openJobForm(ctx, job) {
       source: f.source, status: job?.status || 'scheduled', updatedAt: serverTimestamp(),
     });
     try {
-      if (job) await updateDoc(doc(db, 'shops', ctx.shopId, 'jobs', job.id), data);
-      else await setDoc(doc(collection(db, 'shops', ctx.shopId, 'jobs')), { ...data, createdAt: serverTimestamp() });
+      const ref = job ? doc(db, 'shops', ctx.shopId, 'jobs', job.id) : doc(collection(db, 'shops', ctx.shopId, 'jobs'));
+      if (job) await updateDoc(ref, data);
+      else await setDoc(ref, { ...data, createdAt: serverTimestamp() });
       // 견적앱 일정이면 고객 견적서의 확정 안내도 같은 날짜·시간으로 (설계도 10-2장)
       const changed = job?.requestId ? await syncBooking({ ...job, ...data }).catch(() => false) : false;
       toast(changed ? '저장했어요. 고객 확정 안내도 바뀐 시간으로 고쳤어요 — 고객에게 다시 알려주세요.' : job ? '저장했어요.' : '일정을 등록했어요.', changed ? 4500 : 2200);
       ctx.st.date = f.date; // 다른 날로 등록했으면 그날로 이동
       close();
+      notifyAfterSave(ctx.shopId, ref.id);
     } catch (e) { toast(`저장 실패: ${e.message}`); btn.disabled = false; }
   };
   const setStatus = async (status) => {
@@ -189,9 +208,43 @@ export function openJobForm(ctx, job) {
       else await deleteDoc(doc(db, 'shops', ctx.shopId, 'jobs', job.id));
       const changed = job.requestId ? await syncBooking(job, { canceled: true }).catch(() => false) : false;
       toast(changed ? '일정을 취소했어요. 고객 견적서에도 "취소"로 표시돼요 — 고객에게 연락해주세요.' : job.source === 'quote' ? '일정을 취소했어요.' : '일정을 삭제했어요.', changed ? 4500 : 2200); close();
+      notifyAfterSave(ctx.shopId, job.id); // 배정됐던 직원에게 취소 알림
     } catch (e) { toast(`실패: ${e.message}`); }
   };
   draw();
+  document.body.append(dlg);
+  dlg.showModal();
+}
+
+// 그날 인원이 모자란 일정 전체를 한 번에 추천 → 사장님이 보고 "추천대로 배정" (설계도 10-1장 ③단계)
+function openSuggestDay(ctx) {
+  const plan = suggestDay(ctx.jobs || [], ctx.staff, ctx.st.date);
+  const useful = plan.filter((p) => p.added.length);
+  const dlg = h('dialog.sheet.suggest-form', {});
+  const close = () => { dlg.close(); dlg.remove(); ctx.rerender(); };
+  const apply = async (btn) => {
+    btn.disabled = true;
+    try {
+      for (const p of useful) {
+        await updateDoc(doc(db, 'shops', ctx.shopId, 'jobs', p.job.id), { staffIds: p.staffIds, updatedAt: serverTimestamp() });
+      }
+      toast(`${useful.length}건에 추천대로 배정했어요.`);
+      close();
+      for (const p of useful) notifyAfterSave(ctx.shopId, p.job.id);
+    } catch (e) { toast(`저장 실패: ${e.message}`); btn.disabled = false; }
+  };
+  setChildren(dlg,
+    h('h2', {}, '추천 배정'),
+    h('p.muted.small', {}, '정규 직원 먼저, 그날·그 주에 일이 적은 사람 먼저 골랐어요. 휴무·시간 겹침(이동 60분 포함)은 뺐어요.'),
+    h('ul.suggest-list', {}, plan.map((p) => h('li.suggest-item', {},
+      h('div', {}, h('b', {}, `${p.job.start}~${jobEnd(p.job)} `), p.job.title),
+      h('div.small', {},
+        p.added.length ? h('span.ok-text', {}, `+ ${p.added.map((x) => x.name).join(', ')}`) : null,
+        p.missing ? h('span.warn-text', {}, `${p.added.length ? ' · ' : ''}${p.missing}명 모자람 (출근 가능한 사람 없음)`) : null)))),
+    useful.length ? null : h('p.warn-box', {}, '추천할 수 있는 직원이 없어요. 프리랜서 가능일이나 휴무를 확인해주세요.'),
+    h('div.btn-row', {},
+      h('button.btn.ghost', { type: 'button', onclick: close }, '닫기'),
+      useful.length ? h('button.btn.primary', { type: 'button', onclick: (e) => apply(e.currentTarget) }, '추천대로 배정') : null));
   document.body.append(dlg);
   dlg.showModal();
 }

@@ -590,6 +590,14 @@ tr.total td { text-align: center; color: var(--primary-deep); }
 .staff-row .badge { margin-left: 6px; font-size: .75rem; }
 .staff-row.inactive { opacity: .6; }
 .choices.days .chip { min-width: 46px; justify-content: center; padding: 0 10px; }
+.push-card .push-head { display: flex; align-items: center; gap: 8px; }
+.push-card.on { background: var(--ok-weak); color: var(--ok-deep); }
+.push-card.off .push-head { color: var(--warn); }
+.push-card .btn { margin-top: 10px; }
+.short-box { display: flex; align-items: center; gap: 8px; }
+.assign-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.suggest-list { list-style: none; padding: 0; margin: 12px 0; }
+.suggest-item { padding: 10px 0; border-top: 1px solid var(--line); }
 .booking-card { border: 2px solid var(--ok); background: #f0fdf7; }
 .booking-card.canceled { border-color: var(--danger); background: #fff5f5; }
 .booking-head { display: flex; align-items: center; gap: 8px; color: var(--ok-deep); font-size: 1.1rem; }
