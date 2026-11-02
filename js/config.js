@@ -27,6 +27,6 @@ export const areaLookupConfig = {
 // vapidKey: Firebase 콘솔 → 프로젝트 설정 → 클라우드 메시징 → 웹 푸시 인증서 → "키 쌍 생성"의 공개 키 (비밀값 아님).
 // 비어 있으면 직원 화면의 "알림 받기"와 알림 발송이 꺼져 있다.
 export const pushConfig = {
-  vapidKey: '',
+  vapidKey: 'BPm_HM0e68Pw_gfaizkWqFQuahUn5U0gLFGRuWXeV8T-QOs0WVnZqAy049abgtQ137tIJtAFD4OvsqzIGjdc7Tg',
   notifyUrl: 'https://asia-northeast3-quote-640f4.cloudfunctions.net/notifyJob',
 };
