@@ -12,6 +12,37 @@ service cloud.firestore {
     function shopPath(shopId) { return /databases/$(database)/documents/shops/$(shopId); }
     function str(v, max) { return v is string && v.size() <= max; }
 
+    // 운영자: admins/{uid} 문서가 있는 계정 (Firebase 콘솔에서만 만든다)
+    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+
+    // 요금제 (설계도 12장). 문서가 없거나 만료되면 무료. 숫자는 js/plan.js 와 같아야 한다
+    function planPath(shopId) { return /databases/$(database)/documents/shops/$(shopId)/billing/plan; }
+    function planIn(shopId, plans) {
+      let p = get(planPath(shopId)).data;
+      return exists(planPath(shopId)) && p.plan in plans
+        && (!('until' in p) || p.until == null || p.until > request.time);
+    }
+    function isPaid(shopId) { return planIn(shopId, ['solo', 'team', 'company']); }
+    function hasTeam(shopId) { return planIn(shopId, ['team', 'company']); }
+    // 이번 달 'YYYYMM' (한국 시간 = UTC + 9시간)
+    function thisMonth() {
+      let k = request.time + duration.value(9, 'h');
+      return string(k.year() * 100 + k.month());
+    }
+    function usagePath(shopId) { return /databases/$(database)/documents/shops/$(shopId)/usage/$(thisMonth()); }
+    // 견적서를 처음 만들 때: 같은 배치에서 이번 달 발송 수를 정확히 +1, 무료면 5건까지
+    function countedSend(shopId) {
+      let u = usagePath(shopId);
+      return ((!exists(u) && getAfter(u).data.sent == 1) || (exists(u) && getAfter(u).data.sent == get(u).data.sent + 1))
+        && (isPaid(shopId) || getAfter(u).data.sent <= 5);
+    }
+
+    // 운영자 표시: 본인 것만 읽을 수 있다 (운영자 화면이 스스로 확인). 쓰기는 콘솔에서만
+    match /admins/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
     // 고객이 견적서에서 "예약 요청"을 누를 때: sent → booking_requested 만 허용
     function isCustomerBooking() {
       return resource.data.status == 'sent'
@@ -41,13 +72,39 @@ service cloud.firestore {
           && (!('manduId' in d) || (d.manduId is string && d.manduId.matches('^([a-z0-9_]{3,20})?$')));
       }
       allow get: if true;            // 고객 화면에 상호·연락처 표시
-      allow list: if false;
+      allow list: if isAdmin();      // 운영자 화면의 업체 목록
       allow create, update: if isOwner(shopId) && validShop();
       allow delete: if false;
 
       // 단가표 등 비공개 설정 (경쟁업체가 링크로 단가를 볼 수 없게 분리)
       match /private/{docId} {
         allow read, write: if isOwner(shopId);
+      }
+
+      // 요금제: 사장님은 읽기만, 바꾸는 건 운영자 (설계도 12장 ①단계: 입금 확인 후 수동 활성화)
+      match /billing/{docId} {
+        function validPlan() {
+          let d = request.resource.data;
+          return docId == 'plan'
+            && d.keys().hasOnly(['plan', 'until', 'note', 'updatedAt', 'updatedBy'])
+            && d.plan in ['free', 'solo', 'team', 'company']
+            && (!('until' in d) || d.until == null || d.until is timestamp)
+            && (!('note' in d) || str(d.note, 200));
+        }
+        allow read: if isOwner(shopId) || isAdmin();
+        allow create, update: if isAdmin() && validPlan();
+        allow delete: if isAdmin();
+      }
+
+      // 이번 달 견적 발송 수: 사장님이 견적서를 처음 만들 때 +1 만 가능 (줄이거나 지난 달을 고칠 수 없음)
+      match /usage/{month} {
+        function validUsage() {
+          return month == thisMonth() && request.resource.data.keys().hasOnly(['sent', 'updatedAt']);
+        }
+        allow read: if isOwner(shopId) || isAdmin();
+        allow create: if isOwner(shopId) && validUsage() && request.resource.data.sent == 1;
+        allow update: if isOwner(shopId) && validUsage() && request.resource.data.sent == resource.data.sent + 1;
+        allow delete: if false;
       }
 
       // 일정 (설계도 10-1장 ②단계). 고객 이름·연락처가 들어 있어 사장님만. 직원 열람은 ③·④단계에서 따로 연다.
@@ -70,7 +127,7 @@ service cloud.firestore {
             && d.status in ['scheduled', 'done', 'canceled'];
         }
         allow read, delete: if isOwner(shopId);
-        allow create, update: if isOwner(shopId) && validJob();
+        allow create, update: if isOwner(shopId) && validJob() && hasTeam(shopId); // 팀·회사 요금제
       }
 
       // 직원 (설계도 10-1장). 사장님이 만들고 고친다.
@@ -111,8 +168,9 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'inviteProof', 'linkedAt']);
         }
         allow read: if isOwner(shopId) || isSelf();
-        allow create: if isOwner(shopId) && validStaff();
-        allow update: if (isOwner(shopId) && validStaff()) || (isSelf() && selfEdit()) || linking();
+        // 등록·수정은 팀·회사 요금제. 직원 본인의 휴무일·알림 등록과 계정 연결은 요금제와 상관없이
+        allow create: if isOwner(shopId) && validStaff() && hasTeam(shopId);
+        allow update: if (isOwner(shopId) && validStaff() && hasTeam(shopId)) || (isSelf() && selfEdit()) || linking();
         allow delete: if isOwner(shopId);
       }
     }
@@ -148,8 +206,10 @@ service cloud.firestore {
     match /quotes/{quoteId} {
       allow get: if true;
       allow list: if signedIn() && resource.data.shopId == request.auth.uid;
+      // 처음 만들 때만 이번 달 발송 수에 들어간다 (재발송은 update). 테스트 견적은 세지 않음
       allow create: if isOwner(request.resource.data.shopId)
-        && get(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.shopId == request.auth.uid;
+        && get(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.shopId == request.auth.uid
+        && (request.resource.data.get('test', false) == true || countedSend(request.resource.data.shopId));
       allow update: if (isOwner(resource.data.shopId) && request.resource.data.shopId == resource.data.shopId)
         || isCustomerBooking();
       allow delete: if isOwner(resource.data.shopId);

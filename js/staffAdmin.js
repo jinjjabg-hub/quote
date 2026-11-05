@@ -4,6 +4,7 @@ import { db, doc, collection, setDoc, updateDoc, onSnapshot, serverTimestamp } f
 import { h, icon, toast, copyText, pageUrl, setChildren } from './util.js';
 import { toDateStr } from './calc.js';
 import { renderJobs } from './jobsAdmin.js';
+import { canAddStaff } from './plan.js';
 import { WEEKDAYS, dayOfWeek, shiftDate, dateRange, workStatus, roster, toggleDay, pruneDates, newToken } from './schedule.js';
 
 const today = () => toDateStr(new Date());
@@ -66,7 +67,11 @@ function renderStaffView(ctx) {
   return h('div', {},
     active.length ? renderWeek(ctx, active) : null,
     h('div.section-head', {}, h('h2', {}, icon('group'), ' 직원 ', h('span.pill-count', {}, active.length)),
-      h('button.btn.primary.small', { type: 'button', onclick: () => openStaffForm(ctx, null) }, icon('person_add'), '직원 추가')),
+      h('button.btn.primary.small', { type: 'button', onclick: () => {
+        const c = canAddStaff(ctx.plan, active.length); // 직원 수 한도 (①단계는 화면에서만, 설계도 12장)
+        if (!c.ok) { toast(`지금 요금제는 직원 ${c.max}명까지예요. 더 등록하려면 회사 요금제로 바꿔주세요.`, 4000); return; }
+        openStaffForm(ctx, null);
+      } }, icon('person_add'), '직원 추가')),
     staff.length ? h('ul.staff-list', {}, staff.map((s) => renderStaffRow(ctx, s)))
       : h('div.card.empty', {}, h('p', {}, h('b', {}, '등록된 직원이 없어요.')),
         h('p.muted', {}, '정규 직원은 정기 휴무 요일을, 프리랜서는 일할 수 있는 날을 기준으로 출근을 계산해요.')),

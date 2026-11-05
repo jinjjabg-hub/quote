@@ -5,8 +5,8 @@ import {
   connectAuthEmulator, signInWithCredential,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import {
-  getFirestore, doc, collection, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where,
-  serverTimestamp, writeBatch, connectFirestoreEmulator,
+  getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where,
+  serverTimestamp, writeBatch, increment, Timestamp, connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 import {
   getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, connectStorageEmulator,
@@ -56,6 +56,6 @@ export async function signInWithGoogle() {
 
 export { app };
 export {
-  onAuthStateChanged, signOut, doc, collection, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where,
-  serverTimestamp, writeBatch, storageRef, uploadBytes, getDownloadURL, deleteObject,
+  onAuthStateChanged, signOut, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where,
+  serverTimestamp, writeBatch, increment, Timestamp, storageRef, uploadBytes, getDownloadURL, deleteObject,
 };

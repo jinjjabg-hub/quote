@@ -294,6 +294,48 @@ try {
   }, new URL(testViewUrl).searchParams.get('id'));
   assert.equal(gone, true, '테스트 견적서도 삭제');
 
+  // 6a) 요금제 (설계도 12장 ①단계): 무료로 시작 → 일정 잠김 → 운영자 화면에서 팀 요금제 → 일정 열림
+  step('6a) 요금제: 무료(이번 달 1/5건, 테스트 제외) → 일정 탭 잠김 → 운영자 등록 → 운영자 화면에서 팀 1개월 → 일정 열림');
+  await owner.getByRole('button', { name: '홈', exact: true }).click();
+  await owner.locator('.plan-chip').waitFor();
+  assert.match(await owner.locator('.plan-chip').innerText(), /무료 요금제[\s\S]*이번 달 1\/5건/, '실제 견적 1건만 셈 (테스트 견적 제외)');
+  await owner.locator('.plan-chip').click();
+  await owner.locator('.plan-now').waitFor();
+  assert.match(await owner.locator('.plan-now').innerText(), /이번 달 견적 발송 1건 \/ 5건/);
+  assert.equal(await owner.locator('table.plan-table th.on').count(), 1, '비교표에 지금 요금제 표시');
+  await owner.getByRole('button', { name: '팀 신청' }).click();
+  assert.match(await owner.locator('dialog.sheet pre.msg').innerText(), /원하는 요금제: 팀 \(월 49,000원\)[\s\S]*계정 번호: \S{10,}/);
+  assert.doesNotMatch(await owner.locator('dialog.sheet').innerText(), /\b(null|undefined)\b/, '신청 창에 null 글자 없음');
+  await shot(owner, '12m-plan-page');
+  await owner.locator('dialog.sheet').getByRole('button', { name: '닫기' }).click();
+  await owner.getByRole('button', { name: '일정', exact: true }).click();
+  await owner.getByText('일정·직원 관리는 팀 요금제 기능이에요').waitFor();
+  const ownerUid = await owner.evaluate(async () => (await import('./js/firebase.js')).auth.currentUser.uid);
+  const adminPage = await newPage();
+  await adminPage.goto(`${BASE}admin.html?emulator=1`);
+  await adminPage.getByRole('button', { name: /Google/ }).click();
+  await adminPage.getByText('운영자 권한이 없어요').waitFor();
+  assert.match(await adminPage.locator('.box').innerText(), new RegExp(ownerUid));
+  // 콘솔에서 하는 "admins/{uid} 문서 만들기"를 에뮬레이터 관리자 권한으로 대신
+  const made = await fetch(`http://127.0.0.1:8180/v1/projects/demo-quote/databases/(default)/documents/admins?documentId=${ownerUid}`, {
+    method: 'POST', headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: { name: { stringValue: '운영자' } } }),
+  });
+  assert.ok(made.ok, `admins 문서 생성 ${made.status}`);
+  await adminPage.reload();
+  const row = adminPage.locator('.admin-row', { hasText: '반짝입주청소' });
+  await row.waitFor();
+  assert.match(await row.innerText(), /무료[\s\S]*이번 달 발송 1건/);
+  await row.getByRole('button', { name: '요금제 변경' }).click();
+  const pf = adminPage.locator('dialog.sheet');
+  await pf.getByRole('button', { name: /^팀/ }).click();
+  await pf.getByRole('button', { name: '1개월' }).click();
+  await pf.locator('input').fill('테스트 입금');
+  await shot(adminPage, '12n-admin-plan');
+  await pf.getByRole('button', { name: '저장' }).click();
+  await adminPage.locator('.admin-row', { hasText: '반짝입주청소' }).locator('.badge.st-ok', { hasText: '팀' }).waitFor({ timeout: 10000 });
+  await owner.getByText('이날 일정이 없어요').waitFor({ timeout: 10000 });
+
   // 6b) 일정: 직원 등록 → 출근 명단 → 근무표에서 프리랜서 가능일 → 직원 초대 링크로 연결 → 본인 휴무일 → 사장님 화면 반영
   step('6b) 일정: 정규·프리랜서 등록, 출근 명단, 초대 링크로 직원 연결, 직원이 고른 휴무일이 사장님 화면에 반영');
   const WD = ['일', '월', '화', '수', '목', '금', '토'];

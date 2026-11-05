@@ -30,3 +30,9 @@ export const pushConfig = {
   vapidKey: 'BPm_HM0e68Pw_gfaizkWqFQuahUn5U0gLFGRuWXeV8T-QOs0WVnZqAy049abgtQ137tIJtAFD4OvsqzIGjdc7Tg',
   notifyUrl: 'https://asia-northeast3-quote-640f4.cloudfunctions.net/notifyJob',
 };
+
+// 요금제 신청 연락처 (설계도 12장 ①단계: 계좌이체 → 운영자가 수동 활성화). 비어 있으면 "운영자에게 문의"만 표시.
+export const billingConfig = {
+  contactPhone: '',   // 예) '010-0000-0000' (전화·문자 버튼)
+  bankAccount: '',    // 예) '부산은행 000-0000-0000-00 (예금주)'
+};
