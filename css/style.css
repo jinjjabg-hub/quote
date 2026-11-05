@@ -598,6 +598,29 @@ tr.total td { text-align: center; color: var(--primary-deep); }
 .assign-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .suggest-list { list-style: none; padding: 0; margin: 12px 0; }
 .suggest-item { padding: 10px 0; border-top: 1px solid var(--line); }
+.plan-chip { display: flex; align-items: center; gap: 8px; width: 100%; margin: 14px 0 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; font: inherit; cursor: pointer; text-align: left; }
+.plan-chip > span:not(.ms) { margin-left: auto; color: var(--muted); font-size: .9rem; }
+.plan-chip .ms:first-child { color: var(--primary); }
+.plan-now .plan-name { font-size: 1.6rem; font-weight: 800; display: flex; align-items: baseline; gap: 10px; }
+.plan-now .plan-name span { font-size: 1rem; font-weight: 600; color: var(--muted); }
+.plan-usage { margin-top: 10px; font-weight: 700; }
+.bar { height: 10px; border-radius: 999px; background: var(--surface); overflow: hidden; margin: 8px 0; }
+.bar-fill { height: 100%; background: var(--primary); }
+.bar-fill.full { background: var(--danger); }
+.plan-scroll { overflow-x: auto; }
+table.plan-table { width: 100%; min-width: 420px; border-collapse: collapse; font-size: .85rem; }
+table.plan-table th, table.plan-table td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: center; }
+table.plan-table tbody th { text-align: left; font-weight: 600; }
+table.plan-table thead th div { font-weight: 500; color: var(--muted); font-size: .75rem; }
+table.plan-table .on { background: var(--primary-weak); color: var(--primary-deep); font-weight: 700; }
+ol.steps { padding-left: 20px; line-height: 1.7; }
+.lock-card { text-align: center; }
+.lock-card .mark-list { text-align: left; margin: 14px 0; }
+.lock-icon .ms { font-size: 40px; color: var(--muted); }
+.admin-list { list-style: none; padding: 0; margin: 0; }
+.admin-row { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin: 10px 0; }
+.admin-row .badge { margin-left: 6px; font-size: .75rem; }
+.mono { font-family: ui-monospace, Menlo, monospace; word-break: break-all; font-size: .8rem; }
 .booking-card { border: 2px solid var(--ok); background: #f0fdf7; }
 .booking-card.canceled { border-color: var(--danger); background: #fff5f5; }
 .booking-head { display: flex; align-items: center; gap: 8px; color: var(--ok-deep); font-size: 1.1rem; }

@@ -2,8 +2,9 @@
 // 실행: cd tests/rules && npm install && npm test
 import test, { before, after, beforeEach } from 'node:test';
 import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where, serverTimestamp, writeBatch, increment, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getBytes } from 'firebase/storage';
 
 let env;
@@ -26,6 +27,7 @@ beforeEach(async () => {
     await setDoc(doc(db, 'shops', OWNER, 'private', 'pricing'), { priceTable: { unitPrice: 13000 } });
     await setDoc(doc(db, 'requests', 'r1'), { shopId: OWNER, status: 'sent', quoteId: 'q1', customer: { name: 'a' } });
     await setDoc(doc(db, 'quotes', 'q1'), { shopId: OWNER, requestId: 'r1', status: 'sent', total: 560000 });
+    await setDoc(doc(db, 'shops', OWNER, 'billing', 'plan'), { plan: 'team' }); // 기존 테스트는 팀 요금제로 (무료는 아래 요금제 테스트에서)
   });
 });
 
@@ -85,6 +87,7 @@ test('사장님: 견적 발송(배치) O, 남의 요청으로 견적 생성 X', 
   const b = writeBatch(db);
   b.set(doc(db, 'quotes', 'q2'), { shopId: OWNER, requestId: 'r1', status: 'sent', total: 1 });
   b.update(doc(db, 'requests', 'r1'), { status: 'sent', quoteId: 'q2' });
+  b.set(doc(db, 'shops', OWNER, 'usage', thisMonth()), { sent: increment(1) }, { merge: true });
   await assertSucceeds(b.commit());
   await assertFails(setDoc(doc(other(), 'quotes', 'q3'), { shopId: OTHER, requestId: 'r1', status: 'sent' }));
 });
@@ -171,6 +174,79 @@ test('알림: 직원은 자기 기기 토큰(최대 5개)만 저장, 알림 기�
   await assertFails(getDoc(note(owner())));
   await assertFails(setDoc(note(owner()), { staff: {} }));
   await assertFails(getDoc(note(staffCtx())));
+});
+
+// 한국 시간 기준 이번 달 (규칙과 같은 계산)
+function thisMonth() {
+  const d = new Date(Date.now() + 9 * 3600 * 1000);
+  return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+const ADMIN = 'adminUid789';
+const admin = () => env.authenticatedContext(ADMIN).firestore();
+const setPlan = (plan) => env.withSecurityRulesDisabled((ctx) => (plan
+  ? setDoc(doc(ctx.firestore(), 'shops', OWNER, 'billing', 'plan'), plan)
+  : import('firebase/firestore').then(({ deleteDoc }) => deleteDoc(doc(ctx.firestore(), 'shops', OWNER, 'billing', 'plan')))));
+// 새 요청 + 견적서 생성 배치 (사장님 화면의 sendQuote 와 같은 모양)
+async function sendNew(id, { test = false, count = true } = {}) {
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'requests', `r_${id}`), { shopId: OWNER, status: 'new', customer: { name: 'a' } }));
+  const db = owner();
+  const b = writeBatch(db);
+  b.set(doc(db, 'quotes', `q_${id}`), { shopId: OWNER, requestId: `r_${id}`, status: 'sent', total: 1, test });
+  b.update(doc(db, 'requests', `r_${id}`), { status: 'sent', quoteId: `q_${id}` });
+  if (count) b.set(doc(db, 'shops', OWNER, 'usage', thisMonth()), { sent: increment(1), updatedAt: serverTimestamp() }, { merge: true });
+  return b.commit();
+}
+
+test('요금제: 무료는 이번 달 견적 5건까지, 6번째는 거절. 테스트 견적·재발송은 안 셈', async () => {
+  await setPlan(null); // 문서 없음 = 무료
+  for (let i = 1; i <= 5; i += 1) await assertSucceeds(sendNew(`f${i}`));
+  await assertFails(sendNew('f6'), '무료 6번째');
+  await assertSucceeds(sendNew('t1', { test: true, count: false }), '테스트 견적');
+  await assertSucceeds(updateDoc(doc(owner(), 'quotes', 'q_f1'), { total: 2 }), '재발송(수정)은 제한 없음');
+  await assertFails(sendNew('f7', { count: false }), '발송 수를 안 올리고 만들기 X');
+  const u = await getDoc(doc(owner(), 'shops', OWNER, 'usage', thisMonth()));
+  assert.equal(u.data().sent, 5);
+  await assertFails(updateDoc(doc(owner(), 'shops', OWNER, 'usage', thisMonth()), { sent: 0 }), '줄이기 X');
+  await assertFails(setDoc(doc(owner(), 'shops', OWNER, 'usage', '202001'), { sent: 1 }), '지난 달 X');
+});
+
+test('요금제: 혼자는 무제한, 만료되면 무료로 돌아감', async () => {
+  await setPlan({ plan: 'solo' });
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'shops', OWNER, 'usage', thisMonth()), { sent: 5 }));
+  await assertSucceeds(sendNew('s6'));
+  await setPlan({ plan: 'solo', until: Timestamp.fromMillis(Date.now() - 1000) });
+  await assertFails(sendNew('s7'), '만료 → 무료 → 이미 6건');
+});
+
+test('요금제: 팀 기능(직원·일정 저장)은 팀·회사만, 직원 본인 휴무 설정은 요금제와 무관', async () => {
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'shops', OWNER, 'staff', 'k1'), newStaff({ uid: STAFF_UID })));
+  await setPlan({ plan: 'solo' });
+  await assertFails(setDoc(doc(owner(), 'shops', OWNER, 'staff', 'k2'), newStaff()), '혼자: 직원 등록 X');
+  const j = { date: '2026-11-04', start: '09:00', hours: 4, crew: 2, staffIds: [], title: 't', source: 'phone', status: 'scheduled' };
+  await assertFails(setDoc(doc(owner(), 'shops', OWNER, 'jobs', 'j1'), j), '혼자: 일정 저장 X');
+  await assertSucceeds(updateDoc(doc(staffCtx(), 'shops', OWNER, 'staff', 'k1'), { offDates: ['2026-11-10'] }), '직원 본인 휴무');
+  await assertSucceeds(getDoc(doc(owner(), 'shops', OWNER, 'staff', 'k1')), '내려가도 보기는 가능');
+  await setPlan({ plan: 'company' });
+  await assertSucceeds(setDoc(doc(owner(), 'shops', OWNER, 'jobs', 'j1'), j));
+});
+
+test('요금제: 사장님은 읽기만, 운영자만 바꿈. 운영자는 업체 목록·사용량을 봄', async () => {
+  const planRef = (db) => doc(db, 'shops', OWNER, 'billing', 'plan');
+  await assertSucceeds(getDoc(planRef(owner())));
+  await assertFails(setDoc(planRef(owner()), { plan: 'company' }), '사장님 스스로 올리기 X');
+  await assertFails(getDoc(planRef(other())));
+  await assertFails(setDoc(planRef(admin()), { plan: 'team' }), '운영자 표시 전');
+  await assertFails(getDocs(collection(admin(), 'shops')));
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'admins', ADMIN), { name: '운영자' }));
+  await assertSucceeds(getDoc(doc(admin(), 'admins', ADMIN)));
+  await assertFails(getDoc(doc(owner(), 'admins', ADMIN)), '남의 운영자 표시 못 봄');
+  await assertFails(setDoc(doc(owner(), 'admins', OWNER), {}), '스스로 운영자 X');
+  await assertSucceeds(setDoc(planRef(admin()), { plan: 'team', until: Timestamp.fromMillis(Date.now() + 86400000), note: '11월 입금', updatedAt: serverTimestamp(), updatedBy: ADMIN }));
+  await assertFails(setDoc(planRef(admin()), { plan: 'vip' }), '모르는 요금제');
+  await assertFails(setDoc(doc(admin(), 'shops', OWNER, 'billing', 'other'), { plan: 'team' }), 'plan 문서만');
+  await assertSucceeds(getDocs(collection(admin(), 'shops')));
+  await assertSucceeds(getDoc(doc(admin(), 'shops', OWNER, 'usage', thisMonth())));
+  await assertFails(getDocs(collection(owner(), 'shops')), '사장님은 업체 목록 X');
 });
 
 test('Storage: 고객 사진 업로드 O, 읽기 X, 사장님 읽기 O', async () => {

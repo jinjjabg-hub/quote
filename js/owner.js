@@ -2,7 +2,7 @@
 // 탭: 요청 목록 / 단가표 / 업체 정보,  상세: #req=요청ID
 import {
   auth, db, storage, isConfigured, signInWithGoogle, onAuthStateChanged, signOut,
-  doc, collection, getDoc, setDoc, updateDoc, onSnapshot, query, where, serverTimestamp, writeBatch,
+  doc, collection, getDoc, setDoc, updateDoc, onSnapshot, query, where, serverTimestamp, writeBatch, increment,
   storageRef, uploadBytes, getDownloadURL, deleteObject,
 } from './firebase.js';
 import { appConfig } from './config.js';
@@ -19,6 +19,8 @@ import { placeLabel, appliedText } from './areaLookup.js';
 import { subscribeStaff, renderSchedule } from './staffAdmin.js';
 import { subscribeJobs, ensureQuoteJob } from './jobsAdmin.js';
 import { openBookingSheet } from './bookingAdmin.js';
+import { subscribePlan, planChip, renderPlanPage, openUpgrade, renderTeamLock, FREE_LIMIT_TEXT } from './planAdmin.js';
+import { canSend, hasTeam, monthKey } from './plan.js';
 import { jobFromRequest, shiftDate } from './schedule.js';
 
 registerSW();
@@ -28,6 +30,7 @@ const S = {
   user: null, shop: null, tpl: null, priceTable: null,
   requests: new Map(), filter: 'all', tab: 'home', unsub: null, detail: null,
   staff: null, unsubStaff: null, sched: {},
+  P: { doc: null, plan: 'free', used: 0, ready: false }, unsubPlan: null, // 요금제 (설계도 12장)
   jobs: null, unsubJobs: null, jobWin: null, // 일정: 보고 있는 날짜 앞뒤 구간만 구독
 };
 
@@ -40,12 +43,17 @@ async function onUser(user) {
   S.unsub?.(); S.unsub = null;
   S.unsubStaff?.(); S.unsubStaff = null; S.staff = null;
   S.unsubJobs?.(); S.unsubJobs = null; S.jobs = null; S.jobWin = null;
+  S.unsubPlan?.(); S.unsubPlan = null; S.P = { doc: null, plan: 'free', used: 0, ready: false };
   S.user = user;
   if (!user) { renderLogin(); return; }
   setChildren(app, h('p.muted.center', {}, '불러오는 중…'));
   await loadShop();
   subscribeRequests();
   subscribeStaffList();
+  S.unsubPlan = subscribePlan(S.user.uid, (P) => {
+    S.P = P;
+    if (!S.detail && ['home', 'plan', 'schedule'].includes(S.tab) && !document.querySelector('dialog[open]')) renderMain();
+  });
   route();
 }
 
@@ -130,7 +138,7 @@ const TABS = [
   ['link', '내 링크', 'link'],
 ];
 // 업체 정보는 오른쪽 위 사람 아이콘에서 (아래 메뉴 5칸 유지)
-const TAB_TITLE = { home: '홈 대시보드', list: '견적 요청', schedule: '일정 · 직원', price: '단가표 관리', link: '내 견적 링크', shop: '업체 정보' };
+const TAB_TITLE = { plan: '요금제', home: '홈 대시보드', list: '견적 요청', schedule: '일정 · 직원', price: '단가표 관리', link: '내 견적 링크', shop: '업체 정보' };
 
 function goTab(k) { S.tab = k; renderMain(); window.scrollTo(0, 0); }
 
@@ -139,10 +147,13 @@ function renderMain() {
   app.classList.add('has-nav');
   const body = {
     home: renderHome, list: renderList, price: renderPriceForm, link: renderLinkTab, shop: renderShopForm,
+    plan: () => renderPlanPage({ P: S.P, shop: S.shop, uid: S.user.uid }),
     schedule: () => {
+      if (!S.P.ready) return h('p.muted.center', {}, '불러오는 중…');
+      if (!hasTeam(S.P.plan)) return renderTeamLock({ P: S.P, onPlan: () => goTab('plan') });
       S.sched.date = S.sched.date || toDateStr(new Date());
       ensureJobs(S.sched.date);
-      return renderSchedule({ shopId: S.user.uid, shopName: S.shop.name, staff: S.staff, jobs: S.jobs, st: S.sched, rerender: renderMain });
+      return renderSchedule({ shopId: S.user.uid, shopName: S.shop.name, staff: S.staff, jobs: S.jobs, st: S.sched, plan: S.P.plan, rerender: renderMain });
     },
   }[S.tab] || renderHome;
   setChildren(app,
@@ -213,6 +224,7 @@ function renderHome() {
       h('p', {}, n.waiting
         ? `답을 기다리는 요청이 ${n.waiting}건 있어요.\n먼저 답하는 업체가 계약합니다.`
         : '밀린 요청이 없어요.\n내 링크를 더 많은 곳에 붙여보세요.')),
+    S.P.ready ? planChip(S.P, () => goTab('plan')) : null,
     h('div.section-head', {}, h('h2', {}, '실시간 운영 현황'), h('span.muted.small', {}, '테스트 제외')),
     h('div.stats', {},
       stat('오늘 신규 견적', 'mark_email_unread', n.today, 'blue', diff ? [icon(diff > 0 ? 'trending_up' : 'trending_down'), `어제 대비 ${diff > 0 ? '+' : ''}${diff}건`] : '어제와 같아요', diff > 0 ? 'up' : null),
@@ -475,6 +487,7 @@ function renderShopForm() {
       sectionTitle(3, '만두 채팅 연결', '선택'),
       text('manduId', '만두 ID', { placeholder: '예) banjjak (@ 없이)', hint: '넣으면 고객 화면·견적서에 "만두로 채팅 문의" 버튼이 생깁니다. 외국인 고객과도 자동 번역으로 대화할 수 있어요.' })),
     h('div.card', {}, renderDevSettings()),
+    S.P.ready ? planChip(S.P, () => goTab('plan')) : null,
     h('button.btn.ghost.block', { type: 'button', onclick: () => { if (confirm('로그아웃할까요?')) signOut(auth); } }, icon('logout'), '로그아웃'),
     h('div.dock', {}, h('button.btn.primary', {
       onclick: async (e) => {
@@ -655,7 +668,9 @@ function renderDetail() {
         h('div.dock-note', {}, h('span', {}, '방문 날짜·시간·준비사항'), h('span', {}, '견적서 링크에 표시')))
       : h('div.dock', {},
         h('button.btn.primary', { onclick: (e) => sendQuote(req, e.currentTarget) }, icon('send'), req.quoteId ? '견적서 다시 보내기' : '견적서 보내기'),
-        h('div.dock-note', {}, h('span', {}, '견적서 링크 + 안내 문구 생성'), h('span', {}, '카톡·문자로 전달'))),
+        h('div.dock-note', {}, h('span', {}, '견적서 링크 + 안내 문구 생성'),
+          !req.quoteId && !req.test && canSend(S.P.plan, S.P.used).left != null
+            ? h('span', {}, `무료 남은 견적 ${canSend(S.P.plan, S.P.used).left}건`) : h('span', {}, '카톡·문자로 전달'))),
   );
   renderDetailStatus();
 }
@@ -779,6 +794,12 @@ async function sendQuote(req, btn) {
   const d = S.detail;
   const pt = S.priceTable;
   const t = finalizeLines(d.lines, pt.policy.depositPct);
+  // 요금제: 견적서를 처음 만들 때만 이번 달 건수에 들어간다 (재발송·테스트 제외, 실제로 막는 건 보안 규칙)
+  const isNew = !req.quoteId;
+  if (isNew && !canSend(S.P.plan, S.P.used, { test: !!req.test }).ok) {
+    openUpgrade({ want: 'solo', shop: S.shop, uid: S.user.uid, reason: FREE_LIMIT_TEXT });
+    return;
+  }
   if (currentReq().status === 'confirmed' && !confirm('계약확정된 요청이에요. 견적서를 다시 만들면 고객 확정 안내가 지워지고 상태가 "견적발송"으로 돌아가요. 계속할까요?')) return;
   if (!S.shop.name || !S.shop.phone) { toast('업체 정보(상호·연락처)를 먼저 저장해주세요.'); return; }
   if (!confirm(`합계 ${formatWon(t.total)} (계약금 ${formatWon(t.deposit)})\n이 금액으로 견적서를 만들까요?`)) return;
@@ -820,6 +841,7 @@ async function sendQuote(req, btn) {
     const batch = writeBatch(db);
     batch.set(quoteRef, quote);
     batch.update(doc(db, 'requests', req.id), { status: 'sent', quoteId: quoteRef.id, updatedAt: serverTimestamp() });
+    if (isNew && !req.test) batch.set(doc(db, 'shops', S.user.uid, 'usage', monthKey()), { sent: increment(1), updatedAt: serverTimestamp() }, { merge: true });
     await batch.commit();
     showSent(quoteRef.id, quote);
   } catch (e) {
