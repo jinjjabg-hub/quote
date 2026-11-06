@@ -127,6 +127,14 @@ export function footerNote(extra) {
   return h('p.footer-note', {}, h('b', {}, '견적by 비즈마이'), extra ? `\n${extra}` : null);
 }
 
+// 로그인 화면용: 정책 페이지 링크 + 사업자 정보 (PG 심사 요건. 정적 페이지 푸터와 같은 내용)
+export function legalFooter() {
+  const a = (href, t) => h('a', { href, style: 'color:inherit;margin:0 8px' }, t);
+  return h('footer.small.muted.center', { style: 'margin-top:28px;line-height:1.7' },
+    h('p', {}, a('pricing.html', '요금 안내'), a('terms.html', '이용약관'), a('refund.html', '환불규정'), a('privacy.html', '개인정보처리방침')),
+    h('p', {}, '상호: 티엠링크(T.M Link) · 대표: 송승훈\n사업자등록번호: 253-63-00948\n통신판매업 신고번호: 제2026-부산사상구-0340호\n주소: 부산광역시 사상구 가야대로378번길 1, 1704호\n연락처: 010-5334-2544 · 이메일: jinjjabg@gmail.com'));
+}
+
 export function fmtDateTime(ts) {
   const d = ts?.toDate ? ts.toDate() : ts ? new Date(ts) : null;
   if (!d) return '';

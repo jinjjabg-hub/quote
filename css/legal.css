@@ -1,0 +1,39 @@
+/* PG 심사용 공개 페이지(pricing/terms/refund/privacy) 공통 스타일 — 로그인 불필요 정적 페이지 */
+:root { --bg:#f8fafc; --card:#fff; --text:#1e293b; --muted:#64748b; --line:#e2e8f0; --primary:#2563eb; --primary-weak:#eff6ff; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:16px/1.7 "Noto Sans KR","Pretendard",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; letter-spacing:-0.02em; word-break:keep-all; }
+a { color:var(--primary); }
+.top { max-width:760px; margin:0 auto; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; }
+.top .brand { font-weight:700; color:var(--primary); text-decoration:none; font-size:1.1rem; }
+.top .login { font-size:.9rem; text-decoration:none; border:1px solid var(--line); background:#fff; padding:8px 14px; border-radius:12px; color:var(--text); }
+.doc { max-width:760px; margin:0 auto; padding:8px 20px 32px; }
+h1 { font-size:1.75rem; margin:8px 0 6px; line-height:1.35; }
+h2 { font-size:1.2rem; margin:30px 0 10px; }
+h3 { margin:0 0 2px; font-size:1.2rem; }
+p { margin:8px 0; }
+li { margin:4px 0; }
+.lead { font-size:1.05rem; }
+.small { font-size:.875rem; }
+.muted { color:var(--muted); }
+.vat { font-size:.9rem; font-weight:500; color:var(--muted); }
+.notice, .highlight { background:var(--primary-weak); border:1px solid #bfdbfe; border-radius:16px; padding:6px 18px 12px; margin:20px 0; }
+.notice h2 { margin-top:12px; font-size:1.05rem; }
+.highlight { padding-top:12px; font-size:1.05rem; }
+.plans { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:12px 0; }
+.plan { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:18px; }
+.plan .target { margin:0; color:var(--muted); font-size:.9rem; }
+.plan .price { margin:10px 0; } .plan .price b { font-size:1.9rem; } .plan .price span { color:var(--muted); font-size:.9rem; }
+.plan ul { padding-left:18px; margin:8px 0 0; font-size:.95rem; }
+table { width:100%; border-collapse:collapse; margin:10px 0; font-size:.93rem; background:#fff; }
+th, td { border:1px solid var(--line); padding:9px 10px; text-align:left; vertical-align:top; }
+thead th { background:#f1f5f9; }
+tbody th { background:#f1f5f9; width:25%; }
+.biz-footer { border-top:1px solid var(--line); background:#fff; padding:22px 20px calc(28px + env(safe-area-inset-bottom)); font-size:.85rem; color:var(--muted); }
+.biz-footer > * { max-width:760px; margin-left:auto; margin-right:auto; }
+.biz-links { display:flex; flex-wrap:wrap; gap:6px 16px; margin-bottom:12px; }
+.biz-links a { color:var(--text); text-decoration:none; }
+.biz-info { margin:0 auto; display:grid; gap:2px 0; }
+.biz-info div { display:flex; gap:8px; } .biz-info dt { flex:0 0 9.5em; } .biz-info dd { margin:0; color:var(--text); }
+.biz-info a { color:inherit; }
+.biz-copy { margin-top:12px; }
+@media (max-width:640px) { .plans { grid-template-columns:1fr; } .biz-info div { flex-direction:column; gap:0; margin-bottom:4px; } .biz-info dt { flex:none; } }
