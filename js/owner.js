@@ -13,7 +13,7 @@ import {
 } from './calc.js';
 import {
   $, h, toast, copyText, pageUrl, compressImage, STATUS, statusBadge, fmtDateTime, optionLabel, telHref,
-  registerSW, showFatal, MANDU_ID_RE, setChildren, icon, timeAgo, maskName, tsToDate, footerNote,
+  registerSW, showFatal, MANDU_ID_RE, setChildren, icon, timeAgo, maskName, tsToDate, footerNote, legalFooter,
 } from './util.js';
 import { placeLabel, appliedText } from './areaLookup.js';
 import { subscribeStaff, renderSchedule } from './staffAdmin.js';
@@ -59,7 +59,7 @@ function renderLogin() {
     h('button.btn.primary.big.block', {
       onclick: () => signInWithGoogle().catch((e) => toast(`로그인 실패: ${e.message}`)),
     }, 'Google 계정으로 시작하기')),
-    footerNote());
+    footerNote(), legalFooter());
 }
 
 // ---------- 데이터 로드 ----------
