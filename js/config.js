@@ -23,6 +23,16 @@ export const areaLookupConfig = {
   enabled: false,
 };
 
+// 요금 (설계도 12장): 처음 견적 10건 무료 → 월 요금제.
+// tossClientKey: 토스페이먼츠 개발자센터의 "클라이언트 키" (공개 값. 시크릿 키는 절대 여기 넣지 않는다 → Secret Manager TOSS_SECRET_KEY).
+// 비어 있으면 결제 버튼 대신 "결제 준비 중" 안내가 나온다. (배포.md ⑦)
+export const billingConfig = {
+  statusUrl: 'https://asia-northeast3-quote-640f4.cloudfunctions.net/billingStatus',
+  payUrl: 'https://asia-northeast3-quote-640f4.cloudfunctions.net/billingPay',
+  tossClientKey: '',
+  contactPhone: '010-5334-2544',
+};
+
 // 일정 배정 알림 (설계도 10-1장 ③단계). 직원 휴대폰 푸시(FCM).
 // vapidKey: Firebase 콘솔 → 프로젝트 설정 → 클라우드 메시징 → 웹 푸시 인증서 → "키 쌍 생성"의 공개 키 (비밀값 아님).
 // 비어 있으면 직원 화면의 "알림 받기"와 알림 발송이 꺼져 있다.

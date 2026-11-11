@@ -1,0 +1,63 @@
+<!doctype html>
+<!-- 공유 미리보기(OG) 이미지 원본. 1200×630. 고치면 scripts/make-og.mjs 로 다시 만든다.
+     주소 뒤 ?v=owner | quote | view 로 3종: 사장님·요금 안내 / 고객 견적 요청 / 견적서 -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { width: 1200px; height: 630px; overflow: hidden; background: #004ac6; color: #fff; font-family: "Noto Sans KR", sans-serif; letter-spacing: -0.03em; word-break: keep-all; position: relative; }
+  /* 배경: 견적서 줄처럼 보이는 아주 옅은 가로선 */
+  body::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(180deg, transparent 0 62px, rgba(255,255,255,.045) 62px 63px); }
+  .copy { position: absolute; left: 76px; top: 0; bottom: 0; width: 600px; display: flex; flex-direction: column; justify-content: center; }
+  .brand { display: flex; align-items: center; gap: 14px; font-size: 30px; font-weight: 700; opacity: .95; margin-bottom: 44px; }
+  .brand i { width: 44px; height: 44px; border-radius: 12px; background: #fff; display: grid; place-items: center; color: #004ac6; font-style: normal; font-weight: 900; font-size: 26px; }
+  h1 { font-size: 84px; line-height: 1.16; font-weight: 900; white-space: pre-line; }
+  .sub { margin-top: 30px; font-size: 34px; font-weight: 500; line-height: 1.45; color: #cfdcff; white-space: pre-line; }
+  /* 견적서 한 장: 이 서비스가 실제로 만드는 물건 */
+  .slip { position: absolute; right: 70px; top: 78px; width: 400px; background: #fff; color: #1e293b; border-radius: 28px; padding: 34px 34px 30px; transform: rotate(3.5deg); box-shadow: 0 30px 60px rgba(0, 20, 80, .45); }
+  .slip .tag { display: inline-flex; align-items: center; gap: 8px; background: #d1fae5; color: #006242; font-weight: 700; font-size: 20px; padding: 6px 14px; border-radius: 999px; }
+  .slip .tag::before { content: "✓"; font-weight: 900; }
+  .slip h2 { font-size: 30px; font-weight: 700; margin: 18px 0 14px; }
+  .row { display: flex; justify-content: space-between; font-size: 23px; padding: 11px 0; border-bottom: 2px dashed #e2e8f0; color: #475569; }
+  .row b { color: #1e293b; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .total { margin-top: 20px; background: #eff6ff; border-radius: 18px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: baseline; font-size: 22px; font-weight: 700; color: #004ac6; }
+  .total b { font-size: 40px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  /* 고객에게 가는 미리보기(quote·view)에는 예시 금액을 넣지 않는다 → 자기 견적 금액으로 오해할 수 있음 */
+  .blank .row b, .blank .total b { color: transparent; background: #cbd5e1; border-radius: 8px; }
+  .blank .total b { background: #bfd4ff; }
+  .warn { margin-top: 16px; font-size: 19px; color: #b45309; font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="copy">
+    <div class="brand"><i>₩</i>비즈마이 견적</div>
+    <h1 id="h"></h1>
+    <p class="sub" id="s"></p>
+  </div>
+  <div class="slip">
+    <span class="tag">사진 확인 완료 견적</span>
+    <h2 id="t">입주청소 견적서</h2>
+    <div class="row"><span>기본 34평</span><b>442,000원</b></div>
+    <div class="row"><span>신축 할증</span><b>88,000원</b></div>
+    <div class="row"><span>곰팡이 제거</span><b>30,000원</b></div>
+    <div class="total"><span>합계</span><b>560,000원</b></div>
+    <p class="warn">⚠ 현장 추가요금 조건까지 미리 안내</p>
+  </div>
+<script>
+  const V = {
+    owner: ['견적은 자동으로,\n사장님은 확인만', '고객이 링크로 입력하면\n내 단가표로 바로 계산됩니다'],
+    quote: ['3분이면\n견적 요청 끝', '사진 몇 장과 간단한 질문만.\n확인 후 견적서를 보내드려요'],
+    view: ['견적서가\n도착했어요', '금액 · 포함 · 불포함 ·\n추가요금 조건을 확인하세요'],
+  }[new URLSearchParams(location.search).get('v') || 'owner'];
+  if ((new URLSearchParams(location.search).get('v') || 'owner') !== 'owner') {
+    document.body.classList.add('blank');
+    document.getElementById('t').textContent = '견적서';
+    document.querySelectorAll('.row span').forEach((el, i) => { el.textContent = ['기본 금액', '할증', '추가 옵션'][i]; });
+  }
+  document.getElementById('h').textContent = V[0];
+  document.getElementById('s').textContent = V[1];
+</script>
+</body>
+</html>

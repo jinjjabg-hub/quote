@@ -12,6 +12,13 @@ service cloud.firestore {
     function shopPath(shopId) { return /databases/$(database)/documents/shops/$(shopId); }
     function str(v, max) { return v is string && v.size() <= max; }
 
+    // 요금 (설계도 12장): 무료 견적을 다 썼고 요금제도 없으면 서버가 shops/{id}/billing/state.canSend 를 false 로 둔다.
+    // 그 문서는 서버(관리자)만 쓴다 — 아래에 match 가 없으므로 화면에서는 읽기·쓰기 모두 안 된다. 카드 키(billing/secret)·결제 기록도 같다.
+    function billingOk(shopId) {
+      let p = /databases/$(database)/documents/shops/$(shopId)/billing/state;
+      return !exists(p) || get(p).data.get('canSend', true) != false;
+    }
+
     // 고객이 견적서에서 "예약 요청"을 누를 때: sent → booking_requested 만 허용
     function isCustomerBooking() {
       return resource.data.status == 'sent'
@@ -148,8 +155,10 @@ service cloud.firestore {
     match /quotes/{quoteId} {
       allow get: if true;
       allow list: if signedIn() && resource.data.shopId == request.auth.uid;
+      // 새 견적서: 무료 한도·요금제 확인 (테스트 견적은 고객에게 "테스트"로 표시되므로 제외). 이미 보낸 견적 수정(update)은 막지 않는다.
       allow create: if isOwner(request.resource.data.shopId)
-        && get(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.shopId == request.auth.uid;
+        && get(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.shopId == request.auth.uid
+        && (request.resource.data.get('test', false) == true || billingOk(request.resource.data.shopId));
       allow update: if (isOwner(resource.data.shopId) && request.resource.data.shopId == resource.data.shopId)
         || isCustomerBooking();
       allow delete: if isOwner(resource.data.shopId);
