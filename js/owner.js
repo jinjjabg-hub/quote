@@ -20,6 +20,7 @@ import { subscribeStaff, renderSchedule } from './staffAdmin.js';
 import { subscribeJobs, ensureQuoteJob } from './jobsAdmin.js';
 import { openBookingSheet } from './bookingAdmin.js';
 import { jobFromRequest, shiftDate } from './schedule.js';
+import { pushReady, pushState, enableOwnerPush, thisDeviceToken } from './push.js';
 
 registerSW();
 
@@ -29,7 +30,11 @@ const S = {
   requests: new Map(), filter: 'all', tab: 'home', unsub: null, detail: null,
   staff: null, unsubStaff: null, sched: {},
   jobs: null, unsubJobs: null, jobWin: null, // 일정: 보고 있는 날짜 앞뒤 구간만 구독
+  pushTokens: [], // 새 견적 요청 알림을 받는 내 기기들
+  settings: {}, // shops/{id}/private/settings (사장님만): scheduleOn 등
 };
+
+const NUDGE_DAYS = 2; // 견적을 보내고 이만큼 답이 없으면 "다시 연락" 할 일로 올린다
 
 if (!isConfigured) showFatal('Firebase 설정이 아직 없습니다. js/config.js 를 채운 뒤 다시 열어주세요. (배포.md 참고)');
 else onAuthStateChanged(auth, (user) => onUser(user).catch((e) => showFatal(e.message)));
@@ -81,14 +86,17 @@ async function loadShop() {
   S.tpl = await loadTemplate(S.shop.templateId);
   const p = await getDoc(pricingRef);
   S.priceTable = mergePriceTable(S.tpl, p.exists() ? p.data().priceTable : {});
+  S.pushTokens = await getDoc(doc(db, 'shops', uid, 'private', 'push')).then((d) => (d.exists() ? d.data().tokens || [] : [])).catch(() => []);
+  S.settings = await getDoc(doc(db, 'shops', uid, 'private', 'settings')).then((d) => (d.exists() ? d.data() : {})).catch(() => ({}));
   if (!S.shop.name) S.tab = 'shop'; // 처음이면 업체 정보부터
 }
 
 function subscribeStaffList() {
   S.unsubStaff?.();
   S.unsubStaff = subscribeStaff(S.user.uid, (list) => {
+    const was = scheduleOn();
     S.staff = list;
-    if (!S.detail && S.tab === 'schedule' && !document.querySelector('dialog[open]')) renderMain();
+    if (!S.detail && !document.querySelector('dialog[open]') && (S.tab === 'schedule' || (was !== scheduleOn() && ['home', 'list', 'link'].includes(S.tab)))) renderMain();
   });
 }
 
@@ -130,7 +138,12 @@ const TABS = [
   ['link', '내 링크', 'link'],
 ];
 // 업체 정보는 오른쪽 위 사람 아이콘에서 (아래 메뉴 5칸 유지)
-const TAB_TITLE = { home: '홈 대시보드', list: '견적 요청', schedule: '일정 · 직원', price: '단가표 관리', link: '내 견적 링크', shop: '업체 정보' };
+const TAB_TITLE = { home: '홈', list: '견적 요청', schedule: '일정 · 직원', price: '단가표 관리', link: '내 견적 링크', shop: '업체 정보' };
+
+// 일정·직원 관리는 직원이 있는 업체용 (설계도 12장: 1인 사장님에게는 화면만 복잡).
+// 사장님이 업체 정보에서 켜고 끈다. 고른 적이 없으면 직원을 등록한 업체만 켜진 것으로 본다.
+function scheduleOn() { return S.settings.scheduleOn ?? !!S.staff?.length; }
+function visibleTabs() { return TABS.filter(([k]) => k !== 'schedule' || scheduleOn()); }
 
 function goTab(k) { S.tab = k; renderMain(); window.scrollTo(0, 0); }
 
@@ -144,11 +157,11 @@ function renderMain() {
       ensureJobs(S.sched.date);
       return renderSchedule({ shopId: S.user.uid, shopName: S.shop.name, staff: S.staff, jobs: S.jobs, st: S.sched, rerender: renderMain });
     },
-  }[S.tab] || renderHome;
+  }[S.tab === 'schedule' && !scheduleOn() ? 'home' : S.tab] || renderHome;
   setChildren(app,
     appBar(),
     body(),
-    h('nav.bottom-nav', { 'aria-label': '메뉴' }, TABS.map(([k, label, ic]) => h(`button.nav-item${S.tab === k ? '.on' : ''}`, {
+    h('nav.bottom-nav', { 'aria-label': '메뉴' }, visibleTabs().map(([k, label, ic]) => h(`button.nav-item${S.tab === k ? '.on' : ''}`, {
       type: 'button', onclick: () => goTab(k), 'aria-current': S.tab === k ? 'page' : null,
     }, icon(ic), label, k === 'list' ? waitingDot() : null))),
   );
@@ -175,60 +188,125 @@ function sortedRequests() {
   return [...S.requests.values()].sort((a, b) => (b.createdAt?.seconds ?? 9e9) - (a.createdAt?.seconds ?? 9e9));
 }
 
+// 고객에게 실제로 보낸 금액. 보낸 견적이 없으면 지금 단가표로 계산한 예상 금액
+function requestAmount(r) {
+  if (typeof r.quoteTotal === 'number') return r.quoteTotal;
+  try { return calculateQuote(S.tpl, S.priceTable, r).total; } catch { return null; /* 템플릿 불일치 */ }
+}
+
 // "내 숫자" (설계도 0장). 테스트 요청은 항상 제외한다.
 function myNumbers() {
   const real = [...S.requests.values()].filter((r) => !r.test);
   const dayOf = (r) => { const d = tsToDate(r.createdAt); return d ? toDateStr(d) : toDateStr(new Date()); };
-  const today = toDateStr(new Date());
-  const yesterday = addDays(today, -1);
-  const month = today.slice(0, 7);
+  const month = toDateStr(new Date()).slice(0, 7);
   const monthReqs = real.filter((r) => dayOf(r).startsWith(month));
   const sent = monthReqs.filter((r) => ['sent', 'booking_requested', 'confirmed'].includes(r.status)).length;
-  const confirmed = monthReqs.filter((r) => r.status === 'confirmed').length;
-  const waiting = real.filter((r) => r.status === 'new').sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0));
+  const won = monthReqs.filter((r) => r.status === 'confirmed');
   return {
-    today: real.filter((r) => dayOf(r) === today).length,
-    yesterday: real.filter((r) => dayOf(r) === yesterday).length,
-    waiting: waiting.length,
-    oldestWaiting: waiting[0]?.createdAt,
     month: monthReqs.length,
     sent,
-    confirmed,
-    rate: sent ? Math.round((confirmed / sent) * 1000) / 10 : null,
+    confirmed: won.length,
+    wonAmount: won.reduce((sum, r) => sum + (requestAmount(r) || 0), 0),
+    rate: sent ? Math.round((won.length / sent) * 100) : null,
   };
+}
+
+// 홈 = "지금 할 일". 돈이 되는 순서: ① 계약하겠다는 고객 ② 견적을 기다리는 고객(오래 기다린 순) ③ 견적 받고 답 없는 고객
+function todoList() {
+  const all = [...S.requests.values()];
+  const at = (ts) => tsToDate(ts)?.getTime() ?? Date.now();
+  const byOldest = (key) => (a, b) => at(a[key]) - at(b[key]);
+  const quiet = (r) => r.status === 'sent' && !r.nudgedAt && Date.now() - at(r.sentAt || r.updatedAt) > NUDGE_DAYS * 86400000;
+  return [
+    ...all.filter((r) => r.status === 'booking_requested').sort(byOldest('bookingRequestedAt')).map((r) => ({ kind: 'book', r })),
+    ...all.filter((r) => r.status === 'new').sort(byOldest('createdAt')).map((r) => ({ kind: 'quote', r })),
+    ...all.filter(quiet).sort(byOldest('updatedAt')).map((r) => ({ kind: 'nudge', r })),
+  ];
+}
+
+function nudgeMessage(r) {
+  return `[${S.shop.name}] ${r.customer?.name || '고객'}님, 보내드린 ${S.tpl.name} 견적서 확인해 보셨나요? 궁금한 점은 편하게 연락 주세요.\n견적서 보기: ${pageUrl('view.html', { id: r.quoteId })}`;
+}
+
+function smsHref(phone, body) {
+  return `sms:${String(phone || '').replace(/[^0-9+]/g, '')}?&body=${encodeURIComponent(body)}`;
+}
+
+function renderTodo({ kind, r }) {
+  const open = () => { location.hash = `req=${r.id}`; };
+  const stop = (fn) => (e) => { e.stopPropagation(); fn?.(); };
+  const phone = r.customer?.phone;
+  const amount = requestAmount(r);
+  const head = {
+    book: ['계약 요청', `${timeAgo(r.bookingRequestedAt || r.updatedAt)} 요청`],
+    quote: ['견적 기다리는 중', `${timeAgo(r.createdAt)} 접수`],
+    nudge: ['답 없음', `견적 보낸 지 ${timeAgo(r.sentAt || r.updatedAt).replace(' 전', '')}`],
+  }[kind];
+  const action = {
+    book: phone ? h('a.btn.ok', { href: telHref(phone), onclick: stop() }, icon('call'), '전화해서 확정') : null,
+    quote: h('button.btn.primary', { type: 'button', onclick: stop(open) }, '견적 보내기', icon('arrow_forward')),
+    nudge: phone ? h('a.btn.dark', {
+      href: smsHref(phone, nudgeMessage(r)),
+      onclick: stop(() => updateDoc(doc(db, 'requests', r.id), { nudgedAt: serverTimestamp() }).catch(() => {})),
+    }, icon('sms'), '문자로 다시 연락') : null,
+  }[kind];
+  return h(`li.todo.todo-${kind}`, { onclick: open },
+    h('div.todo-head', {}, h('b', {}, head[0]), r.test ? h('span.badge.st-test', {}, '테스트') : null, h('span.todo-wait', {}, head[1])),
+    h('div.todo-body', {},
+      h('div.grow', {},
+        h('div.todo-who', {}, `${maskName(r.customer?.name) || '이름 없음'} 고객님`),
+        h('div.muted.small', {}, [r.customer?.region, requestSummary(r).size, r.answers?.date && `희망일 ${r.answers.date.slice(5).replace('-', '/')}`].filter(Boolean).join(' · '))),
+      amount != null ? h('div.todo-amount', {}, formatWon(amount)) : null),
+    action);
+}
+
+// 새 견적 요청이 오면 휴대폰이 울리게 (1순위: 문의를 놓치지 않기). 이미 켠 기기에서는 아무것도 안 보인다.
+function renderPushCard() {
+  if (!pushReady()) return null;
+  const st = pushState();
+  if (st === 'unsupported' || (st === 'granted' && S.pushTokens.includes(thisDeviceToken()))) return null;
+  const guide = {
+    'ios-install': '아이폰은 먼저 아래 공유 버튼 → "홈 화면에 추가"를 한 뒤, 홈 화면의 앱에서 켤 수 있어요.',
+    denied: '알림이 차단돼 있어요. 휴대폰 설정 → 알림에서 이 앱을 허용해 주세요.',
+  }[st];
+  return h('section.card.push-card.off', {},
+    h('div.push-head', {}, icon('notifications_active'), h('b', {}, '새 문의가 오면 휴대폰이 울리게 하세요')),
+    h('p.small', {}, guide || '지금은 앱을 열어 봐야만 새 요청을 알 수 있어요. 먼저 답하는 업체가 계약합니다.'),
+    guide ? null : h('button.btn.primary.block', {
+      type: 'button',
+      onclick: async (e) => {
+        const btn = e.currentTarget; btn.disabled = true;
+        try { S.pushTokens = await enableOwnerPush(S.user.uid, S.pushTokens); toast('알림을 켰어요. 새 견적 요청이 오면 이 휴대폰으로 알려드려요.', 3500); renderMain(); }
+        catch (err) { toast(err.message, 4000); btn.disabled = false; }
+      },
+    }, icon('notifications'), '이 휴대폰으로 알림 받기'));
 }
 
 function renderHome() {
   const n = myNumbers();
-  const diff = n.today - n.yesterday;
-  const stat = (label, ic, value, cls, sub, subCls) => h('div.stat', {},
-    h('div.stat-head', {}, label, icon(ic)),
-    h(`div.stat-num${cls ? `.${cls}` : ''}`, {}, value, h('small', {}, '건')),
-    sub ? h(`div.stat-sub${subCls ? `.${subCls}` : ''}`, {}, sub) : null);
-  const recent = sortedRequests().slice(0, 4);
+  const todos = todoList();
+  const recent = sortedRequests().filter((r) => !todos.some((t) => t.r.id === r.id)).slice(0, 3);
+  const step = (label, value) => h('div.funnel-step', {}, h('b', {}, value), h('span', {}, label));
   return h('section', {},
-    h('div.hero', {},
-      h('span.tag', {}, icon('storefront'), S.tpl.name),
-      h('h1', {}, `${S.shop.name || '사장님'} 대표님,`),
-      h('p', {}, n.waiting
-        ? `답을 기다리는 요청이 ${n.waiting}건 있어요.\n먼저 답하는 업체가 계약합니다.`
-        : '밀린 요청이 없어요.\n내 링크를 더 많은 곳에 붙여보세요.')),
-    h('div.section-head', {}, h('h2', {}, '실시간 운영 현황'), h('span.muted.small', {}, '테스트 제외')),
-    h('div.stats', {},
-      stat('오늘 신규 견적', 'mark_email_unread', n.today, 'blue', diff ? [icon(diff > 0 ? 'trending_up' : 'trending_down'), `어제 대비 ${diff > 0 ? '+' : ''}${diff}건`] : '어제와 같아요', diff > 0 ? 'up' : null),
-      stat('답장 대기', 'phone_in_talk', n.waiting, null, n.waiting ? [icon('schedule'), `가장 오래된 요청 ${timeAgo(n.oldestWaiting)}`] : '모두 답했어요', n.waiting ? 'alert' : null),
-      stat('이번 달 누적', 'calendar_month', n.month, null, `견적 발송 ${n.sent}건`),
-      stat('계약 성공', 'task_alt', n.confirmed, 'green', n.rate == null ? '발송한 견적이 아직 없어요' : `전환율 ${n.rate}%`, 'up')),
-    h('div.tools', {},
-      h('div.section-head', { style: 'margin:0' }, h('b', {}, '빠른 업무 도구')),
-      h('div.tools-grid', {},
-        h('button.tool', { type: 'button', onclick: () => goTab('price') }, icon('tune'), '단가표 수정'),
-        h('button.tool', { type: 'button', onclick: () => copyText(shopLink()) }, icon('content_copy'), '내 링크 복사'),
-        h('a.tool', { href: pageUrl('q.html', { shop: S.user.uid, test: 1 }), target: '_blank', rel: 'noopener' }, icon('visibility'), '고객용 미리보기'))),
-    h('div.section-head', {},
-      h('h2', {}, '최근 견적 요청', S.requests.size ? h('span.pill-count', {}, S.requests.size) : null),
-      S.requests.size > recent.length ? h('button.link', { type: 'button', onclick: () => goTab('list') }, '전체보기 ›') : null),
-    recent.length ? h('ul.req-list', {}, recent.map(renderListItem)) : emptyList(),
+    renderPushCard(),
+    h('div.section-head', {}, h('h2', {}, '지금 할 일', todos.length ? h('span.pill-count', {}, todos.length) : null)),
+    todos.length
+      ? h('ul.todo-list', {}, todos.map(renderTodo))
+      : h('div.card.empty', {},
+        h('p', {}, h('b', {}, S.requests.size ? '밀린 일이 없어요.' : '아직 견적 요청이 없어요.')),
+        h('p.muted', {}, '내 링크를 카톡·문자·숨고 채팅에 붙여 고객에게 보내보세요.'),
+        h('button.btn.primary.block', { type: 'button', onclick: () => copyText(shopLink()) }, icon('content_copy'), '내 견적 링크 복사')),
+    h('div.section-head', {}, h('h2', {}, '이번 달'), h('span.muted.small', {}, '테스트 제외')),
+    h('div.card.month', {},
+      h('div.funnel', {}, step('요청', n.month), icon('chevron_right'), step('견적 발송', n.sent), icon('chevron_right'), step('계약', n.confirmed)),
+      h('div.month-won', {},
+        h('span', {}, '계약 금액', n.confirmed ? h('span.muted', {}, ` · 보낸 견적의 ${n.rate}%가 계약`) : null),
+        h('b', {}, formatWon(n.wonAmount)))),
+    recent.length ? [
+      h('div.section-head', {}, h('h2', {}, '그 밖의 최근 요청'),
+        h('button.link', { type: 'button', onclick: () => goTab('list') }, '전체보기 ›')),
+      h('ul.req-list', {}, recent.map(renderListItem)),
+    ] : null,
   );
 }
 
@@ -264,7 +342,6 @@ function renderTestPanel(all) {
     h('div.btn-col', {},
       h('button.btn.primary', { onclick: (e) => createSampleRequest(e.target) }, '샘플 요청 1건 만들기'),
       h('a.btn.ghost', { href: pageUrl('q.html', { shop: S.user.uid, test: 1 }), target: '_blank', rel: 'noopener' }, '고객 화면으로 직접 입력해보기'),
-      h('a.btn.ghost', { href: 'dev.html', target: '_blank', rel: 'noopener' }, '🛠 업종 시뮬레이터 (6개 업종 계산 확인)'),
       tests.length ? h('button.btn.ghost.danger', { onclick: (e) => clearTestData(tests, e.target) }, `테스트 데이터 모두 지우기 (${tests.length}건)`) : null));
 }
 
@@ -319,8 +396,9 @@ function requestSummary(r) {
 }
 
 function renderListItem(r) {
-  let est = '';
-  try { est = formatWon(calculateQuote(S.tpl, S.priceTable, r).total); } catch { /* 템플릿 불일치 */ }
+  const amount = requestAmount(r);
+  const est = amount == null ? '' : formatWon(amount);
+  const quoted = typeof r.quoteTotal === 'number';
   const { size, what } = requestSummary(r);
   const fresh = r.status === 'new';
   const ageMin = (Date.now() - (tsToDate(r.createdAt)?.getTime() ?? Date.now())) / 60000;
@@ -337,7 +415,7 @@ function renderListItem(r) {
       h('div.what', {}, icon('cleaning_services'), `신청 항목: ${what}`),
       r.answers?.date ? h('div.what', {}, icon('event'), `희망일 ${r.answers.date}`) : null),
     h('div.req-bottom', {},
-      h('div.price', {}, h('div.muted', {}, r.status === 'confirmed' ? '계약 금액 (예상)' : '예상 견적 금액'), h(`b${r.status === 'confirmed' ? '.green' : ''}`, {}, est || '-')),
+      h('div.price', {}, h('div.muted', {}, r.status === 'confirmed' ? '계약 금액' : quoted ? '보낸 견적 금액' : '예상 견적 금액'), h(`b${r.status === 'confirmed' ? '.green' : ''}`, {}, est || '-')),
       h('button.btn.soft.small', { type: 'button', onclick: stop(open) }, '상세보기'),
       r.customer?.phone ? h(`a.btn.small.${fresh ? 'primary' : 'dark'}`, { href: telHref(r.customer.phone), onclick: stop() }, icon('call'), fresh ? '바로 전화' : '전화') : null));
 }
@@ -474,7 +552,22 @@ function renderShopForm() {
     h('div.card', {},
       sectionTitle(3, '만두 채팅 연결', '선택'),
       text('manduId', '만두 ID', { placeholder: '예) banjjak (@ 없이)', hint: '넣으면 고객 화면·견적서에 "만두로 채팅 문의" 버튼이 생깁니다. 외국인 고객과도 자동 번역으로 대화할 수 있어요.' })),
-    h('div.card', {}, renderDevSettings()),
+    h('div.card', {},
+      sectionTitle(4, '직원·일정 관리', scheduleOn() ? '사용 중' : '꺼짐'),
+      h('p.muted.small', {}, '직원이 있는 업체용입니다. 켜면 아래 메뉴에 "일정"이 생겨 직원 등록·일정표·배정 알림을 쓸 수 있어요. 혼자 일하시면 꺼 두세요.'),
+      h('button.btn.soft.block', {
+        type: 'button',
+        onclick: async (e) => {
+          const btn = e.currentTarget; btn.disabled = true;
+          const next = !scheduleOn();
+          try {
+            await setDoc(doc(db, 'shops', S.user.uid, 'private', 'settings'), { scheduleOn: next, updatedAt: serverTimestamp() }, { merge: true });
+            S.settings = { ...S.settings, scheduleOn: next };
+            toast(next ? '일정 메뉴를 켰어요.' : '일정 메뉴를 껐어요. 등록한 직원·일정은 그대로 남아 있어요.', 3000);
+            renderMain();
+          } catch (err) { toast(`저장 실패: ${err.message}`); btn.disabled = false; }
+        },
+      }, icon(scheduleOn() ? 'event_busy' : 'calendar_month'), scheduleOn() ? '일정 메뉴 끄기' : '직원이 있어요 · 일정 메뉴 켜기')),
     h('button.btn.ghost.block', { type: 'button', onclick: () => { if (confirm('로그아웃할까요?')) signOut(auth); } }, icon('logout'), '로그아웃'),
     h('div.dock', {}, h('button.btn.primary', {
       onclick: async (e) => {
@@ -495,18 +588,6 @@ function renderShopForm() {
         } catch (err) { toast(`저장 실패: ${err.message}`); btn.disabled = false; }
       },
     }, icon('save'), '업체 정보 저장하기')));
-}
-
-function renderDevSettings() {
-  let on = false;
-  try { on = localStorage.getItem('devMode') === '1'; } catch { /* 무시 */ }
-  return h('div', {},
-    sectionTitle(4, '개발자 모드'),
-    h('p.muted.small', {}, '켜면 모든 화면 왼쪽 아래에 오류 패널이 생겨, 문제가 생겼을 때 원인을 바로 보고 복사해서 전달할 수 있어요. 이 기기에서만 적용됩니다.'),
-    h('div.btn-col', {},
-      h('button.btn.ghost', { onclick: () => { try { if (on) localStorage.removeItem('devMode'); else localStorage.setItem('devMode', '1'); } catch { /* 무시 */ } location.reload(); } },
-        on ? '개발자 모드 끄기' : '개발자 모드 켜기 (오류 패널)'),
-      h('a.btn.ghost', { href: 'dev.html', target: '_blank', rel: 'noopener' }, '업종 시뮬레이터 열기')));
 }
 
 // ---------- 요청 상세 + 견적 편집 ----------
@@ -570,7 +651,7 @@ async function addQuoteJob(req) {
   try {
     const r = await ensureQuoteJob(S.user.uid, job);
     toast({
-      created: `계약확정! ${job.date} ${job.start} 일정에 등록했어요. 일정 탭에서 직원을 배정하세요.`,
+      created: scheduleOn() ? `계약확정! ${job.date} ${job.start} 일정에 등록했어요. 일정 탭에서 직원을 배정하세요.` : `계약확정! ${job.date} ${job.start} 일정에 등록했어요.`,
       exists: '계약확정했어요. (일정은 이미 등록되어 있어요)',
       nodate: '계약확정했어요. 희망일이 없어 일정은 일정 탭에서 직접 등록해주세요.',
     }[r], 3500);
@@ -621,6 +702,7 @@ function renderDetail() {
         phone ? h('div.cust-actions', {},
           h('a.btn.ok.icon', { href: telHref(phone), 'aria-label': '전화하기' }, icon('call', true)),
           h('a.btn.soft.icon', { href: `sms:${phone.replace(/[^0-9+]/g, '')}`, 'aria-label': '문자 보내기' }, icon('sms'))) : null)),
+    renderQuoteSummary(req),
     h('section.card', {},
       h('div.card-title', {}, icon('location_on'), '시공 현장 정보'),
       h('div.box', {},
@@ -654,10 +736,31 @@ function renderDetail() {
         h('button.btn.primary', { onclick: () => openBooking(req) }, icon('event_available'), '고객에게 확정 안내'),
         h('div.dock-note', {}, h('span', {}, '방문 날짜·시간·준비사항'), h('span', {}, '견적서 링크에 표시')))
       : h('div.dock', {},
-        h('button.btn.primary', { onclick: (e) => sendQuote(req, e.currentTarget) }, icon('send'), req.quoteId ? '견적서 다시 보내기' : '견적서 보내기'),
-        h('div.dock-note', {}, h('span', {}, '견적서 링크 + 안내 문구 생성'), h('span', {}, '카톡·문자로 전달'))),
+        h('button.btn.primary', { onclick: (e) => sendQuote(req, e.currentTarget) }, icon('send'),
+          `${formatWon(finalizeLines(S.detail.lines, S.priceTable.policy.depositPct).total)} ${req.quoteId ? '견적서 다시 보내기' : '견적서 보내기'}`),
+        h('div.dock-note', {}, h('span', {}, '보내기 전에 한 번 더 확인해요'))),
   );
   renderDetailStatus();
+}
+
+// 상세 맨 위 요약: 사장님이 제일 먼저 알고 싶은 것 = "얼마로 나가나, 뭘 확인해야 하나".
+// 금액이 맞으면 스크롤 없이 아래 [견적서 보내기]만 누르면 된다.
+function renderQuoteSummary(req) {
+  const d = S.detail;
+  const t = finalizeLines(d.lines, S.priceTable.policy.depositPct);
+  const ansLabel = { yes: '예', unknown: '모름', no: '아니오' };
+  const risks = S.tpl.checklist
+    .filter((i) => req.checklist?.[i.key] === i.risk || req.checklist?.[i.key] === 'unknown')
+    .map((i) => h(`span.check-chip${req.checklist[i.key] === 'unknown' ? '.unknown' : ''}`, {}, `${i.short || i.label.replace(/[?？]$/, '')} · ${ansLabel[req.checklist[i.key]]}`));
+  const parts = t.lines.filter((l) => l.key !== ROUNDING_KEY).map((l) => l.label);
+  return h('section.card.quote-summary', {},
+    h('div.sum-label', {}, d.edited ? '직접 고친 금액' : '내 단가표로 계산한 금액'),
+    h('div.sum-total', {}, formatWon(t.total)),
+    h('div.muted.small', {}, parts.join(' + ')),
+    h('div.sum-checks', {},
+      h(`span.check-chip${req.photos?.length ? '.ok' : '.unknown'}`, {}, icon('photo_camera'), req.photos?.length ? `사진 ${req.photos.length}장` : '사진 없음'),
+      risks),
+    h('button.link', { type: 'button', onclick: () => $('.quote-editor')?.scrollIntoView({ behavior: 'smooth' }) }, '금액·항목 고치기 ↓'));
 }
 
 /** 평수 옆 표시: 대장으로 확인했는지, 고객이 대장 값과 다르게 고쳤는지 */
@@ -760,19 +863,20 @@ function renderQuoteEditor(req) {
     h('div.total-box', {},
       h('div', {}, h('span', {}, h('div.small', { style: 'opacity:.85' }, '최종 고객 발송 견적'), h('b', { style: 'font-size:1.1rem' }, '합계 금액')), h('b', {}, formatWon(totals.total))),
       h('div.muted', {}, `계약금 ${S.priceTable.policy.depositPct}%`, h('span', {}, formatWon(totals.deposit)))),
-    h('h3', {}, '견적서에 들어갈 안내'),
-    h('label.field', {}, h('span.label', {}, '⚠️ 현장 추가요금 조건 (한 줄에 하나, "항목: 설명")'),
-      h('textarea.input', {
-        rows: Math.max(3, condText.length + 1), value: condText.join('\n'),
-        oninput: (e) => {
-          d.conditions = e.target.value.split('\n').map((x) => x.trim()).filter(Boolean).map((line) => {
-            const i = line.indexOf(':');
-            return i > 0 ? { label: line.slice(0, i).trim(), text: line.slice(i + 1).trim() } : { label: line, text: '' };
-          });
-        },
-      })),
-    listEditor('✅ 포함 항목', d.included, 'included'),
-    listEditor('❌ 불포함 항목', d.excluded, 'excluded'));
+    h('details.guide-edit', { open: !!d.guideOpen, ontoggle: (e) => { d.guideOpen = e.currentTarget.open; } },
+      h('summary', {}, h('b', {}, '견적서 안내 문구 고치기'), h('span.muted.small', {}, `추가요금 조건 ${d.conditions.length} · 포함 ${d.included.length} · 불포함 ${d.excluded.length}`)),
+      h('label.field', {}, h('span.label', {}, '⚠️ 현장 추가요금 조건 (한 줄에 하나, "항목: 설명")'),
+        h('textarea.input', {
+          rows: Math.max(3, condText.length + 1), value: condText.join('\n'),
+          oninput: (e) => {
+            d.conditions = e.target.value.split('\n').map((x) => x.trim()).filter(Boolean).map((line) => {
+              const i = line.indexOf(':');
+              return i > 0 ? { label: line.slice(0, i).trim(), text: line.slice(i + 1).trim() } : { label: line, text: '' };
+            });
+          },
+        })),
+      listEditor('✅ 포함 항목', d.included, 'included'),
+      listEditor('❌ 불포함 항목', d.excluded, 'excluded')));
 }
 
 async function sendQuote(req, btn) {
@@ -798,7 +902,7 @@ async function sendQuote(req, btn) {
       customer: { name: req.customer?.name || '', region: req.customer?.region || '' },
       service: {
         date: a.date || '', timeSlot: optionLabel(timeField, a.timeSlot) || '',
-        summary: [a.area ? `${a.area}평` : '', a.isNew ? '신축' : ''].filter(Boolean).join(' · '),
+        summary: [requestSummary(req).size, a.isNew ? '신축' : ''].filter(Boolean).join(' · '),
       },
       lines: t.lines.map(({ key, type, label, note, amount }) => ({ key, type: type || 'custom', label, note: note || '', amount: Number(amount) || 0 })),
       total: t.total,
@@ -819,26 +923,29 @@ async function sendQuote(req, btn) {
     };
     const batch = writeBatch(db);
     batch.set(quoteRef, quote);
-    batch.update(doc(db, 'requests', req.id), { status: 'sent', quoteId: quoteRef.id, updatedAt: serverTimestamp() });
+    // sentAt·quoteTotal: 홈의 "답 없는 견적"·이번 달 계약 금액·견적 발송 시간 지표에 쓴다
+    batch.update(doc(db, 'requests', req.id), { status: 'sent', quoteId: quoteRef.id, quoteTotal: t.total, sentAt: serverTimestamp(), nudgedAt: null, updatedAt: serverTimestamp() });
     await batch.commit();
-    showSent(quoteRef.id, quote);
+    showSent(quoteRef.id, quote, req.customer?.phone);
   } catch (e) {
     toast(`발송 실패: ${e.message}`, 4000);
     btn.disabled = false;
   }
 }
 
-function showSent(quoteId, quote) {
+// 견적서를 만든 뒤: 고객 번호로 문자 앱이 바로 열리게 (복사 → 앱 전환 → 고객 찾기 → 붙여넣기를 1번 탭으로)
+function showSent(quoteId, quote, phone) {
   const url = pageUrl('view.html', { id: quoteId });
   const msg = `[${quote.shop.name}] ${quote.customer.name}님 ${quote.templateName} 견적서입니다.\n`
     + `합계 ${formatWon(quote.total)} (계약금 ${formatWon(quote.deposit)})\n견적서 보기: ${url}`;
   const dlg = h('dialog.sheet', {},
     h('h2', {}, '견적서가 만들어졌어요'),
-    h('p.muted', {}, '아래 문구를 복사해 카톡·문자로 보내세요.'),
+    h('p.muted', {}, phone ? '이제 고객에게 보내기만 하면 됩니다.' : '아래 문구를 복사해 카톡·문자로 보내세요.'),
     h('pre.msg', {}, msg),
     h('div.btn-col', {},
-      h('button.btn.primary.big', { onclick: () => copyText(msg) }, '문구 + 링크 복사'),
-      navigator.share ? h('button.btn.ghost', { onclick: () => navigator.share({ text: msg }).catch(() => {}) }, '공유하기') : null,
+      phone ? h('a.btn.primary.big', { href: smsHref(phone, msg) }, icon('sms'), `${quote.customer.name}님께 문자로 보내기`) : null,
+      h(`button.btn.${phone ? 'ghost' : 'primary.big'}`, { onclick: () => copyText(msg) }, icon('content_copy'), '문구 + 링크 복사 (카톡용)'),
+      navigator.share ? h('button.btn.ghost', { onclick: () => navigator.share({ text: msg }).catch(() => {}) }, '다른 앱으로 공유') : null,
       h('a.btn.ghost', { href: url, target: '_blank', rel: 'noopener' }, '견적서 미리보기'),
       h('button.btn.ghost', { onclick: () => { dlg.close(); dlg.remove(); location.hash = ''; } }, '목록으로')));
   document.body.append(dlg);

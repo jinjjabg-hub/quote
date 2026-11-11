@@ -4,3 +4,5 @@
 // 배포: main 에 머지하면 GitHub Actions 가 자동 배포 (.github/workflows/deploy-functions.yml)
 export { areaLookup } from './lib/areaLookup.js';
 export { notifyJob } from './lib/notifyJob.js';
+//   notifyRequest  새 견적 요청 → 사장님 휴대폰 알림 (1순위: 문의를 놓치지 않기). 키 없음
+export { notifyRequest } from './lib/notifyRequest.js';

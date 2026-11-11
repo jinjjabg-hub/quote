@@ -8,6 +8,7 @@ import { visibleSteps, pruneHidden } from './calc.js';
 import { $, h, toast, compressImage, registerSW, showFatal, telHref, manduHref, setChildren, icon, footerNote } from './util.js';
 import { appConfig } from './config.js';
 import { lookupEnabled, newLookupState, renderLookupPanel } from './areaLookup.js';
+import { notifyNewRequest } from './push.js';
 
 registerSW();
 
@@ -287,6 +288,7 @@ async function submit() {
       quoteId: null,
       createdAt: serverTimestamp(),
     });
+    notifyNewRequest(requestRef.id); // 사장님 휴대폰 알림 (1순위: 문의를 놓치지 않기)
     try { localStorage.removeItem(draftKey); } catch { /* 무시 */ }
     renderDone();
   } catch (e) {

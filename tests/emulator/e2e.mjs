@@ -213,6 +213,9 @@ try {
   await item.click();
   await owner.locator('.total-box').waitFor();
   assert.match(await owner.locator('.total-box').innerText(), /560,000원/);
+  // 맨 위 요약: 금액 + 확인할 것(위험 답변·사진)이 스크롤 없이 보인다
+  const sum = await owner.locator('.quote-summary').innerText();
+  assert.match(sum, /560,000원[\s\S]*사진 2장[\s\S]*곰팡이 · 예[\s\S]*스티커·시트지 자국 · 모름/);
   const detailText = await owner.locator('body').innerText();
   assert.match(detailText, /예시타운 101동 1203/, '사장님 상세: 단지명·동·호');
   assert.match(detailText, /건축물대장 확인/, '사장님 상세: 평수 출처');
@@ -228,6 +231,9 @@ try {
   await shot(owner, '7-owner-detail');
   await owner.getByRole('button', { name: '견적서 보내기' }).click();
   await owner.locator('dialog.sheet').waitFor();
+  // 고객 번호로 문자 앱이 바로 열리는 버튼 (복사·붙여넣기 없이 1번 탭)
+  const smsLink = await owner.getByRole('link', { name: /문자로 보내기/ }).getAttribute('href');
+  assert.match(decodeURIComponent(smsLink), /^sms:01033334444\?&body=\[반짝입주청소\][\s\S]*560,000원[\s\S]*view\.html\?id=/);
   const viewUrl = await owner.getByRole('link', { name: '견적서 미리보기' }).getAttribute('href');
   await shot(owner, '8-owner-sent');
   await owner.getByRole('button', { name: '목록으로' }).click();
@@ -281,9 +287,13 @@ try {
   await owner.getByText('테스트 데이터를 지웠어요').waitFor({ timeout: 10000 }); // 화면은 즉시 바뀌고 서버 삭제는 그 뒤에 끝남
   assert.equal(await owner.locator('.req-card', { hasText: '김*객' }).count(), 1, '실제 요청은 남아 있어야 함');
   await owner.getByRole('button', { name: '홈', exact: true }).click(); // 홈
-  await owner.locator('.stats').first().waitFor();
-  const stats = await owner.locator('.stats').first().innerText();
-  assert.match(stats, /계약 성공/);
+  // 홈 = 지금 할 일: 계약 요청한 고객이 맨 위에, 실제로 보낸 금액과 함께. 이번 달 숫자는 한 줄
+  const todo = owner.locator('.todo').first();
+  await todo.waitFor();
+  assert.match(await todo.innerText(), /계약 요청[\s\S]*김\*객[\s\S]*560,000원[\s\S]*전화해서 확정/);
+  assert.match(await owner.locator('.card.month').innerText(), /요청[\s\S]*견적 발송[\s\S]*계약 금액/);
+  assert.match(await owner.locator('.push-card').innerText(), /새 문의가 오면/, '알림을 안 켠 기기에는 알림 켜기 안내');
+  assert.equal(await owner.getByText('개발자 모드').count(), 0, '사장님 화면에 개발자용 메뉴 없음');
   await shot(owner, '12b-owner-home');
   await owner.getByRole('button', { name: '내 링크', exact: true }).click(); // 내 링크
   await owner.getByText('우리 업체 전용 견적 링크').waitFor();
@@ -301,6 +311,11 @@ try {
   const plus = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d; };
   const target = plus(3); // 직원이 휴무로 고를 날 (지난 날은 못 고름)
   const offDays = [plus(4).getDay(), plus(5).getDay()]; // 정기 휴무는 다른 요일로 → 오늘·target 은 근무일
+  // 1인 사장님에게는 일정 메뉴가 없다 → 업체 정보에서 켠다
+  assert.equal(await owner.locator('.bottom-nav').getByRole('button', { name: '일정', exact: true }).count(), 0, '직원 없는 업체는 일정 메뉴 숨김');
+  await owner.getByRole('button', { name: '업체 정보' }).click();
+  await owner.getByRole('button', { name: /일정 메뉴 켜기/ }).click();
+  await owner.getByText('일정 메뉴를 켰어요').waitFor();
   await owner.getByRole('button', { name: '일정', exact: true }).click();
   await owner.getByText('이날 일정이 없어요').waitFor();
   await owner.getByRole('tab', { name: '직원·근무' }).click();
