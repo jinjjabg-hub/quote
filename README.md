@@ -33,7 +33,9 @@ js/util.js                DOM 도우미 h(), 토스트, 복사, 이미지 압축
 templates/move-in-cleaning.json   ★ 입주청소 템플릿 (질문·체크리스트·할증·옵션·기본단가·포함/불포함)
 css/style.css             모바일 우선 스타일
 manifest.webmanifest, sw.js, icons/   PWA
-functions/                Cloud Functions: areaLookup(평수 조회) · notifyJob(직원 일정 알림) · notifyRequest(새 견적 요청 → 사장님 알림)
+functions/                Cloud Functions: areaLookup(평수 조회) · notifyJob(직원 일정 알림) · notifyRequest(새 견적 요청 → 사장님 알림) · billingStatus(무료 10건 세기) · billingPay/billingRenew(카드 자동결제, 키 넣은 뒤 배포)
+js/billing.js             요금 화면: 무료 견적 남은 건수, 요금제 창, 토스페이먼츠 카드 등록
+scripts/og.html, make-og.mjs   공유 미리보기(OG) 이미지 원본·생성
 firestore.rules, storage.rules, firebase.json   보안 규칙 (+ 에뮬레이터 설정)
 tests/calc.test.mjs       계산 단위 테스트 (전 업종 템플릿 점검 포함, 설치 불필요)
 dev.html    js/dev.js     개발자 모드 · 업종 시뮬레이터

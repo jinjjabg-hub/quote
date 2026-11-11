@@ -6,3 +6,8 @@ export { areaLookup } from './lib/areaLookup.js';
 export { notifyJob } from './lib/notifyJob.js';
 //   notifyRequest  새 견적 요청 → 사장님 휴대폰 알림 (1순위: 문의를 놓치지 않기). 키 없음
 export { notifyRequest } from './lib/notifyRequest.js';
+//   billingStatus  무료 견적 10건 세기 · 요금제 상태 · 해지 (설계도 12장). 키 없음
+export { billingStatus } from './lib/billingStatus.js';
+//   billingPay · billingRenew  카드 자동결제 (토스페이먼츠). Secret Manager 에 TOSS_SECRET_KEY 를 넣은 뒤 아래 줄의 주석을 풀고
+//   배포 목록(.github/workflows/deploy-functions.yml FUNCTIONS)에 functions:billingPay,functions:billingRenew 를 추가한다 (배포.md ⑦)
+// export { billingPay, billingRenew } from './lib/billingPay.js';

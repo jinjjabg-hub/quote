@@ -21,6 +21,7 @@ import { subscribeJobs, ensureQuoteJob } from './jobsAdmin.js';
 import { openBookingSheet } from './bookingAdmin.js';
 import { jobFromRequest, shiftDate } from './schedule.js';
 import { pushReady, pushState, enableOwnerPush, thisDeviceToken } from './push.js';
+import { fetchBilling, finishCardAuth, renderBillingCard, openPlanSheet, billingLine } from './billing.js';
 
 registerSW();
 
@@ -31,6 +32,7 @@ const S = {
   staff: null, unsubStaff: null, sched: {},
   jobs: null, unsubJobs: null, jobWin: null, // 일정: 보고 있는 날짜 앞뒤 구간만 구독
   pushTokens: [], // 새 견적 요청 알림을 받는 내 기기들
+  billing: null, // 요금 상태 (서버 함수 billingStatus). null 이면 아직 모름 → 막지 않는다
   settings: {}, // shops/{id}/private/settings (사장님만): scheduleOn 등
 };
 
@@ -52,6 +54,7 @@ async function onUser(user) {
   subscribeRequests();
   subscribeStaffList();
   route();
+  refreshBilling(await finishCardAuth()); // 카드 등록 창에서 돌아온 경우 결제 확인, 아니면 상태만 조회
 }
 
 function renderLogin() {
@@ -90,6 +93,15 @@ async function loadShop() {
   S.settings = await getDoc(doc(db, 'shops', uid, 'private', 'settings')).then((d) => (d.exists() ? d.data() : {})).catch(() => ({}));
   if (!S.shop.name) S.tab = 'shop'; // 처음이면 업체 정보부터
 }
+
+// 요금 상태를 다시 받아 홈·업체 정보에 반영 (입력 중인 화면은 건드리지 않는다)
+async function refreshBilling(known) {
+  const b = known || await fetchBilling();
+  if (!b) return;
+  S.billing = b;
+  if (!S.detail && ['home', 'shop'].includes(S.tab) && !document.querySelector('dialog[open]') && S.shop?.name) renderMain();
+}
+function openPlans(reason) { return openPlanSheet(S.billing, { shop: S.shop, reason, onChange: (b) => { S.billing = b; if (!S.detail) renderMain(); } }); }
 
 function subscribeStaffList() {
   S.unsubStaff?.();
@@ -289,6 +301,7 @@ function renderHome() {
   const step = (label, value) => h('div.funnel-step', {}, h('b', {}, value), h('span', {}, label));
   return h('section', {},
     renderPushCard(),
+    renderBillingCard(S.billing, () => openPlans()),
     h('div.section-head', {}, h('h2', {}, '지금 할 일', todos.length ? h('span.pill-count', {}, todos.length) : null)),
     todos.length
       ? h('ul.todo-list', {}, todos.map(renderTodo))
@@ -552,6 +565,10 @@ function renderShopForm() {
     h('div.card', {},
       sectionTitle(3, '만두 채팅 연결', '선택'),
       text('manduId', '만두 ID', { placeholder: '예) banjjak (@ 없이)', hint: '넣으면 고객 화면·견적서에 "만두로 채팅 문의" 버튼이 생깁니다. 외국인 고객과도 자동 번역으로 대화할 수 있어요.' })),
+    S.billing ? h('div.card', {},
+      sectionTitle(null, '요금제'),
+      h('p', {}, h('b', {}, billingLine(S.billing))),
+      h('button.btn.soft.block', { type: 'button', onclick: () => openPlans() }, icon('payments'), '요금제 보기')) : null,
     h('div.card', {},
       sectionTitle(4, '직원·일정 관리', scheduleOn() ? '사용 중' : '꺼짐'),
       h('p.muted.small', {}, '직원이 있는 업체용입니다. 켜면 아래 메뉴에 "일정"이 생겨 직원 등록·일정표·배정 알림을 쓸 수 있어요. 혼자 일하시면 꺼 두세요.'),
@@ -885,6 +902,8 @@ async function sendQuote(req, btn) {
   const t = finalizeLines(d.lines, pt.policy.depositPct);
   if (currentReq().status === 'confirmed' && !confirm('계약확정된 요청이에요. 견적서를 다시 만들면 고객 확정 안내가 지워지고 상태가 "견적발송"으로 돌아가요. 계속할까요?')) return;
   if (!S.shop.name || !S.shop.phone) { toast('업체 정보(상호·연락처)를 먼저 저장해주세요.'); return; }
+  // 무료 견적을 다 썼고 요금제도 없으면 새 견적서는 못 만든다 (보낸 견적 수정·테스트는 가능). 서버 규칙도 같은 기준으로 막는다
+  if (!req.quoteId && !req.test && S.billing && !S.billing.canSend) { openPlans('limit'); return; }
   if (!confirm(`합계 ${formatWon(t.total)} (계약금 ${formatWon(t.deposit)})\n이 금액으로 견적서를 만들까요?`)) return;
   btn.disabled = true;
   try {
@@ -927,7 +946,10 @@ async function sendQuote(req, btn) {
     batch.update(doc(db, 'requests', req.id), { status: 'sent', quoteId: quoteRef.id, quoteTotal: t.total, sentAt: serverTimestamp(), nudgedAt: null, updatedAt: serverTimestamp() });
     await batch.commit();
     showSent(quoteRef.id, quote, req.customer?.phone);
+    if (!req.test) refreshBilling();
   } catch (e) {
+    // 규칙이 막은 경우(다른 기기에서 무료 건수를 다 씀) → 상태를 다시 받아 요금제 안내
+    if (e.code === 'permission-denied' && !req.test) { await refreshBilling(); if (S.billing && !S.billing.canSend) { btn.disabled = false; openPlans('limit'); return; } }
     toast(`발송 실패: ${e.message}`, 4000);
     btn.disabled = false;
   }

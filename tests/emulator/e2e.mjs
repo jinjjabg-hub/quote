@@ -40,6 +40,12 @@ async function newPage() {
     const name = /\/([^/]+\.js)$/.exec(route.request().url())[1];
     route.fulfill({ contentType: 'text/javascript', body: await readFile(path.join(FB, name)) });
   });
+  // 요금 상태(서버 함수 billingStatus)는 가짜 응답으로: 무료 10건 중 1건 사용
+  await ctx.route(/cloudfunctions\.net\/billingStatus/, async (route) => {
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type, authorization' };
+    if (route.request().method() === 'OPTIONS') { await route.fulfill({ status: 204, headers: cors }); return; }
+    await route.fulfill({ contentType: 'application/json', headers: cors, body: JSON.stringify({ ok: true, state: { plan: 'trial', status: 'trial', used: 1, freeLimit: 10, freeLeft: 9, canSend: true, enforce: false } }) });
+  });
   const page = await ctx.newPage();
   pages.push(page);
   page.on('dialog', (d) => d.accept());
@@ -294,7 +300,15 @@ try {
   assert.match(await owner.locator('.card.month').innerText(), /요청[\s\S]*견적 발송[\s\S]*계약 금액/);
   assert.match(await owner.locator('.push-card').innerText(), /새 문의가 오면/, '알림을 안 켠 기기에는 알림 켜기 안내');
   assert.equal(await owner.getByText('개발자 모드').count(), 0, '사장님 화면에 개발자용 메뉴 없음');
+  // 요금: 무료 견적 남은 건수 → 누르면 요금제 창 (결제 키를 넣기 전에는 "준비 중" 안내)
+  const bill = owner.locator('.bill-card');
+  assert.match(await bill.innerText(), /무료 견적 9건 남음[\s\S]*10건 중 1건 사용/);
   await shot(owner, '12b-owner-home');
+  await bill.click();
+  const plans = owner.locator('dialog.plan-sheet');
+  assert.match(await plans.innerText(), /혼자[\s\S]*19,900원[\s\S]*팀[\s\S]*49,000원[\s\S]*회사[\s\S]*99,000원[\s\S]*카드 결제는 준비 중/);
+  await shot(owner, '12b2-plan-sheet');
+  await plans.getByRole('button', { name: '닫기' }).click();
   await owner.getByRole('button', { name: '내 링크', exact: true }).click(); // 내 링크
   await owner.getByText('우리 업체 전용 견적 링크').waitFor();
   await shot(owner, '12c-owner-link');

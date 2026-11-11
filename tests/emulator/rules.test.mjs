@@ -89,6 +89,22 @@ test('사장님: 견적 발송(배치) O, 남의 요청으로 견적 생성 X', 
   await assertFails(setDoc(doc(other(), 'quotes', 'q3'), { shopId: OTHER, requestId: 'r1', status: 'sent' }));
 });
 
+test('요금: 무료 견적을 다 쓰면(canSend=false) 새 견적서 X, 테스트 견적·보낸 견적 수정은 O, 요금 문서는 화면에서 읽기·쓰기 X', async () => {
+  const db = owner();
+  const state = doc(db, 'shops', OWNER, 'billing', 'state');
+  await assertFails(setDoc(state, { canSend: true }));
+  await assertFails(getDoc(state));
+  await assertFails(getDoc(doc(db, 'shops', OWNER, 'billing', 'secret')));
+  await assertFails(setDoc(doc(db, 'subscriptions', OWNER), { status: 'active' }));
+  const q = (id, over = {}) => setDoc(doc(db, 'quotes', id), { shopId: OWNER, requestId: 'r1', status: 'sent', total: 1, ...over });
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'shops', OWNER, 'billing', 'state'), { used: 3, canSend: true }));
+  await assertSucceeds(q('q10'));
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'shops', OWNER, 'billing', 'state'), { used: 10, canSend: false }));
+  await assertFails(q('q11'));
+  await assertSucceeds(q('q12', { test: true }));
+  await assertSucceeds(updateDoc(doc(db, 'quotes', 'q1'), { total: 570000 }));
+});
+
 test('사장님: 만두 ID 형식 검사', async () => {
   const base = { ownerUid: OTHER, templateId: 'move-in-cleaning', name: '' };
   await assertSucceeds(setDoc(doc(other(), 'shops', OTHER), { ...base, manduId: 'banjjak_1' }));

@@ -245,6 +245,24 @@ textarea.input { min-height: 96px; resize: vertical; line-height: 1.6; }
 .month-won { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 .month-won b { font-size: 1.375rem; color: var(--ok-deep); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* 요금: 무료 견적 사용량 */
+.bill-card { display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; padding: 14px 18px; }
+.bill-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bill-more { display: inline-flex; align-items: center; color: var(--primary); font-weight: 600; font-size: .9rem; white-space: nowrap; }
+.bill-bar { height: 8px; border-radius: 999px; background: var(--line); margin: 10px 0 6px; overflow: hidden; }
+.bill-bar span { display: block; height: 100%; border-radius: 999px; background: var(--primary); }
+.bill-card.warn { border-color: var(--warn); }
+.bill-card.warn .bill-bar span { background: var(--warn); }
+.plan-item { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin: 10px 0; }
+.plan-item.on { border: 2px solid var(--ok); }
+.plan-head { display: flex; align-items: center; gap: 8px; }
+.plan-head b { font-size: 1.125rem; }
+.plan-price { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; margin: 4px 0; }
+.plan-price small { font-size: .85rem; font-weight: 500; color: var(--muted); }
+.plan-points { list-style: none; padding: 0; margin: 6px 0 12px; font-size: .95rem; }
+.plan-points .ms { font-size: 18px; color: var(--ok-deep); margin-right: 4px; }
+.plan-sheet { max-height: 92vh; overflow-y: auto; }
+
 /* 요청 상세 맨 위: 금액 먼저 */
 .quote-summary { background: var(--primary-deep); color: #fff; border: 0; }
 .quote-summary .sum-label { font-size: .875rem; opacity: .85; }
