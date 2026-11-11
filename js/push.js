@@ -1,7 +1,8 @@
-// 일정 배정 알림 (설계도 10-1장 ③단계)
+// 휴대폰 알림 (FCM)
+// 사장님: 새 견적 요청 알림 받기 (고객 화면이 요청 저장 직후 서버 함수 notifyRequest 호출)
 // 직원: 이 기기에서 알림 받기 (FCM 토큰을 내 직원 문서 pushTokens 에 저장)
 // 사장님: 일정 저장 뒤 서버 함수 notifyJob 호출 → 바뀐 직원에게만 알림
-import { app, auth, db, doc, updateDoc, serverTimestamp, useEmulator } from './firebase.js';
+import { app, auth, db, doc, setDoc, updateDoc, serverTimestamp, useEmulator } from './firebase.js';
 import { pushConfig } from './config.js';
 
 const MSG = 'https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging.js';
@@ -19,8 +20,8 @@ export function pushState() {
   return Notification.permission === 'granted' ? 'granted' : 'off';
 }
 
-/** 알림 허용 → 토큰 저장. 성공하면 토큰을 돌려준다 */
-export async function enablePush(shopId, staffId, current = []) {
+/** 알림 허용 → 이 기기의 토큰 */
+async function deviceToken() {
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') throw new Error(perm === 'denied' ? '알림이 차단돼 있어요. 휴대폰 설정에서 이 앱의 알림을 켜주세요.' : '알림을 허용해야 받을 수 있어요.');
   const { getMessaging, getToken, isSupported } = await import(MSG);
@@ -28,10 +29,32 @@ export async function enablePush(shopId, staffId, current = []) {
   const reg = await navigator.serviceWorker.ready;
   const token = await getToken(getMessaging(app), { vapidKey: pushConfig.vapidKey, serviceWorkerRegistration: reg });
   if (!token) throw new Error('알림 등록에 실패했어요. 잠시 뒤 다시 눌러주세요.');
-  const list = [...current.filter((t) => t !== token), token].slice(-MAX_TOKENS);
-  await updateDoc(doc(db, 'shops', shopId, 'staff', staffId), { pushTokens: list, updatedAt: serverTimestamp() });
   try { localStorage.setItem('pushToken', token); } catch { /* 무시 */ }
   return token;
+}
+
+/** 직원: 알림 허용 → 토큰을 내 직원 문서에 저장 */
+export async function enablePush(shopId, staffId, current = []) {
+  const token = await deviceToken();
+  const list = [...current.filter((t) => t !== token), token].slice(-MAX_TOKENS);
+  await updateDoc(doc(db, 'shops', shopId, 'staff', staffId), { pushTokens: list, updatedAt: serverTimestamp() });
+  return token;
+}
+
+/** 사장님: 새 견적 요청 알림 받기 → 토큰을 shops/{id}/private/push 에 저장 (사장님만 읽고 씀). 저장한 목록을 돌려준다 */
+export async function enableOwnerPush(shopId, current = []) {
+  const token = await deviceToken();
+  const tokens = [...current.filter((t) => t !== token), token].slice(-MAX_TOKENS);
+  await setDoc(doc(db, 'shops', shopId, 'private', 'push'), { tokens, updatedAt: serverTimestamp() });
+  return tokens;
+}
+
+/** 고객 화면: 요청 저장 직후 사장님에게 알림 요청. 실패해도 고객 화면에는 영향 없음 */
+export function notifyNewRequest(requestId) {
+  if (!pushConfig.requestNotifyUrl || useEmulator) return;
+  fetch(pushConfig.requestNotifyUrl, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId }), keepalive: true,
+  }).catch(() => {});
 }
 
 export function thisDeviceToken() {

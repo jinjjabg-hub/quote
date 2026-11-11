@@ -29,4 +29,6 @@ export const areaLookupConfig = {
 export const pushConfig = {
   vapidKey: 'BPm_HM0e68Pw_gfaizkWqFQuahUn5U0gLFGRuWXeV8T-QOs0WVnZqAy049abgtQ137tIJtAFD4OvsqzIGjdc7Tg',
   notifyUrl: 'https://asia-northeast3-quote-640f4.cloudfunctions.net/notifyJob',
+  // 새 견적 요청 → 사장님 휴대폰 알림 (고객 화면이 요청 저장 직후 부른다)
+  requestNotifyUrl: 'https://asia-northeast3-quote-640f4.cloudfunctions.net/notifyRequest',
 };

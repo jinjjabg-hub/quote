@@ -1,6 +1,6 @@
 // 서비스워커: 앱 껍데기(HTML/CSS/JS/템플릿)만 캐시. 네트워크 우선 → 오프라인일 때만 캐시 사용.
 // Firebase·구글 요청은 건드리지 않는다.
-const CACHE = 'quote-v12';
+const CACHE = 'quote-v13';
 const SHELL = [
   './', './owner.html', './q.html', './view.html', './staff.html', './manifest-staff.webmanifest', './css/style.css', './css/legal.css', './pricing.html', './terms.html', './refund.html', './privacy.html',
   './js/config.js', './js/firebase.js', './js/calc.js', './js/templates.js', './js/util.js',
@@ -37,24 +37,28 @@ self.addEventListener('push', (e) => {
   try { p = e.data ? e.data.json() : {}; } catch { p = { data: { title: '일정 알림', body: e.data?.text() || '' } }; }
   const d = p.data || {};
   const n = p.notification || {};
-  const title = d.title || n.title || '일정 알림';
+  const title = d.title || n.title || '알림';
+  const tag = d.jobId ? `job-${d.jobId}` : d.requestId ? `req-${d.requestId}` : undefined; // 같은 건의 알림은 최신 것 하나만
   e.waitUntil(self.registration.showNotification(title, {
     body: d.body || n.body || '',
     icon: './icons/icon-192.png',
     badge: './icons/icon-192.png',
-    tag: d.jobId ? `job-${d.jobId}` : undefined, // 같은 일정 알림은 최신 것 하나만
-    renotify: !!d.jobId,
+    tag,
+    renotify: !!tag,
     data: { link: d.link || './staff.html' },
   }));
 });
 
+// 알림을 누르면: 직원 일정 알림 → 직원 화면, 새 견적 요청 알림 → 사장님 화면의 그 요청. 우리 사이트 주소로만 연다.
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const link = new URL(e.notification.data?.link || './staff.html', self.location.href);
-  const target = new URL('./staff.html', self.location.href); // 우리 사이트의 직원 화면으로만
+  const page = link.pathname.endsWith('/owner.html') ? 'owner.html' : 'staff.html';
+  const target = new URL(`./${page}`, self.location.href);
+  if (page === 'owner.html') target.hash = link.hash;
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-    const open = list.find((c) => new URL(c.url).pathname.endsWith('/staff.html'));
-    if (open) return open.focus();
-    return self.clients.openWindow(link.origin === self.location.origin ? link.href : target.href);
+    const open = list.find((c) => new URL(c.url).pathname.endsWith(`/${page}`));
+    if (open) return (target.hash && open.navigate ? open.navigate(target.href).catch(() => open) : Promise.resolve(open)).then((c) => (c || open).focus());
+    return self.clients.openWindow(target.href);
   }));
 });
