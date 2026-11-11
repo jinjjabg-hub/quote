@@ -4,7 +4,7 @@ const CACHE = 'quote-v12';
 const SHELL = [
   './', './owner.html', './q.html', './view.html', './staff.html', './manifest-staff.webmanifest', './css/style.css', './css/legal.css', './pricing.html', './terms.html', './refund.html', './privacy.html',
   './js/config.js', './js/firebase.js', './js/calc.js', './js/templates.js', './js/util.js',
-  './js/owner.js', './js/q.js', './js/view.js', './js/areaLookup.js', './js/schedule.js', './js/staffAdmin.js', './js/jobsAdmin.js', './js/booking.js', './js/bookingAdmin.js', './js/push.js', './js/staff.js', './templates/move-in-cleaning.json', './icons/icon.svg',
+  './js/owner.js', './js/q.js', './js/view.js', './js/areaLookup.js', './js/schedule.js', './js/staffAdmin.js', './js/jobsAdmin.js', './js/booking.js', './js/bookingAdmin.js', './js/push.js', './js/plan.js', './js/planAdmin.js', './js/staff.js', './templates/move-in-cleaning.json', './icons/icon.svg',
 ];
 
 self.addEventListener('install', (e) => {
