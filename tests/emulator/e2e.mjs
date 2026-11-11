@@ -311,6 +311,11 @@ try {
   const plus = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d; };
   const target = plus(3); // 직원이 휴무로 고를 날 (지난 날은 못 고름)
   const offDays = [plus(4).getDay(), plus(5).getDay()]; // 정기 휴무는 다른 요일로 → 오늘·target 은 근무일
+  // 1인 사장님에게는 일정 메뉴가 없다 → 업체 정보에서 켠다
+  assert.equal(await owner.locator('.bottom-nav').getByRole('button', { name: '일정', exact: true }).count(), 0, '직원 없는 업체는 일정 메뉴 숨김');
+  await owner.getByRole('button', { name: '업체 정보' }).click();
+  await owner.getByRole('button', { name: /일정 메뉴 켜기/ }).click();
+  await owner.getByText('일정 메뉴를 켰어요').waitFor();
   await owner.getByRole('button', { name: '일정', exact: true }).click();
   await owner.getByText('이날 일정이 없어요').waitFor();
   await owner.getByRole('tab', { name: '직원·근무' }).click();

@@ -31,6 +31,7 @@ const S = {
   staff: null, unsubStaff: null, sched: {},
   jobs: null, unsubJobs: null, jobWin: null, // 일정: 보고 있는 날짜 앞뒤 구간만 구독
   pushTokens: [], // 새 견적 요청 알림을 받는 내 기기들
+  settings: {}, // shops/{id}/private/settings (사장님만): scheduleOn 등
 };
 
 const NUDGE_DAYS = 2; // 견적을 보내고 이만큼 답이 없으면 "다시 연락" 할 일로 올린다
@@ -86,14 +87,16 @@ async function loadShop() {
   const p = await getDoc(pricingRef);
   S.priceTable = mergePriceTable(S.tpl, p.exists() ? p.data().priceTable : {});
   S.pushTokens = await getDoc(doc(db, 'shops', uid, 'private', 'push')).then((d) => (d.exists() ? d.data().tokens || [] : [])).catch(() => []);
+  S.settings = await getDoc(doc(db, 'shops', uid, 'private', 'settings')).then((d) => (d.exists() ? d.data() : {})).catch(() => ({}));
   if (!S.shop.name) S.tab = 'shop'; // 처음이면 업체 정보부터
 }
 
 function subscribeStaffList() {
   S.unsubStaff?.();
   S.unsubStaff = subscribeStaff(S.user.uid, (list) => {
+    const was = scheduleOn();
     S.staff = list;
-    if (!S.detail && S.tab === 'schedule' && !document.querySelector('dialog[open]')) renderMain();
+    if (!S.detail && !document.querySelector('dialog[open]') && (S.tab === 'schedule' || (was !== scheduleOn() && ['home', 'list', 'link'].includes(S.tab)))) renderMain();
   });
 }
 
@@ -137,6 +140,11 @@ const TABS = [
 // 업체 정보는 오른쪽 위 사람 아이콘에서 (아래 메뉴 5칸 유지)
 const TAB_TITLE = { home: '홈', list: '견적 요청', schedule: '일정 · 직원', price: '단가표 관리', link: '내 견적 링크', shop: '업체 정보' };
 
+// 일정·직원 관리는 직원이 있는 업체용 (설계도 12장: 1인 사장님에게는 화면만 복잡).
+// 사장님이 업체 정보에서 켜고 끈다. 고른 적이 없으면 직원을 등록한 업체만 켜진 것으로 본다.
+function scheduleOn() { return S.settings.scheduleOn ?? !!S.staff?.length; }
+function visibleTabs() { return TABS.filter(([k]) => k !== 'schedule' || scheduleOn()); }
+
 function goTab(k) { S.tab = k; renderMain(); window.scrollTo(0, 0); }
 
 function renderMain() {
@@ -149,11 +157,11 @@ function renderMain() {
       ensureJobs(S.sched.date);
       return renderSchedule({ shopId: S.user.uid, shopName: S.shop.name, staff: S.staff, jobs: S.jobs, st: S.sched, rerender: renderMain });
     },
-  }[S.tab] || renderHome;
+  }[S.tab === 'schedule' && !scheduleOn() ? 'home' : S.tab] || renderHome;
   setChildren(app,
     appBar(),
     body(),
-    h('nav.bottom-nav', { 'aria-label': '메뉴' }, TABS.map(([k, label, ic]) => h(`button.nav-item${S.tab === k ? '.on' : ''}`, {
+    h('nav.bottom-nav', { 'aria-label': '메뉴' }, visibleTabs().map(([k, label, ic]) => h(`button.nav-item${S.tab === k ? '.on' : ''}`, {
       type: 'button', onclick: () => goTab(k), 'aria-current': S.tab === k ? 'page' : null,
     }, icon(ic), label, k === 'list' ? waitingDot() : null))),
   );
@@ -544,6 +552,22 @@ function renderShopForm() {
     h('div.card', {},
       sectionTitle(3, '만두 채팅 연결', '선택'),
       text('manduId', '만두 ID', { placeholder: '예) banjjak (@ 없이)', hint: '넣으면 고객 화면·견적서에 "만두로 채팅 문의" 버튼이 생깁니다. 외국인 고객과도 자동 번역으로 대화할 수 있어요.' })),
+    h('div.card', {},
+      sectionTitle(4, '직원·일정 관리', scheduleOn() ? '사용 중' : '꺼짐'),
+      h('p.muted.small', {}, '직원이 있는 업체용입니다. 켜면 아래 메뉴에 "일정"이 생겨 직원 등록·일정표·배정 알림을 쓸 수 있어요. 혼자 일하시면 꺼 두세요.'),
+      h('button.btn.soft.block', {
+        type: 'button',
+        onclick: async (e) => {
+          const btn = e.currentTarget; btn.disabled = true;
+          const next = !scheduleOn();
+          try {
+            await setDoc(doc(db, 'shops', S.user.uid, 'private', 'settings'), { scheduleOn: next, updatedAt: serverTimestamp() }, { merge: true });
+            S.settings = { ...S.settings, scheduleOn: next };
+            toast(next ? '일정 메뉴를 켰어요.' : '일정 메뉴를 껐어요. 등록한 직원·일정은 그대로 남아 있어요.', 3000);
+            renderMain();
+          } catch (err) { toast(`저장 실패: ${err.message}`); btn.disabled = false; }
+        },
+      }, icon(scheduleOn() ? 'event_busy' : 'calendar_month'), scheduleOn() ? '일정 메뉴 끄기' : '직원이 있어요 · 일정 메뉴 켜기')),
     h('button.btn.ghost.block', { type: 'button', onclick: () => { if (confirm('로그아웃할까요?')) signOut(auth); } }, icon('logout'), '로그아웃'),
     h('div.dock', {}, h('button.btn.primary', {
       onclick: async (e) => {
@@ -627,7 +651,7 @@ async function addQuoteJob(req) {
   try {
     const r = await ensureQuoteJob(S.user.uid, job);
     toast({
-      created: `계약확정! ${job.date} ${job.start} 일정에 등록했어요. 일정 탭에서 직원을 배정하세요.`,
+      created: scheduleOn() ? `계약확정! ${job.date} ${job.start} 일정에 등록했어요. 일정 탭에서 직원을 배정하세요.` : `계약확정! ${job.date} ${job.start} 일정에 등록했어요.`,
       exists: '계약확정했어요. (일정은 이미 등록되어 있어요)',
       nodate: '계약확정했어요. 희망일이 없어 일정은 일정 탭에서 직접 등록해주세요.',
     }[r], 3500);
