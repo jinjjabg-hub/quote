@@ -2,3 +2,11 @@ node_modules/
 *-debug.log
 .firebase/
 tests/emulator/screenshots/
+
+# Android 서명 키스토어와 빌드 산출물 (절대 커밋 금지)
+twa/android.keystore
+twa/keystore-base64.txt
+twa/*.apk
+twa/*.aab
+twa/app/
+twa/build/
