@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.tm.quote",
+      "sha256_cert_fingerprints": [
+        "AB:5F:5D:1E:65:C9:57:64:E6:7D:87:DE:4A:5D:2B:9D:DC:F9:33:82:B5:00:BC:45:A3:49:21:CC:20:9B:D3:92",
+        "C2:BC:61:4A:97:10:E7:60:04:B6:82:5B:6B:CB:4A:F7:A6:AA:24:84:39:A8:63:ED:FE:B3:04:6D:FB:21:7F:81"
+      ]
+    }
+  }
+]
