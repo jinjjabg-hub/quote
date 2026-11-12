@@ -586,6 +586,7 @@ function renderShopForm() {
         },
       }, icon(scheduleOn() ? 'event_busy' : 'calendar_month'), scheduleOn() ? '일정 메뉴 끄기' : '직원이 있어요 · 일정 메뉴 켜기')),
     h('button.btn.ghost.block', { type: 'button', onclick: () => { if (confirm('로그아웃할까요?')) signOut(auth); } }, icon('logout'), '로그아웃'),
+    h('a.btn.ghost.block', { href: './account-deletion.html' }, icon('close'), '계정 삭제 요청'),
     h('div.dock', {}, h('button.btn.primary', {
       onclick: async (e) => {
         if (!f.name || !f.phone) { toast('업체명과 전화번호는 꼭 입력해주세요.'); return; }
