@@ -23,7 +23,7 @@
 ```
 index.html            → owner.html 로 이동
 owner.html  js/owner.js   사장님 화면 (구글 로그인): 요청 목록 / 단가표 / 업체 정보 / 요청 상세·견적 편집
-q.html      js/q.js       고객 입력 화면 (?shop=업체ID): 템플릿 steps 를 단계형으로 렌더링
+q.html      js/q.js       고객 입력 화면 (?shop=업체ID): 템플릿 steps 를 한 페이지에 모두 렌더링
 view.html   js/view.js    견적서 (?id=견적ID): 금액·포함·불포함·⚠️조건, 예약 요청, 전화
 js/config.js              ★ Firebase 설정값 (이 파일 한 곳만 수정)
 js/firebase.js            Firebase 초기화(CDN 모듈, 빌드 없음) + 에뮬레이터 모드
@@ -76,7 +76,7 @@ tests/emulator/           보안 규칙 테스트 + 완료 시나리오 E2E (Fir
 | `shops/{shopId}/private/pricing` | `priceTable` (아래) | 본인만 |
 | `templates/{templateId}` | 템플릿 JSON (선택. 없으면 저장소 JSON 사용) | 누구나 읽기, 콘솔에서만 쓰기 |
 | `requests/{requestId}` | `shopId, templateId, status, customer{name,phone,region}, answers{…}, checklist{key:'yes'\|'no'\|'unknown'}, photos[{slot,path}], quoteId, createdAt` | 누구나 생성(검증), 사장님만 읽기/수정 |
-| `quotes/{quoteId}` | `shopId, requestId, number, shop{…}, customer{name,region}, service{…}, lines[], total, depositPct, deposit, included[], excluded[], conditions[{label,text}], cancelPolicy, validUntil, verified, overrides, status` | 누구나 **get**(링크), list 는 본인만, 고객은 상태만 `sent→booking_requested` |
+| `quotes/{quoteId}` | `shopId, requestId, number, shop{…}, customer{name,region}, service{…}, lines[], total, deposit, included[], excluded[], conditions[{label,text}], cancelPolicy, validUntil, verified, overrides, status` | 누구나 **get**(링크), list 는 본인만, 고객은 상태만 `sent→booking_requested` |
 
 **설계 결정 (지시문과 다른 점과 이유)**
 - `shopId = 사장님 uid` — 1계정 1업체. 규칙이 `request.auth.uid == shopId` 한 줄로 끝나 안전하고 단순하다. 다업체가 필요하면 `shops` 문서 ID를 랜덤으로 바꾸고 규칙을 `ownerUid` 비교로 바꾸면 된다.
@@ -89,7 +89,7 @@ tests/emulator/           보안 규칙 테스트 + 완료 시나리오 E2E (Fir
 { "unitPrice": 13000, "minPrice": 250000,
   "surcharges": { "newBuild": 20, "weekend": 10, "sonEomneun": 10, "firstSlot": 5 },
   "options":    { "mold": 30000, "balcony": 20000, "closet": 30000, "sickHouse": 150000, "window": 50000, "sticker": 30000 },
-  "policy":     { "validDays": 7, "depositPct": 10, "cancelPolicy": "…" } }
+  "policy":     { "validDays": 7, "depositAmount": 50000, "cancelPolicy": "…" } }
 ```
 키는 템플릿의 `surcharges[].key`, `options[].key` 와 같다. 저장값이 없으면 템플릿 `defaults` 로 채운다 (`mergePriceTable`).
 

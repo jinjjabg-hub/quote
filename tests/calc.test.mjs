@@ -155,13 +155,31 @@ test('lintTemplate: 흔한 실수를 잡는다', () => {
   assert.match(msgs, /옵션 "nope"/);
 });
 
-// 2026-10-24 입주청소 업체 통화 반영: 오염도 요율(일부 15% / 전체 30%), 추가 공간 단가
-test('오염도: 일부 심함 15%, 전체 심함 30% 할증', () => {
-  const pt = mergePriceTable(template, { unitPrice: 10000, minPrice: 0, surcharges: { newBuild: 0 } });
+// 2026-11-19 청소 업체 의견 반영: 오염도는 % 할증이 아니라 사장님이 정한 금액으로 추가
+test('오염도: 일부 심함·전체 심함은 정해진 금액만큼 추가 (평수와 무관)', () => {
+  const pt = mergePriceTable(template, { unitPrice: 10000, minPrice: 0, surcharges: { newBuild: 0 }, options: { contamPartial: 50000, contamHeavy: 100000 } });
   const calc = (contamination) => calculateQuote(template, pt, { answers: { area: 30, isNew: false, date: '2026-10-14', contamination } });
   assert.equal(calc('normal').total, 300000);
-  assert.equal(calc('partial').total, 345000);
-  assert.equal(calc('heavy').total, 390000);
+  assert.equal(calc('partial').total, 350000);
+  assert.equal(calc('heavy').total, 400000);
+  assert.ok(!calc('normal').excluded.some((e) => e.includes('오염')), '오염 항목은 불포함 목록에 "요청 시"로 나오지 않음');
+});
+
+test('새집증후군: 평수 × 평단가 (30평 × 10,000원 = 300,000원), 고객이 고를 때만', () => {
+  const pt = mergePriceTable(template, { unitPrice: 10000, minPrice: 0, surcharges: { newBuild: 0 }, options: { sickHouse: 10000 } });
+  const on = calculateQuote(template, pt, { answers: { area: 30, isNew: false, date: '2026-10-14', extras: ['sickHouse'] } });
+  const line = on.lines.find((l) => l.key === 'option:sickHouse');
+  assert.equal(line.amount, 300000);
+  assert.match(line.note, /30평 × 10,000원/);
+  const off = calculateQuote(template, pt, { answers: { area: 30, isNew: false, date: '2026-10-14', extras: [] } });
+  assert.ok(!off.lines.some((l) => l.key === 'option:sickHouse'));
+  assert.ok(off.excluded.some((e) => e.includes('새집증후군') && e.includes('평당')));
+});
+
+test('계약금: 정해진 금액 (합계보다 크면 합계까지)', () => {
+  const pt = mergePriceTable(template, { unitPrice: 10000, minPrice: 0, surcharges: { newBuild: 0 }, policy: { depositAmount: 50000 } });
+  assert.equal(calculateQuote(template, pt, { answers: { area: 30, isNew: false, date: '2026-10-14' } }).deposit, 50000);
+  assert.equal(finalizeLines([{ key: 'a', amount: 30000 }], { depositAmount: 50000 }).deposit, 30000);
 });
 
 test('추가 공간(드레스룸·팬트리 등): 1개당 과금', () => {

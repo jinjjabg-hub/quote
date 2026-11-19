@@ -332,7 +332,7 @@
     },
     "policy": {
       "validDays": 7,
-      "depositPct": 10,
+      "depositAmount": 20000,
       "cancelPolicy": "작업 3일 전까지 취소 시 계약금 전액 환불, 2일 전~전날 50% 환불, 당일 취소 시 환불 불가."
     }
   },

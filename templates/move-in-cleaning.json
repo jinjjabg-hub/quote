@@ -423,10 +423,13 @@
           "field": "timeSlot",
           "equals": "first"
         }
-      },
+      }
+    ],
+    "options": [
       {
         "key": "contamPartial",
         "label": "오염 일부 심함",
+        "priceLabel": "오염 일부 심함 (추가 금액)",
         "when": {
           "field": "contamination",
           "equals": "partial"
@@ -435,13 +438,12 @@
       {
         "key": "contamHeavy",
         "label": "오염 전체 심함",
+        "priceLabel": "오염 전체 심함 (추가 금액)",
         "when": {
           "field": "contamination",
           "equals": "heavy"
         }
-      }
-    ],
-    "options": [
+      },
       {
         "key": "mold",
         "label": "곰팡이 제거"
@@ -473,6 +475,9 @@
       {
         "key": "sickHouse",
         "label": "새집증후군 시공",
+        "perField": "area",
+        "unit": "평",
+        "priceLabel": "새집증후군 시공 (평당)",
         "customerSelectable": true
       },
       {
@@ -500,22 +505,22 @@
       "newBuild": 20,
       "weekend": 10,
       "sonEomneun": 10,
-      "firstSlot": 5,
-      "contamPartial": 15,
-      "contamHeavy": 30
+      "firstSlot": 5
     },
     "options": {
+      "contamPartial": 50000,
+      "contamHeavy": 100000,
       "mold": 30000,
       "balcony": 20000,
       "closet": 30000,
-      "sickHouse": 150000,
+      "sickHouse": 10000,
       "window": 50000,
       "sticker": 30000,
       "extraRoom": 30000
     },
     "policy": {
       "validDays": 7,
-      "depositPct": 10,
+      "depositAmount": 50000,
       "cancelPolicy": "작업 3일 전까지 취소 시 계약금 전액 환불, 2일 전~전날 50% 환불, 당일 취소 시 환불 불가."
     }
   },

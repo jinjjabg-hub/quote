@@ -55,7 +55,7 @@ function render() {
         h('td.num', {}, formatWon(l.amount)))))),
       h('div.total-box', {},
         h('div', {}, '합계', h('b', {}, formatWon(q.total))),
-        h('div.muted', {}, `계약금 ${q.depositPct || 0}% ${formatWon(q.deposit)}`))),
+        h('div.muted', {}, `계약금 ${formatWon(q.deposit)}`))),
 
     section('✅ 포함 항목', q.included, 'ok'),
     section('❌ 불포함 항목', q.excluded, 'no'),

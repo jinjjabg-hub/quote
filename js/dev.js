@@ -155,7 +155,7 @@ function renderResult(r) {
     h('div.total-box', {},
       h('div', {}, r.range ? '예상 금액' : '합계', h('b', {}, r.range ? `${formatWon(r.range.low)} ~ ${formatWon(r.range.high)}` : formatWon(r.total))),
       r.range ? h('div.muted', {}, `기준 금액 ±${r.range.pct}% (실측 후 확정)`, h('span', {}, formatWon(r.total))) : null,
-      h('div.muted', {}, `계약금 ${S.pt.policy?.depositPct ?? 0}%`, h('span', {}, formatWon(r.deposit)))),
+      h('div.muted', {}, '계약금', h('span', {}, formatWon(r.deposit)))),
     r.labor ? h('div.labor', {}, h('b', {}, '👷 인력 예상: '), `${r.labor.crew}명 × ${r.labor.hours}시간`, h('span.muted.small', {}, ` (총 ${r.labor.manHours}인시간${r.labor.overDay ? ' · 하루 초과 → 이틀 작업' : ''})`)) : h('div.labor.muted', {}, '인력 예상 규칙 없음'),
     list('⚠️ 현장 추가요금 조건', r.conditions.map((c) => `${c.label} — ${c.text}`), 'cond'),
     list('✅ 포함', r.included, 'ok'),
@@ -190,7 +190,7 @@ function renderPriceTable() {
       return c.optionsLabel ? Object.entries(c.optionsLabel).map(([ok, ol]) => [`${k}.${ok}`, `${c.label}: ${ol}`]) : [[k, c.label]];
     })),
     unitPrice: `${p.base.unitPriceLabel || '단가'}`, minPrice: '최소 금액', installFee: p.base.perItemFeeLabel || '설치비',
-    'policy.validDays': '견적 유효기간 (일)', 'policy.depositPct': '계약금 (%)',
+    'policy.validDays': '견적 유효기간 (일)', 'policy.depositAmount': '계약금 (원)',
   };
   const rows = [];
   const walk = (obj, path) => {

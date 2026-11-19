@@ -458,6 +458,11 @@ dialog.sheet::backdrop { background: rgba(15,23,42,.45); }
 .page-q .step { padding: 24px; }
 .page-q .step h1 { font-size: 1.5rem; line-height: 1.42; margin: 0 0 24px; }
 .page-q .step h1 + p.muted { margin: -18px 0 20px; color: var(--s-sub); }
+/* 한 페이지 입력: 단계 제목은 h2, 빠진 칸이 있는 카드는 잠깐 빨간 테두리 */
+.page-q .step h2 { font-size: 1.25rem; line-height: 1.42; margin: 0 0 20px; }
+.page-q .step h2 + p.muted { margin: -14px 0 20px; color: var(--s-sub); }
+.page-q .step { scroll-margin-top: 12px; transition: box-shadow .2s; }
+.page-q .step.missing { box-shadow: 0 0 0 2px var(--danger); }
 .page-q .step .label { font-size: 1.125rem; font-weight: 600; margin-bottom: 8px; color: var(--s-text); }
 .page-q .step .hint { font-size: .875rem; font-weight: 500; color: var(--s-secondary); margin-top: 8px; line-height: 1.5; }
 .page-q .hint.with-icon { display: flex; gap: 6px; align-items: flex-start; }

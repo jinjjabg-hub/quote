@@ -337,7 +337,7 @@
     },
     "policy": {
       "validDays": 7,
-      "depositPct": 50,
+      "depositAmount": 100000,
       "cancelPolicy": "제작 시작 전 취소 시 계약금 환불, 제작 시작 후 취소 불가."
     }
   },

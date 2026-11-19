@@ -470,11 +470,11 @@ function renderPriceForm() {
       h('p.muted.small', {}, '주말·공휴일·손 없는 날은 고객 희망 날짜로 자동 판단합니다. (대체공휴일은 상세 화면에서 직접 체크)')),
     h('div.card', {},
       sectionTitle(3, '추가 옵션 단가', '현장 상황에 따른 추가'),
-      p.options.map((o) => row(o.priceLabel || o.label, numInput(() => pt.options[o.key] ?? 0, (v) => { pt.options[o.key] = v; }, '원'), o.customerSelectable ? '고객이 직접 고르는 항목' : null))),
+      p.options.map((o) => row(o.priceLabel || o.label, numInput(() => pt.options[o.key] ?? 0, (v) => { pt.options[o.key] = v; }, o.perField ? `원/${o.unit || ''}` : '원'), o.customerSelectable ? '고객이 직접 고르는 항목' : null))),
     h('div.card', {},
       sectionTitle(4, '견적 정책'),
       row('견적 유효기간', numInput(() => pt.policy.validDays, (v) => { pt.policy.validDays = v; }, '일')),
-      row('계약금 비율', numInput(() => pt.policy.depositPct, (v) => { pt.policy.depositPct = v; }, '%')),
+      row('계약금', numInput(() => pt.policy.depositAmount, (v) => { pt.policy.depositAmount = v; }, '원')),
       h('label.field', {}, h('span.label', {}, '취소 규정'),
         h('textarea.input', { rows: 3, value: pt.policy.cancelPolicy || '', oninput: (e) => { pt.policy.cancelPolicy = e.target.value; } }))),
     h('p.footer-note', {}, '단가를 바꾸면 이후에 계산되는 모든 견적에 바로 적용됩니다.\n이미 보낸 견적서는 바뀌지 않습니다.'),
@@ -755,7 +755,7 @@ function renderDetail() {
         h('div.dock-note', {}, h('span', {}, '방문 날짜·시간·준비사항'), h('span', {}, '견적서 링크에 표시')))
       : h('div.dock', {},
         h('button.btn.primary', { onclick: (e) => sendQuote(req, e.currentTarget) }, icon('send'),
-          `${formatWon(finalizeLines(S.detail.lines, S.priceTable.policy.depositPct).total)} ${req.quoteId ? '견적서 다시 보내기' : '견적서 보내기'}`),
+          `${formatWon(finalizeLines(S.detail.lines, S.priceTable.policy).total)} ${req.quoteId ? '견적서 다시 보내기' : '견적서 보내기'}`),
         h('div.dock-note', {}, h('span', {}, '보내기 전에 한 번 더 확인해요'))),
   );
   renderDetailStatus();
@@ -765,7 +765,7 @@ function renderDetail() {
 // 금액이 맞으면 스크롤 없이 아래 [견적서 보내기]만 누르면 된다.
 function renderQuoteSummary(req) {
   const d = S.detail;
-  const t = finalizeLines(d.lines, S.priceTable.policy.depositPct);
+  const t = finalizeLines(d.lines, S.priceTable.policy);
   const ansLabel = { yes: '예', unknown: '모름', no: '아니오' };
   const risks = S.tpl.checklist
     .filter((i) => req.checklist?.[i.key] === i.risk || req.checklist?.[i.key] === 'unknown')
@@ -833,9 +833,9 @@ function renderQuoteEditor(req) {
     }),
     state.on ? icon('check') : null, item.label, state.auto ? h('span.muted.small', {}, ' 자동') : null);
 
-  const totals = finalizeLines(d.lines, S.priceTable.policy.depositPct);
+  const totals = finalizeLines(d.lines, S.priceTable.policy);
   const refreshTotals = () => {
-    d.lines = finalizeLines(d.lines, S.priceTable.policy.depositPct).lines;
+    d.lines = finalizeLines(d.lines, S.priceTable.policy).lines;
     renderDetail();
   };
 
@@ -880,7 +880,7 @@ function renderQuoteEditor(req) {
       h('button.btn.ghost.small', { onclick: () => { d.overrides = { surcharges: {}, options: {} }; d.edited = false; recalc(req); renderDetail(); } }, icon('restart_alt'), '자동 계산으로 되돌리기')),
     h('div.total-box', {},
       h('div', {}, h('span', {}, h('div.small', { style: 'opacity:.85' }, '최종 고객 발송 견적'), h('b', { style: 'font-size:1.1rem' }, '합계 금액')), h('b', {}, formatWon(totals.total))),
-      h('div.muted', {}, `계약금 ${S.priceTable.policy.depositPct}%`, h('span', {}, formatWon(totals.deposit)))),
+      h('div.muted', {}, '계약금', h('span', {}, formatWon(totals.deposit)))),
     h('details.guide-edit', { open: !!d.guideOpen, ontoggle: (e) => { d.guideOpen = e.currentTarget.open; } },
       h('summary', {}, h('b', {}, '견적서 안내 문구 고치기'), h('span.muted.small', {}, `추가요금 조건 ${d.conditions.length} · 포함 ${d.included.length} · 불포함 ${d.excluded.length}`)),
       h('label.field', {}, h('span.label', {}, '⚠️ 현장 추가요금 조건 (한 줄에 하나, "항목: 설명")'),
@@ -900,7 +900,7 @@ function renderQuoteEditor(req) {
 async function sendQuote(req, btn) {
   const d = S.detail;
   const pt = S.priceTable;
-  const t = finalizeLines(d.lines, pt.policy.depositPct);
+  const t = finalizeLines(d.lines, pt.policy);
   if (currentReq().status === 'confirmed' && !confirm('계약확정된 요청이에요. 견적서를 다시 만들면 고객 확정 안내가 지워지고 상태가 "견적발송"으로 돌아가요. 계속할까요?')) return;
   if (!S.shop.name || !S.shop.phone) { toast('업체 정보(상호·연락처)를 먼저 저장해주세요.'); return; }
   // 무료 견적을 다 썼고 요금제도 없으면 새 견적서는 못 만든다 (보낸 견적 수정·테스트는 가능). 서버 규칙도 같은 기준으로 막는다
@@ -926,7 +926,6 @@ async function sendQuote(req, btn) {
       },
       lines: t.lines.map(({ key, type, label, note, amount }) => ({ key, type: type || 'custom', label, note: note || '', amount: Number(amount) || 0 })),
       total: t.total,
-      depositPct: pt.policy.depositPct,
       deposit: t.deposit,
       included: d.included,
       excluded: d.excluded,

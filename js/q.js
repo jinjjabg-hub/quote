@@ -1,5 +1,5 @@
 // 고객 입력 화면 (q.html?shop=업체ID) — 로그인 없음
-// 질문 목록은 업종 템플릿의 steps 를 그대로 그린다. (업종이 바뀌어도 이 파일은 그대로)
+// 질문 목록은 업종 템플릿의 steps 를 한 페이지에 모두 그린다. (다음 버튼 없이 한 번에 작성 → 이탈 줄이기)
 import {
   db, storage, doc, collection, getDoc, setDoc, serverTimestamp, storageRef, uploadBytes, isConfigured,
 } from './firebase.js';
@@ -17,7 +17,7 @@ const shopId = params.get('shop');
 const isTest = params.get('test') === '1'; // 사장님 테스트 모드에서 연 고객 화면
 const app = $('#app');
 const EXTRA_PHOTOS = 5;
-const state = { step: 0, answers: {}, checklist: {}, extras: [], photos: {}, submitting: false, lookup: newLookupState() };
+const state = { answers: {}, checklist: {}, extras: [], photos: {}, submitting: false, lookup: newLookupState() };
 const LOOKUP_ON = lookupEnabled(params);
 let shop; let tpl; let draftKey;
 
@@ -50,36 +50,31 @@ function saveDraft() {
 
 // ---------- 렌더링 ----------
 
-// 조건부 질문(showIf) 때문에 답에 따라 단계 수가 달라질 수 있다
+// 조건부 질문(showIf) 때문에 답에 따라 보이는 질문이 달라질 수 있다
 const steps = () => visibleSteps(tpl, state.answers);
+let firstRender = true;
 
-function render({ focus = true } = {}) {
+function render() {
   const all = steps();
-  state.step = Math.min(state.step, all.length - 1);
-  const step = all[state.step];
-  const pct = Math.round(((state.step + 1) / all.length) * 100);
   setChildren(app,
     shopHeader(),
     isTest ? h('div.test-banner', {}, '🧪 테스트 모드: 사장님 확인용이며 실제 요청으로 집계되지 않습니다.') : null,
-    state.step === 0 ? h('div.intro', {},
+    h('div.intro', {},
       h('b', {}, `${tpl.name} 견적을 3분 만에 받아보세요`),
-      h('p.small', {}, [shop.intro, shop.serviceArea && `서비스 지역: ${shop.serviceArea}`].filter(Boolean).join('\n') || '질문에 답하고 사진을 올리면, 사장님이 확인 후 견적서를 보내드립니다.')) : null,
-    h('div.progress-wrap', {},
-      h('div.step-count', {}, `${state.step + 1} / ${all.length}`),
-      h('div.progress', { role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-label': '진행' },
-        h('div.progress-bar', { style: `width:${pct}%` }))),
-    h('section.card.step', {},
-      h('h1', {}, step.title),
+      h('p.small', {}, [shop.intro, shop.serviceArea && `서비스 지역: ${shop.serviceArea}`].filter(Boolean).join('\n') || '아래 내용을 한 번에 적고 보내주시면, 사장님이 확인 후 견적서를 보내드립니다.')),
+    ...all.map((step, i) => h('section.card.step', { 'data-step': i },
+      h('h2', {}, `${i + 1}. ${step.title}`),
       step.description ? h('p.muted', {}, step.description) : null,
-      ...step.fields.map(renderField)),
+      ...step.fields.map(renderField))),
     footerNote('입력하신 정보는 이 업체에만 전달됩니다.'),
     h('div.nav-row', {},
-      state.step > 0 ? h('button.btn.prev', { type: 'button', onclick: prev }, '이전') : null,
-      h('button.btn.primary', { type: 'button', onclick: next, disabled: state.submitting },
-        state.step === all.length - 1 ? (state.submitting ? '보내는 중…' : '견적 요청 보내기') : '다음')),
+      h('button.btn.primary', { type: 'button', onclick: submitAll, disabled: state.submitting },
+        state.submitting ? '보내는 중…' : '견적 요청 보내기')),
   );
-  const first = app.querySelector('.step input, .step textarea');
-  if (focus && first && first.type !== 'file') first.focus({ preventScroll: true });
+  if (firstRender) {
+    firstRender = false;
+    app.querySelector('.step input:not([type=file])')?.focus({ preventScroll: true });
+  }
 }
 
 // 상단 업체 바. 로고는 올린 업체만, 채팅은 만두 ID가 있을 때만 (시안: 전화 버튼 없음, 전화는 접수 완료 화면에서)
@@ -103,7 +98,7 @@ function renderField(f) {
           set(f.type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value);
           if (f.lookup) markManualIfChanged(f);
         },
-        onkeydown: (e) => { if (e.key === 'Enter') next(); },
+        onkeydown: (e) => { if (e.key === 'Enter') e.preventDefault(); },
       });
       // 단위(템플릿 unit)는 입력칸 안쪽 오른쪽에 표시
       const control = fieldWrap(f, f.unit ? h('div.input-unit', {}, input, h('span', { 'aria-hidden': 'true' }, f.unit)) : input);
@@ -165,7 +160,7 @@ function renderField(f) {
 
 function lookupPanel(f) {
   return renderLookupPanel(state.lookup, state.answers[`${f.key}Source`] === 'registry' ? state.answers[`${f.key}Lookup`] : null, {
-    rerender: () => render({ focus: false }),
+    rerender: () => render(),
     onApply: (info) => {
       state.answers[f.key] = Math.round(info.pyeong);
       state.answers[`${f.key}Source`] = 'registry';
@@ -225,10 +220,10 @@ function renderPhotoSlot(slot) {
     h('div.photo-label', {}, slot.label));
 }
 
-// ---------- 이동·검증 ----------
+// ---------- 검증 ----------
 
-function validateStep() {
-  for (const f of steps()[state.step].fields) {
+function validateFields(fields) {
+  for (const f of fields) {
     const v = state.answers[f.key];
     if (f.type === 'checklist') {
       const missing = tpl.checklist.find((i) => !state.checklist[i.key]);
@@ -249,12 +244,19 @@ function validateStep() {
   return null;
 }
 
-function prev() { state.step = Math.max(0, state.step - 1); render(); window.scrollTo(0, 0); }
-
-function next() {
-  const err = validateStep();
-  if (err) { toast(err); return; }
-  if (state.step < steps().length - 1) { state.step += 1; render(); window.scrollTo(0, 0); return; }
+// 빠진 칸이 있으면 그 칸이 있는 곳으로 스크롤해서 알려준다
+function submitAll() {
+  const all = steps();
+  for (let i = 0; i < all.length; i++) {
+    const err = validateFields(all[i].fields);
+    if (!err) continue;
+    toast(err);
+    const sec = app.querySelector(`[data-step="${i}"]`);
+    sec?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    sec?.classList.add('missing');
+    setTimeout(() => sec?.classList.remove('missing'), 2000);
+    return;
+  }
   submit();
 }
 

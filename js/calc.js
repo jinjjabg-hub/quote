@@ -3,6 +3,8 @@
 //
 // 합계 = max(최소금액, 수량 × 단가) × (1 + 해당 할증% 합) + 선택된 옵션 금액 합
 //       → 1,000원 단위 반올림
+// 옵션 금액: 고정 금액(기본) | quantityField 개수 × 단가 | perField 수량 × 단가(예: 새집증후군 평수 × 평단가)
+// 계약금: 사장님이 정한 고정 금액(policy.depositAmount). 합계보다 크면 합계까지만.
 
 export const ROUNDING_KEY = '_rounding';
 
@@ -273,10 +275,11 @@ export function calculateQuote(template, priceTable, request = {}, overrides = {
   for (const o of pricing.options || []) {
     if (!optionState[o.key].on) continue;
     const price = Number(pt.options?.[o.key]) || 0;
-    const q = o.quantityField ? Math.max(optionQty(o, ctx), 1) : 1;
+    const q = o.quantityField ? Math.max(optionQty(o, ctx), 1)
+      : o.perField ? Number(ctx[o.perField]) || 0 : 1;
     lines.push({
       key: `option:${o.key}`, type: 'option', label: o.label,
-      note: o.quantityField ? `${q}${o.unit || ''} × ${formatWon(price)}` : optionState[o.key].reason,
+      note: (o.quantityField || o.perField) ? `${q}${o.unit || ''} × ${formatWon(price)}` : optionState[o.key].reason,
       amount: price * q,
     });
   }
@@ -301,12 +304,13 @@ export function calculateQuote(template, priceTable, request = {}, overrides = {
   for (const o of pricing.options || []) {
     const price = Number(pt.options?.[o.key]) || 0;
     if (optionState[o.key].on) included.push(o.label);
-    else if (!conditionOptionKeys.has(o.key) && !o.quantityField && price > 0) {
-      excluded.push(`${o.label} (요청 시 +${formatWon(price)})`);
+    else if (!conditionOptionKeys.has(o.key) && !o.quantityField && !o.when && price > 0) {
+      // when 옵션(예: 오염 심함)은 고객이 "요청"하는 항목이 아니라 불포함 목록에 쓰지 않는다
+      excluded.push(`${o.label} (요청 시 ${o.perField ? `${o.unit || ''}당 ` : ''}+${formatWon(price)})`);
     }
   }
 
-  const finalized = finalizeLines(lines, pt.policy?.depositPct);
+  const finalized = finalizeLines(lines, pt.policy);
   const rangePct = template.quoteMode === 'range' ? Number(template.rangePct ?? 15) : 0;
   return {
     ...finalized,
@@ -334,8 +338,9 @@ function optionQty(o, ctx) {
 /**
  * 항목 배열 → 합계·계약금. 사장님이 금액을 손으로 고친 뒤에도 이 함수만 다시 부르면 된다.
  * 1,000원 단위 반올림 차액은 별도 줄(단수 조정)로 보여줘 항목 합과 합계가 항상 일치하게 한다.
+ * policy: { depositAmount } (고정 금액). 숫자만 넘기면 예전 방식(%)으로 계산한다.
  */
-export function finalizeLines(lines, depositPct = 0) {
+export function finalizeLines(lines, policy = {}) {
   const items = lines.filter((l) => l.key !== ROUNDING_KEY);
   const sum = items.reduce((a, l) => a + (Number(l.amount) || 0), 0);
   const total = Math.max(0, round1000(sum));
@@ -343,7 +348,13 @@ export function finalizeLines(lines, depositPct = 0) {
   const out = diff
     ? [...items, { key: ROUNDING_KEY, type: 'rounding', label: '1,000원 단위 조정', note: '', amount: diff }]
     : items;
-  return { lines: out, subtotal: sum, total, deposit: round1000((total * (Number(depositPct) || 0)) / 100) };
+  return { lines: out, subtotal: sum, total, deposit: depositOf(total, policy) };
+}
+
+export function depositOf(total, policy = {}) {
+  if (typeof policy === 'number') return round1000((total * policy) / 100);
+  if (policy?.depositAmount != null && policy.depositAmount !== '') return Math.min(total, Math.max(0, Number(policy.depositAmount) || 0));
+  return round1000((total * (Number(policy?.depositPct) || 0)) / 100);
 }
 
 /** "사진 확인 완료 견적" 배지 조건: 사진 1장 이상 + 체크리스트 전 항목 답변 */

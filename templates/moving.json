@@ -436,7 +436,7 @@
     },
     "policy": {
       "validDays": 7,
-      "depositPct": 10,
+      "depositAmount": 100000,
       "cancelPolicy": "이사 7일 전까지 취소 시 계약금 환불, 이후 취소 시 계약금 환불 불가."
     }
   },
