@@ -201,3 +201,18 @@ test('lintTemplate: showIf 가 없는 질문·뒤에 있는 질문을 보면 오
   const t2 = { ...base, steps: [{ fields: [...common, { key: 'a', type: 'number', showIf: { field: 'b', equals: 1 } }, { key: 'b', type: 'choice', options: [] }] }] };
   assert.match(lintTemplate(t2).map((l) => l.msg).join('\n'), /뒤에 있습니다/);
 });
+
+test('도배: 전체 실크 평당, 방 단위 합지, 기존 실크·모름이면 제거 할증', () => {
+  const t = load('wallpaper');
+  const pt = mergePriceTable(t, {});
+  const calc = (answers, checklist) => calculateQuote(t, pt, { answers: { date: '2026-10-21', livingIn: false, highCeiling: false, ...answers }, checklist });
+  const whole = calc({ scope: 'whole', area: 32, rooms: 3, paper: 'silk', oldPaper: 'hapji' });
+  assert.equal(whole.lines.find((l) => l.key === 'base:wholeSilk').amount, 32 * 85000);
+  assert.ok(!whole.lines.some((l) => l.key.startsWith('base:room')), '전체 도배면 방 개수는 계산에 안 씀');
+  const part = calc({ scope: 'partial', area: 32, rooms: 2, paper: 'hapji', oldPaper: 'hapji' });
+  assert.deepEqual(part.lines.filter((l) => l.type === 'base').map((l) => l.amount), [2 * 250000]);
+  const unknown = calc({ scope: 'whole', area: 32, paper: 'silk', oldPaper: 'unknown' });
+  assert.equal(unknown.lines.find((l) => l.key === 'surcharge:removeOld').amount, Math.round(32 * 85000 * 0.15));
+  const noLift = calc({ scope: 'partial', rooms: 1, paper: 'hapji', oldPaper: 'hapji' }, { elevator: 'no' });
+  assert.equal(noLift.lines.find((l) => l.key === 'option:stairs').amount, 50000);
+});

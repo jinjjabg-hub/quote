@@ -1,0 +1,561 @@
+{
+  "id": "wallpaper",
+  "name": "도배",
+  "version": 1,
+  "status": "draft",
+  "draftNote": "⚠️ 업계 일반 기준으로 만든 예시 초안입니다. 실제 도배 사장님 단가·질문으로 검증 후 사용하세요.",
+  "description": "아파트·빌라 벽·천장 도배 (전체 / 방 단위)",
+  "quoteMode": "fixed",
+  "steps": [
+    {
+      "title": "연락처를 알려주세요",
+      "description": "견적이 나오면 이 번호로 안내드립니다.",
+      "fields": [
+        {
+          "key": "name",
+          "label": "성함",
+          "type": "text",
+          "required": true,
+          "placeholder": "홍길동",
+          "maxLength": 30
+        },
+        {
+          "key": "phone",
+          "label": "연락처",
+          "type": "tel",
+          "required": true,
+          "placeholder": "010-0000-0000",
+          "maxLength": 20
+        }
+      ]
+    },
+    {
+      "title": "어디인가요?",
+      "fields": [
+        {
+          "key": "region",
+          "label": "주소 (시/구까지만)",
+          "type": "text",
+          "required": true,
+          "placeholder": "예) 서울 송파구",
+          "maxLength": 40
+        },
+        {
+          "key": "buildingType",
+          "label": "구조",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "apt",
+              "label": "아파트"
+            },
+            {
+              "value": "villa",
+              "label": "빌라"
+            },
+            {
+              "value": "officetel",
+              "label": "오피스텔"
+            },
+            {
+              "value": "house",
+              "label": "주택"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "언제 원하시나요?",
+      "fields": [
+        {
+          "key": "date",
+          "label": "희망 날짜",
+          "type": "date",
+          "required": true
+        }
+      ]
+    },
+    {
+      "title": "어디까지 도배하나요?",
+      "fields": [
+        {
+          "key": "scope",
+          "label": "범위",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "whole",
+              "label": "집 전체"
+            },
+            {
+              "value": "partial",
+              "label": "방 몇 개만"
+            }
+          ]
+        },
+        {
+          "key": "area",
+          "label": "공급면적 (평)",
+          "type": "number",
+          "required": true,
+          "min": 1,
+          "max": 200,
+          "placeholder": "예) 32",
+          "hint": "분양 평수 기준입니다. ㎡만 아시면 ÷ 3.3 하세요. (84㎡ ≈ 34평)",
+          "unit": "평",
+          "showIf": {
+            "field": "scope",
+            "equals": "whole"
+          }
+        },
+        {
+          "key": "rooms",
+          "label": "도배할 방 개수 (거실은 1개로)",
+          "type": "stepper",
+          "required": true,
+          "min": 1,
+          "max": 10,
+          "default": 1,
+          "showIf": {
+            "field": "scope",
+            "equals": "partial"
+          }
+        }
+      ]
+    },
+    {
+      "title": "벽지 종류",
+      "description": "모르시면 사장님이 사진 보고 추천해 드립니다. 일단 하나 골라주세요.",
+      "fields": [
+        {
+          "key": "paper",
+          "label": "새로 바를 벽지",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "hapji",
+              "label": "합지 (종이 벽지, 저렴)"
+            },
+            {
+              "value": "silk",
+              "label": "실크 (비닐 코팅, 오염에 강함)"
+            }
+          ]
+        },
+        {
+          "key": "oldPaper",
+          "label": "지금 붙어 있는 벽지",
+          "type": "choice",
+          "required": true,
+          "hint": "실크 벽지는 위에 덧바를 수 없어 떼어내는 작업이 추가됩니다. 이음매 사진을 올려주시면 확인해 드려요.",
+          "options": [
+            {
+              "value": "hapji",
+              "label": "합지"
+            },
+            {
+              "value": "silk",
+              "label": "실크"
+            },
+            {
+              "value": "unknown",
+              "label": "모름"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "집 상태",
+      "fields": [
+        {
+          "key": "livingIn",
+          "label": "가구·짐이 있는 상태인가요?",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": true,
+              "label": "예, 살고 있어요"
+            },
+            {
+              "value": false,
+              "label": "아니오, 빈집이에요"
+            }
+          ]
+        },
+        {
+          "key": "highCeiling",
+          "label": "천장이 높은 공간(복층·우물천장 등)이 있나요?",
+          "type": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": true,
+              "label": "예"
+            },
+            {
+              "value": false,
+              "label": "아니오/모름"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "추가요금 체크",
+      "description": "현장에서 추가요금 다툼이 없도록 미리 확인합니다. 잘 모르시면 '모름'을 눌러주세요.",
+      "fields": [
+        {
+          "key": "checklist",
+          "type": "checklist",
+          "required": true
+        }
+      ]
+    },
+    {
+      "title": "추가로 원하시는 서비스가 있나요?",
+      "description": "없으면 그냥 '다음'을 누르세요.",
+      "fields": [
+        {
+          "key": "extras",
+          "type": "extras"
+        }
+      ]
+    },
+    {
+      "title": "사진을 올려주세요",
+      "description": "방마다 벽 전체 1장, 벽지 이음매 가까이 1장, 곰팡이·찢어진 곳이 있으면 그 부분도 찍어주세요.",
+      "fields": [
+        {
+          "key": "photos",
+          "type": "photos"
+        }
+      ]
+    },
+    {
+      "title": "남기실 말씀 (선택)",
+      "fields": [
+        {
+          "key": "memo",
+          "label": "요청사항",
+          "type": "textarea",
+          "maxLength": 500
+        }
+      ]
+    }
+  ],
+  "checklist": [
+    {
+      "key": "mold",
+      "short": "곰팡이·결로",
+      "label": "곰팡이나 물 자국이 있는 벽이 있나요?",
+      "risk": "yes",
+      "optionKey": "mold"
+    },
+    {
+      "key": "damage",
+      "short": "벽면 손상",
+      "label": "벽에 금·들뜸·울퉁불퉁하거나 구멍 난 곳이 있나요?",
+      "risk": "yes",
+      "optionKey": "repair"
+    },
+    {
+      "key": "builtIn",
+      "short": "붙박이장·선반",
+      "label": "붙박이장·벽 선반 뒤까지 도배해야 하나요?",
+      "risk": "yes",
+      "conditionText": "붙박이장·선반 해체와 재설치는 포함되지 않습니다. 필요하면 별도 업체 또는 추가 비용이 듭니다."
+    },
+    {
+      "key": "elevator",
+      "short": "엘리베이터",
+      "label": "엘리베이터가 있나요?",
+      "risk": "no",
+      "optionKey": "stairs"
+    }
+  ],
+  "photoSlots": [
+    {
+      "key": "living",
+      "label": "거실 벽 전체"
+    },
+    {
+      "key": "room",
+      "label": "방 벽 전체"
+    },
+    {
+      "key": "seam",
+      "label": "벽지 이음매 (가까이)"
+    },
+    {
+      "key": "damage",
+      "label": "곰팡이·손상 부위"
+    }
+  ],
+  "pricing": {
+    "base": {
+      "type": "composite",
+      "label": "도배",
+      "minPriceKey": "minPrice",
+      "components": [
+        {
+          "key": "wholeHapji",
+          "label": "전체 도배 · 합지 (평당)",
+          "type": "perUnit",
+          "field": "area",
+          "unit": "평",
+          "priceKey": "wholeHapji",
+          "when": {
+            "all": [
+              {
+                "field": "scope",
+                "equals": "whole"
+              },
+              {
+                "field": "paper",
+                "equals": "hapji"
+              }
+            ]
+          }
+        },
+        {
+          "key": "wholeSilk",
+          "label": "전체 도배 · 실크 (평당)",
+          "type": "perUnit",
+          "field": "area",
+          "unit": "평",
+          "priceKey": "wholeSilk",
+          "when": {
+            "all": [
+              {
+                "field": "scope",
+                "equals": "whole"
+              },
+              {
+                "field": "paper",
+                "equals": "silk"
+              }
+            ]
+          }
+        },
+        {
+          "key": "roomHapji",
+          "label": "방 도배 · 합지 (방당)",
+          "type": "perUnit",
+          "field": "rooms",
+          "unit": "개",
+          "priceKey": "roomHapji",
+          "when": {
+            "all": [
+              {
+                "field": "scope",
+                "equals": "partial"
+              },
+              {
+                "field": "paper",
+                "equals": "hapji"
+              }
+            ]
+          }
+        },
+        {
+          "key": "roomSilk",
+          "label": "방 도배 · 실크 (방당)",
+          "type": "perUnit",
+          "field": "rooms",
+          "unit": "개",
+          "priceKey": "roomSilk",
+          "when": {
+            "all": [
+              {
+                "field": "scope",
+                "equals": "partial"
+              },
+              {
+                "field": "paper",
+                "equals": "silk"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "surcharges": [
+      {
+        "key": "removeOld",
+        "label": "기존 실크 벽지 제거",
+        "when": {
+          "field": "oldPaper",
+          "in": [
+            "silk",
+            "unknown"
+          ]
+        }
+      },
+      {
+        "key": "livingIn",
+        "label": "거주 중 (가구 이동·보양)",
+        "when": {
+          "field": "livingIn",
+          "equals": true
+        }
+      },
+      {
+        "key": "highCeiling",
+        "label": "높은 천장",
+        "when": {
+          "field": "highCeiling",
+          "equals": true
+        }
+      },
+      {
+        "key": "weekend",
+        "label": "주말·공휴일",
+        "when": {
+          "any": [
+            {
+              "field": "$weekend",
+              "equals": true
+            },
+            {
+              "field": "$holiday",
+              "equals": true
+            }
+          ]
+        }
+      }
+    ],
+    "options": [
+      {
+        "key": "mold",
+        "label": "곰팡이·결로 부위 처리 (방지제·초배)"
+      },
+      {
+        "key": "repair",
+        "label": "벽면 보수 (퍼티·석고 보수)"
+      },
+      {
+        "key": "accentWall",
+        "label": "포인트 벽 (다른 벽지 1면)",
+        "customerSelectable": true
+      },
+      {
+        "key": "insulation",
+        "label": "단열 벽지 (외벽·베란다 쪽 1면)",
+        "customerSelectable": true
+      },
+      {
+        "key": "stairs",
+        "label": "계단 자재 운반"
+      }
+    ],
+    "warnings": [
+      {
+        "key": "wholeSilk",
+        "below": 60000,
+        "message": "실크 평당 6만원 미만은 철거·보수 추가금 분쟁이 생기기 쉬운 가격대입니다. (강제 아님)"
+      }
+    ]
+  },
+  "defaults": {
+    "minPrice": 250000,
+    "wholeHapji": 50000,
+    "wholeSilk": 85000,
+    "roomHapji": 250000,
+    "roomSilk": 400000,
+    "surcharges": {
+      "removeOld": 15,
+      "livingIn": 20,
+      "highCeiling": 10,
+      "weekend": 0
+    },
+    "options": {
+      "mold": 50000,
+      "repair": 80000,
+      "accentWall": 100000,
+      "insulation": 120000,
+      "stairs": 50000
+    },
+    "policy": {
+      "validDays": 7,
+      "depositPct": 20,
+      "cancelPolicy": "벽지 주문 전 취소 시 계약금 전액 환불, 벽지 주문 후 취소 시 벽지 값을 뺀 금액 환불, 작업 전날·당일 취소 시 환불 불가."
+    }
+  },
+  "bookingNotice": [
+    "벽에 걸린 액자·시계·커튼은 미리 떼어주세요.",
+    "살고 계시면 벽 쪽 작은 짐은 가운데로 모아주세요.",
+    "작업 후 하루 정도 창문을 닫아 두셔야 벽지가 잘 붙습니다.",
+    "주차 가능 여부를 알려주세요."
+  ],
+  "labor": {
+    "perField": "area",
+    "manHoursPer": 0.4,
+    "min": 6,
+    "adjust": [
+      {
+        "when": {
+          "field": "paper",
+          "equals": "silk"
+        },
+        "pct": 25
+      },
+      {
+        "when": {
+          "field": "livingIn",
+          "equals": true
+        },
+        "pct": 30
+      },
+      {
+        "option": "repair",
+        "manHours": 2
+      }
+    ],
+    "crew": {
+      "min": 1,
+      "max": 4,
+      "maxHours": 8
+    }
+  },
+  "included": [
+    "벽·천장 도배 (몰딩 안쪽)",
+    "초배지 기본",
+    "기존 합지 위 덧방 시공",
+    "작업 후 청소·폐기물 정리"
+  ],
+  "excluded": [
+    "몰딩·걸레받이 교체",
+    "붙박이장·선반 해체·재설치",
+    "전등·콘센트 커버 교체"
+  ],
+  "sample": {
+    "customer": {
+      "name": "테스트 고객",
+      "phone": "010-0000-0000",
+      "region": "서울 송파구"
+    },
+    "answers": {
+      "buildingType": "apt",
+      "scope": "whole",
+      "area": 32,
+      "paper": "silk",
+      "oldPaper": "hapji",
+      "livingIn": false,
+      "highCeiling": false,
+      "extras": [],
+      "memo": "테스트"
+    },
+    "checklist": {
+      "mold": "no",
+      "damage": "unknown",
+      "builtIn": "no",
+      "elevator": "yes"
+    }
+  }
+}
