@@ -553,7 +553,73 @@ try {
   assert.match(await ownerDev.locator('.dv-list').innerText(), /일부러 낸 오류/);
   await shot(ownerDev, '15-dev-panel');
 
-  console.log('\n✅ 완료 확인 시나리오 1~5 + 테스트 모드 + 개발자 모드 통과');
+  // 9) 도배(시범 업종): 새 사장님 → 업종 선택 → 벽·천장 단가 → 전화 문의 받아 적기 → 바로 견적 상세
+  step('9) 도배: 업종 선택 → 벽 실크 70,000 · 천장 합지 20,000 → 전화 문의 32평 → 2,880,000원');
+  const dobae = await newPage();
+  await dobae.goto(`${BASE}owner.html?emulator=1&as=dobae`);
+  await dobae.getByRole('button', { name: /Google/ }).click();
+  await dobae.getByText('처음 오셨네요').waitFor();
+  const dField = (label) => dobae.locator('label.field', { hasText: label }).locator('input');
+  await dField('업체명').fill('한결도배');
+  await dField('대표 전화번호').fill('010-5555-6666');
+  await dobae.getByRole('button', { name: '업체 정보 저장하기' }).click();
+  await dobae.getByText('다른 숫자만 고치세요').waitFor();
+  await dobae.locator('button.avatar').click();
+  await dobae.getByRole('button', { name: /도배 \(시범\)/ }).click();
+  await dobae.getByText('시범 업종입니다').waitFor(); // 단가표로 이동 + 시범 안내
+  const dPrice = (label) => dobae.locator('label.price-main, label.price-row', { hasText: label }).locator('input');
+  assert.equal(await dPrice('벽 · 실크').inputValue(), '60000', '도배 기본값으로 시작');
+  await dPrice('벽 · 실크').fill('70000');
+  await dPrice('천장 · 합지').fill('20000');
+  await shot(dobae, '16-dobae-price');
+  await dobae.getByRole('button', { name: '단가표 저장하기' }).click();
+  await dobae.getByText('단가표를 저장했어요').waitFor();
+  await dobae.locator('nav.bottom-nav button', { hasText: '홈' }).click();
+  await dobae.getByRole('link', { name: /전화 문의 받아 적기/ }).click();
+  await dobae.getByText('전화 문의 받아 적기: 통화하면서').waitFor();
+  const dNext = () => dobae.locator('.nav-row .btn.primary').click();
+  await dobae.getByPlaceholder('홍길동').fill('박전화');
+  await dobae.getByPlaceholder('010-0000-0000').fill('010-7777-8888');
+  await dNext();
+  await dobae.getByPlaceholder('예) 서울 송파구').fill('서울 강동구');
+  await dobae.getByRole('button', { name: '아파트' }).click();
+  await dNext();
+  await dobae.locator('input[type=date]').fill('2026-10-21');
+  await dNext();
+  await dobae.getByRole('button', { name: /전체 \(벽 \+ 천장\)/ }).click();
+  await dobae.locator('input[type=number]').fill('32');
+  await dobae.getByRole('button', { name: /공급/ }).click();
+  await dNext();
+  const choose = (field, name) => dobae.locator('div.field', { hasText: field }).getByRole('button', { name, exact: true }).click();
+  await choose('벽에 바를 벽지', '실크 (때 덜 탐)');
+  await choose('천장에 바를 벽지', '실크');
+  await choose('천장에 바를 벽지', '합지');
+  await choose('지금 붙어 있는 벽지', '합지');
+  await dNext();
+  await dobae.getByRole('button', { name: '빈집' }).click();
+  await choose('천장이 높은', '아니오/모름');
+  await dNext();
+  const dItems = dobae.locator('.check-item');
+  for (let i = 0; i < await dItems.count(); i += 1) {
+    const q = await dItems.nth(i).locator('.check-q').innerText();
+    await dItems.nth(i).getByRole('button', { name: /엘리베이터/.test(q) ? '예' : '아니오', exact: true }).click();
+  }
+  await dNext();
+  await dNext(); // 추가 서비스 없음
+  await dNext(); // 사진 없이 (전화 문의는 확인 창 없음)
+  await dNext(); // 요청사항 → 제출 → 사장님 견적 상세로 바로 이동
+  await dobae.locator('.total-box').waitFor({ timeout: 15000 });
+  assert.match(await dobae.locator('.total-box').innerText(), /2,880,000원/, '32 × 70,000 + 32 × 20,000');
+  await noLeak(dobae, '도배 견적 상세');
+  await shot(dobae, '17-dobae-detail');
+  await dobae.locator('button.back').click();
+  await dobae.getByRole('button', { name: /견적요청/ }).click();
+  const dCard = dobae.locator('.req-card', { hasText: '박*화' });
+  assert.match(await dCard.innerText(), /전화[\s\S]*32평[\s\S]*2,880,000원/);
+  await dobae.locator('button.avatar').click();
+  await dobae.getByText('이미 받은 견적 요청이 있어 업종을 바꿀 수 없어요').waitFor();
+
+  console.log('\n✅ 완료 확인 시나리오 1~5 + 테스트 모드 + 개발자 모드 + 도배(전화 문의) 통과');
 } catch (e) {
   for (const [i, p] of pages.entries()) await shot(p, `fail-${i}`).catch(() => {});
   throw e;

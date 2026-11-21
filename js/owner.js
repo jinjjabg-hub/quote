@@ -88,7 +88,9 @@ async function loadShop() {
   S.shop = snap.data();
   S.tpl = await loadTemplate(S.shop.templateId);
   const p = await getDoc(pricingRef);
-  S.priceTable = mergePriceTable(S.tpl, p.exists() ? p.data().priceTable : {});
+  // 단가표는 업종에 묶인다. 업종을 바꾼 뒤 예전 업종 단가가 섞이지 않게 (templateId 가 없는 예전 문서는 현재 업종 것으로 본다)
+  const saved = p.exists() && (!p.data().templateId || p.data().templateId === S.shop.templateId) ? p.data().priceTable : {};
+  S.priceTable = mergePriceTable(S.tpl, saved);
   S.pushTokens = await getDoc(doc(db, 'shops', uid, 'private', 'push')).then((d) => (d.exists() ? d.data().tokens || [] : [])).catch(() => []);
   S.settings = await getDoc(doc(db, 'shops', uid, 'private', 'settings')).then((d) => (d.exists() ? d.data() : {})).catch(() => ({}));
   if (!S.shop.name) S.tab = 'shop'; // 처음이면 업체 정보부터
@@ -302,6 +304,7 @@ function renderHome() {
   return h('section', {},
     renderPushCard(),
     renderBillingCard(S.billing, () => openPlans()),
+    phoneEntryButton(),
     h('div.section-head', {}, h('h2', {}, '지금 할 일', todos.length ? h('span.pill-count', {}, todos.length) : null)),
     todos.length
       ? h('ul.todo-list', {}, todos.map(renderTodo))
@@ -321,6 +324,11 @@ function renderHome() {
       h('ul.req-list', {}, recent.map(renderListItem)),
     ] : null,
   );
+}
+
+// 전화로 들어온 문의도 앱에 남겨야 놓치지 않는다 (1순위). 고객 화면을 사장님이 대신 입력 → 같은 계산·같은 견적서
+function phoneEntryButton() {
+  return h('a.btn.primary.big.block', { href: pageUrl('q.html', { shop: S.user.uid, by: 'phone' }) }, icon('call'), '전화 문의 받아 적기');
 }
 
 function emptyList() {
@@ -403,7 +411,8 @@ async function clearTestData(tests, btn) {
 function requestSummary(r) {
   const a = r.answers || {};
   const b = S.tpl.pricing.base || {};
-  const size = b.quantityField && a[b.quantityField] ? `${a[b.quantityField]}${b.unit || ''}` : '';
+  const qty = b.quantityField ? { field: b.quantityField, unit: b.unit } : (b.components || []).find((c) => c.type === 'perUnit' && a[c.field] != null);
+  const size = qty && a[qty.field] != null ? `${qty.field === 'rooms' ? '방 ' : ''}${a[qty.field]}${qty.unit || ''}` : '';
   const extras = (a.extras || []).map((k) => S.tpl.pricing.options.find((o) => o.key === k)?.label).filter(Boolean);
   return { size, what: [S.tpl.name, ...extras].join(' + ') };
 }
@@ -422,6 +431,7 @@ function renderListItem(r) {
       h('span.name', {}, `${maskName(r.customer?.name) || '이름 없음'} 고객님`),
       statusBadge(r.status),
       r.test ? h('span.badge.st-test', {}, '테스트') : null,
+      r.source === 'phone' ? h('span.badge.st-test', {}, '전화') : null,
       h(`span.when${fresh && ageMin < 60 ? '.fresh' : ''}`, {}, icon(fresh && ageMin < 60 ? 'bolt' : 'schedule'), `${timeAgo(r.createdAt)} 접수`)),
     h('div.req-box', {},
       h('div.loc', {}, icon('location_on'), [r.customer?.region, size].filter(Boolean).join(' ') || '지역 미입력'),
@@ -458,12 +468,13 @@ function renderPriceForm() {
   return h('section', {},
     h('div.notice', {}, h('div.box-row', {}, icon('calculate'), h('b', {}, '자동 계산 안내')),
       h('p.small', {}, `입력하신 단가로 고객 견적이 자동 계산됩니다. ${S.tpl.name} 기본값이 채워져 있으니 다른 숫자만 고치세요.`)),
+    ['draft', 'pilot'].includes(S.tpl.status) ? h('div.warn-box', {}, S.tpl.draftNote || '시범 업종입니다. 단가를 꼭 확인하세요.') : null,
     h('div.card', {},
       sectionTitle(1, `${p.base.label || '기본'} 단가`, '필수 설정'),
-      h('label.price-main', {}, h('span.label', {}, p.base.unitPriceLabel), numInput(() => pt.unitPrice, (v) => { pt.unitPrice = v; }, `원/${p.base.unit}`)),
+      basePriceRows(p.base, pt, numInput),
       warn,
-      h('label.price-main', {}, h('span.label', {}, p.base.minPriceLabel, h('span.hint', {}, '작은 집도 이 금액 아래로는 내려가지 않습니다')),
-        numInput(() => pt.minPrice, (v) => { pt.minPrice = v; }, '원'))),
+      h('label.price-main', {}, h('span.label', {}, p.base.minPriceLabel || '최소 금액', h('span.hint', {}, '작은 일도 이 금액 아래로는 내려가지 않습니다')),
+        numInput(() => pt[p.base.minPriceKey || 'minPrice'], (v) => { pt[p.base.minPriceKey || 'minPrice'] = v; }, '원'))),
     h('div.card', {},
       sectionTitle(2, '할증', '기본 금액에 % 추가'),
       p.surcharges.map((x) => row(x.label, numInput(() => pt.surcharges[x.key] ?? 0, (v) => { pt.surcharges[x.key] = v; }, '%'))),
@@ -482,13 +493,41 @@ function renderPriceForm() {
       onclick: async (e) => {
         const btn = e.currentTarget; btn.disabled = true;
         try {
-          await setDoc(doc(db, 'shops', S.user.uid, 'private', 'pricing'), { priceTable: pt, updatedAt: serverTimestamp() });
+          await setDoc(doc(db, 'shops', S.user.uid, 'private', 'pricing'), { priceTable: pt, templateId: S.tpl.id, updatedAt: serverTimestamp() });
           S.priceTable = mergePriceTable(S.tpl, pt);
           toast('단가표를 저장했어요.');
         } catch (err) { toast(`저장 실패: ${err.message}`); }
         btn.disabled = false;
       },
     }, icon('save'), '단가표 저장하기')));
+}
+
+// 기본 단가 칸: 입주청소(평당 1칸), 도배·중문·이사(구성요소마다), 에어컨·커튼(종류마다)
+function basePriceRows(b, pt, numInput) {
+  const big = (label, get, set, unit) => h('label.price-main', {}, h('span.label', {}, label), numInput(get, set, unit));
+  const type = b.type || 'perUnit';
+  if (type === 'perUnit') return big(b.unitPriceLabel || '단가', () => pt[b.unitPriceKey || 'unitPrice'], (v) => { pt[b.unitPriceKey || 'unitPrice'] = v; }, `원/${b.unit || ''}`);
+  if (type === 'itemized') {
+    const key = b.priceKey || 'items';
+    pt[key] ||= {};
+    return [
+      ...b.itemTypes.map((it) => big(it.label, () => pt[key][it.key] ?? 0, (v) => { pt[key][it.key] = v; }, `원/${it.bySize ? it.sizeUnit : (it.unit || '개')}`)),
+      b.perItemFeeKey ? big(b.perItemFeeLabel || '설치비', () => pt[b.perItemFeeKey] ?? 0, (v) => { pt[b.perItemFeeKey] = v; }, `원/${b.perItemFeeUnit || '개'}`) : null,
+    ];
+  }
+  return b.components.map((c) => {
+    if (c.type === 'select') {
+      pt[c.priceKey] ||= {};
+      return Object.entries(c.optionsLabel || {}).map(([k, label]) => big(`${c.label}: ${label}`, () => pt[c.priceKey][k] ?? 0, (v) => { pt[c.priceKey][k] = v; }, '원'));
+    }
+    if (c.type === 'tier') {
+      return (pt[c.tiersKey] || []).map((t, i, all) => {
+        const range = `${c.label}: ${i ? `${all[i - 1].upTo}` : '0'}~${t.upTo}${c.unit || ''}`;
+        return 'pct' in t ? big(range, () => t.pct, (v) => { t.pct = v; }, '%') : big(range, () => t.price, (v) => { t.price = v; }, '원');
+      });
+    }
+    return big(c.label, () => pt[c.priceKey] ?? 0, (v) => { pt[c.priceKey] = v; }, c.type === 'perUnit' ? `원/${c.unit || ''}` : '원');
+  });
 }
 
 // ---------- 내 링크 ----------
@@ -562,6 +601,7 @@ function renderShopForm() {
       text('bizNo', '사업자번호', { optional: true, placeholder: '000-00-00000' }),
       text('intro', '한 줄 소개', { optional: true, multiline: true, placeholder: '예) 10년 경력 직영팀이 꼼꼼하게 시공합니다.' }),
       text('serviceArea', '서비스 가능 지역', { optional: true, placeholder: '예) 부산 전 지역, 김해·양산' })),
+    renderIndustryCard(),
     h('div.card', {},
       sectionTitle(3, '만두 채팅 연결', '선택'),
       text('manduId', '만두 ID', { placeholder: '예) banjjak (@ 없이)', hint: '넣으면 고객 화면·견적서에 "만두로 채팅 문의" 버튼이 생깁니다. 외국인 고객과도 자동 번역으로 대화할 수 있어요.' })),
@@ -606,6 +646,41 @@ function renderShopForm() {
         } catch (err) { toast(`저장 실패: ${err.message}`); btn.disabled = false; }
       },
     }, icon('save'), '업체 정보 저장하기')));
+}
+
+// 업종: 운영(live)·시범(pilot) 업종만 고를 수 있다. 받은 실제 요청이 있으면 바꾸지 않는다
+// (요청 상세는 지금 업종 템플릿으로 계산하므로, 다른 업종 요청이 섞이면 금액이 틀어진다)
+function renderIndustryCard() {
+  const box = h('div.choices');
+  const card = h('div.card', {}, sectionTitle(null, '업종', S.tpl.name), box);
+  fetch(new URL('../templates/index.json', import.meta.url)).then((r) => r.json()).then((list) => {
+    const real = [...S.requests.values()].some((r) => !r.test);
+    box.replaceChildren(...list.filter((t) => ['live', 'pilot'].includes(t.status)).map((t) =>
+      h(`button.chip${t.id === S.shop.templateId ? '.on' : ''}`, {
+        type: 'button', disabled: real && t.id !== S.shop.templateId,
+        onclick: () => t.id !== S.shop.templateId && switchIndustry(t),
+      }, t.name, t.status === 'pilot' ? ' (시범)' : '')));
+    if (real) card.append(h('p.muted.small', {}, '이미 받은 견적 요청이 있어 업종을 바꿀 수 없어요. 바꿔야 하면 운영자에게 문의해주세요.'));
+  }).catch(() => box.replaceChildren(h('span.muted.small', {}, '업종 목록을 불러오지 못했어요.')));
+  return card;
+}
+
+async function switchIndustry(t) {
+  const tests = [...S.requests.values()].filter((r) => r.test);
+  if (!confirm(`업종을 "${t.name}"(으)로 바꿀까요?\n단가표는 ${t.name} 기본값으로 새로 시작합니다.${tests.length ? `\n테스트 요청 ${tests.length}건은 지워집니다.` : ''}`)) return;
+  try {
+    const tpl = await loadTemplate(t.id);
+    const batch = writeBatch(db);
+    for (const r of tests) { if (r.quoteId) batch.delete(doc(db, 'quotes', r.quoteId)); batch.delete(doc(db, 'requests', r.id)); }
+    batch.update(doc(db, 'shops', S.user.uid), { templateId: t.id, updatedAt: serverTimestamp() });
+    batch.set(doc(db, 'shops', S.user.uid, 'private', 'pricing'), { priceTable: {}, templateId: t.id, updatedAt: serverTimestamp() });
+    await batch.commit();
+    S.shop = { ...S.shop, templateId: t.id };
+    S.tpl = tpl;
+    S.priceTable = mergePriceTable(tpl, {});
+    toast(`${t.name}(으)로 바꿨어요. 단가표를 확인해주세요.`, 3000);
+    goTab('price');
+  } catch (e) { toast(`바꾸기 실패: ${e.message}`); }
 }
 
 // ---------- 요청 상세 + 견적 편집 ----------

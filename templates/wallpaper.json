@@ -1,10 +1,10 @@
 {
   "id": "wallpaper",
   "name": "도배",
-  "version": 1,
-  "status": "draft",
-  "draftNote": "⚠️ 업계 일반 기준으로 만든 예시 초안입니다. 실제 도배 사장님 단가·질문으로 검증 후 사용하세요.",
-  "description": "아파트·빌라 벽·천장 도배 (전체 / 방 단위)",
+  "version": 2,
+  "status": "pilot",
+  "draftNote": "⚠️ 시범 업종입니다. 기본 단가는 업계 일반 기준 예시값이니 꼭 내 단가로 고친 뒤 쓰세요.",
+  "description": "아파트·빌라·주택·상가 벽·천장 도배 (전체 / 벽만 / 천장만 / 방 단위)",
   "quoteMode": "fixed",
   "steps": [
     {
@@ -55,12 +55,16 @@
               "label": "빌라"
             },
             {
-              "value": "officetel",
-              "label": "오피스텔"
-            },
-            {
               "value": "house",
               "label": "주택"
+            },
+            {
+              "value": "store",
+              "label": "상가"
+            },
+            {
+              "value": "office",
+              "label": "사무실"
             }
           ]
         }
@@ -88,28 +92,64 @@
           "options": [
             {
               "value": "whole",
-              "label": "집 전체"
+              "label": "전체 (벽 + 천장)"
             },
             {
-              "value": "partial",
+              "value": "walls",
+              "label": "벽만"
+            },
+            {
+              "value": "ceiling",
+              "label": "천장만"
+            },
+            {
+              "value": "rooms",
               "label": "방 몇 개만"
             }
           ]
         },
         {
           "key": "area",
-          "label": "공급면적 (평)",
+          "label": "평수",
           "type": "number",
           "required": true,
           "min": 1,
-          "max": 200,
+          "max": 300,
           "placeholder": "예) 32",
-          "hint": "분양 평수 기준입니다. ㎡만 아시면 ÷ 3.3 하세요. (84㎡ ≈ 34평)",
           "unit": "평",
           "showIf": {
             "field": "scope",
-            "equals": "whole"
-          }
+            "in": [
+              "whole",
+              "walls",
+              "ceiling"
+            ]
+          },
+          "hint": "㎡만 아시면 ÷ 3.3 하세요. (84㎡ ≈ 25평 전용 / 34평 공급)"
+        },
+        {
+          "key": "areaType",
+          "label": "어떤 평수인가요?",
+          "type": "choice",
+          "required": true,
+          "showIf": {
+            "field": "scope",
+            "in": [
+              "whole",
+              "walls",
+              "ceiling"
+            ]
+          },
+          "options": [
+            {
+              "value": "supply",
+              "label": "공급 (분양 평수)"
+            },
+            {
+              "value": "exclusive",
+              "label": "전용 (실제 넓이)"
+            }
+          ]
         },
         {
           "key": "rooms",
@@ -121,7 +161,7 @@
           "default": 1,
           "showIf": {
             "field": "scope",
-            "equals": "partial"
+            "equals": "rooms"
           }
         }
       ]
@@ -131,18 +171,49 @@
       "description": "모르시면 사장님이 사진 보고 추천해 드립니다. 일단 하나 골라주세요.",
       "fields": [
         {
-          "key": "paper",
-          "label": "새로 바를 벽지",
+          "key": "wallPaper",
+          "label": "벽에 바를 벽지",
           "type": "choice",
           "required": true,
+          "showIf": {
+            "field": "scope",
+            "in": [
+              "whole",
+              "walls",
+              "rooms"
+            ]
+          },
           "options": [
             {
               "value": "hapji",
-              "label": "합지 (종이 벽지, 저렴)"
+              "label": "합지 (저렴)"
             },
             {
               "value": "silk",
-              "label": "실크 (비닐 코팅, 오염에 강함)"
+              "label": "실크 (때 덜 탐)"
+            }
+          ]
+        },
+        {
+          "key": "ceilPaper",
+          "label": "천장에 바를 벽지",
+          "type": "choice",
+          "required": true,
+          "showIf": {
+            "field": "scope",
+            "in": [
+              "whole",
+              "ceiling"
+            ]
+          },
+          "options": [
+            {
+              "value": "hapji",
+              "label": "합지"
+            },
+            {
+              "value": "silk",
+              "label": "실크"
             }
           ]
         },
@@ -151,7 +222,7 @@
           "label": "지금 붙어 있는 벽지",
           "type": "choice",
           "required": true,
-          "hint": "실크 벽지는 위에 덧바를 수 없어 떼어내는 작업이 추가됩니다. 이음매 사진을 올려주시면 확인해 드려요.",
+          "hint": "실크 위에는 덧방이 안 돼서 뜯는 작업이 추가됩니다. 이음매 사진을 올려주시면 확인해 드려요.",
           "options": [
             {
               "value": "hapji",
@@ -180,11 +251,11 @@
           "options": [
             {
               "value": true,
-              "label": "예, 살고 있어요"
+              "label": "짐 있음 (살고 있어요)"
             },
             {
               "value": false,
-              "label": "아니오, 빈집이에요"
+              "label": "빈집"
             }
           ]
         },
@@ -304,40 +375,92 @@
       "minPriceKey": "minPrice",
       "components": [
         {
-          "key": "wholeHapji",
-          "label": "전체 도배 · 합지 (평당)",
+          "key": "wallHapji",
+          "label": "벽 · 합지 (평당)",
           "type": "perUnit",
           "field": "area",
           "unit": "평",
-          "priceKey": "wholeHapji",
+          "priceKey": "wallHapji",
           "when": {
             "all": [
               {
                 "field": "scope",
-                "equals": "whole"
+                "in": [
+                  "whole",
+                  "walls"
+                ]
               },
               {
-                "field": "paper",
+                "field": "wallPaper",
                 "equals": "hapji"
               }
             ]
           }
         },
         {
-          "key": "wholeSilk",
-          "label": "전체 도배 · 실크 (평당)",
+          "key": "wallSilk",
+          "label": "벽 · 실크 (평당)",
           "type": "perUnit",
           "field": "area",
           "unit": "평",
-          "priceKey": "wholeSilk",
+          "priceKey": "wallSilk",
           "when": {
             "all": [
               {
                 "field": "scope",
-                "equals": "whole"
+                "in": [
+                  "whole",
+                  "walls"
+                ]
               },
               {
-                "field": "paper",
+                "field": "wallPaper",
+                "equals": "silk"
+              }
+            ]
+          }
+        },
+        {
+          "key": "ceilHapji",
+          "label": "천장 · 합지 (평당)",
+          "type": "perUnit",
+          "field": "area",
+          "unit": "평",
+          "priceKey": "ceilHapji",
+          "when": {
+            "all": [
+              {
+                "field": "scope",
+                "in": [
+                  "whole",
+                  "ceiling"
+                ]
+              },
+              {
+                "field": "ceilPaper",
+                "equals": "hapji"
+              }
+            ]
+          }
+        },
+        {
+          "key": "ceilSilk",
+          "label": "천장 · 실크 (평당)",
+          "type": "perUnit",
+          "field": "area",
+          "unit": "평",
+          "priceKey": "ceilSilk",
+          "when": {
+            "all": [
+              {
+                "field": "scope",
+                "in": [
+                  "whole",
+                  "ceiling"
+                ]
+              },
+              {
+                "field": "ceilPaper",
                 "equals": "silk"
               }
             ]
@@ -345,7 +468,7 @@
         },
         {
           "key": "roomHapji",
-          "label": "방 도배 · 합지 (방당)",
+          "label": "방 · 합지 (방당, 천장 포함)",
           "type": "perUnit",
           "field": "rooms",
           "unit": "개",
@@ -354,10 +477,10 @@
             "all": [
               {
                 "field": "scope",
-                "equals": "partial"
+                "equals": "rooms"
               },
               {
-                "field": "paper",
+                "field": "wallPaper",
                 "equals": "hapji"
               }
             ]
@@ -365,7 +488,7 @@
         },
         {
           "key": "roomSilk",
-          "label": "방 도배 · 실크 (방당)",
+          "label": "방 · 실크 (방당, 천장 포함)",
           "type": "perUnit",
           "field": "rooms",
           "unit": "개",
@@ -374,10 +497,10 @@
             "all": [
               {
                 "field": "scope",
-                "equals": "partial"
+                "equals": "rooms"
               },
               {
-                "field": "paper",
+                "field": "wallPaper",
                 "equals": "silk"
               }
             ]
@@ -386,6 +509,14 @@
       ]
     },
     "surcharges": [
+      {
+        "key": "exclusiveArea",
+        "label": "전용 평수 → 공급 환산",
+        "when": {
+          "field": "areaType",
+          "equals": "exclusive"
+        }
+      },
       {
         "key": "removeOld",
         "label": "기존 실크 벽지 제거",
@@ -433,7 +564,7 @@
     "options": [
       {
         "key": "mold",
-        "label": "곰팡이·결로 부위 처리 (방지제·초배)"
+        "label": "곰팡이 제거 · 방지 초배"
       },
       {
         "key": "repair",
@@ -456,19 +587,18 @@
     ],
     "warnings": [
       {
-        "key": "wholeSilk",
-        "below": 60000,
-        "message": "실크 평당 6만원 미만은 철거·보수 추가금 분쟁이 생기기 쉬운 가격대입니다. (강제 아님)"
+        "key": "wallSilk",
+        "below": 40000,
+        "message": "벽 실크 평당 4만원 미만은 철거·보수 추가금 분쟁이 생기기 쉬운 가격대입니다. (강제 아님)"
       }
     ]
   },
   "defaults": {
     "minPrice": 250000,
-    "wholeHapji": 50000,
-    "wholeSilk": 85000,
     "roomHapji": 250000,
     "roomSilk": 400000,
     "surcharges": {
+      "exclusiveArea": 30,
       "removeOld": 15,
       "livingIn": 20,
       "highCeiling": 10,
@@ -485,7 +615,11 @@
       "validDays": 7,
       "depositPct": 20,
       "cancelPolicy": "벽지 주문 전 취소 시 계약금 전액 환불, 벽지 주문 후 취소 시 벽지 값을 뺀 금액 환불, 작업 전날·당일 취소 시 환불 불가."
-    }
+    },
+    "wallHapji": 35000,
+    "wallSilk": 60000,
+    "ceilHapji": 15000,
+    "ceilSilk": 25000
   },
   "bookingNotice": [
     "벽에 걸린 액자·시계·커튼은 미리 떼어주세요.",
@@ -500,10 +634,24 @@
     "adjust": [
       {
         "when": {
-          "field": "paper",
+          "field": "wallPaper",
           "equals": "silk"
         },
         "pct": 25
+      },
+      {
+        "when": {
+          "field": "scope",
+          "equals": "walls"
+        },
+        "pct": -30
+      },
+      {
+        "when": {
+          "field": "scope",
+          "equals": "ceiling"
+        },
+        "pct": -60
       },
       {
         "when": {
@@ -544,7 +692,9 @@
       "buildingType": "apt",
       "scope": "whole",
       "area": 32,
-      "paper": "silk",
+      "areaType": "supply",
+      "wallPaper": "silk",
+      "ceilPaper": "hapji",
       "oldPaper": "hapji",
       "livingIn": false,
       "highCeiling": false,

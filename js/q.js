@@ -15,6 +15,7 @@ registerSW();
 const params = new URLSearchParams(location.search);
 const shopId = params.get('shop');
 const isTest = params.get('test') === '1'; // 사장님 테스트 모드에서 연 고객 화면
+const byPhone = !isTest && params.get('by') === 'phone'; // 전화 문의를 사장님이 대신 입력 (알림 안 보냄, 사진 선택)
 const app = $('#app');
 const EXTRA_PHOTOS = 5;
 const state = { step: 0, answers: {}, checklist: {}, extras: [], photos: {}, submitting: false, lookup: newLookupState() };
@@ -34,7 +35,7 @@ async function init() {
 
   // 기본값 + 임시 저장 복원
   for (const step of tpl.steps) for (const f of step.fields) if (f.default != null) state.answers[f.key] = f.default;
-  draftKey = `draft:${shopId}${isTest ? ':test' : ''}`;
+  draftKey = `draft:${shopId}${isTest ? ':test' : byPhone ? ':phone' : ''}`;
   try {
     const d = JSON.parse(localStorage.getItem(draftKey) || 'null');
     if (d) Object.assign(state, { answers: { ...state.answers, ...d.answers }, checklist: d.checklist || {}, extras: d.extras || [] });
@@ -61,7 +62,8 @@ function render({ focus = true } = {}) {
   setChildren(app,
     shopHeader(),
     isTest ? h('div.test-banner', {}, '🧪 테스트 모드: 사장님 확인용이며 실제 요청으로 집계되지 않습니다.') : null,
-    state.step === 0 ? h('div.intro', {},
+    byPhone ? h('div.test-banner', {}, '📞 전화 문의 받아 적기: 통화하면서 고객 대신 입력하세요. 사진은 건너뛰어도 됩니다.') : null,
+    state.step === 0 && !byPhone ? h('div.intro', {},
       h('b', {}, `${tpl.name} 견적을 3분 만에 받아보세요`),
       h('p.small', {}, [shop.intro, shop.serviceArea && `서비스 지역: ${shop.serviceArea}`].filter(Boolean).join('\n') || '질문에 답하고 사진을 올리면, 사장님이 확인 후 견적서를 보내드립니다.')) : null,
     h('div.progress-wrap', {},
@@ -260,7 +262,7 @@ function next() {
 
 async function submit() {
   if (state.submitting) return;
-  if (!Object.keys(state.photos).length && !confirm('사진 없이 보낼까요?\n사진이 있으면 현장 추가요금 없이 더 정확한 견적을 받을 수 있어요.')) return;
+  if (!byPhone && !Object.keys(state.photos).length && !confirm('사진 없이 보낼까요?\n사진이 있으면 현장 추가요금 없이 더 정확한 견적을 받을 수 있어요.')) return;
   state.submitting = true; render();
   try {
     const requestRef = doc(collection(db, 'requests'));
@@ -281,6 +283,7 @@ async function submit() {
       templateId: shop.templateId,
       status: 'new',
       ...(isTest ? { test: true } : {}),
+      ...(byPhone ? { source: 'phone' } : {}),
       customer: { name: String(name).trim(), phone: String(phone).trim(), region: String(region || '').trim() },
       answers: { ...rest, extras: state.extras },
       checklist: state.checklist,
@@ -288,8 +291,9 @@ async function submit() {
       quoteId: null,
       createdAt: serverTimestamp(),
     });
-    notifyNewRequest(requestRef.id); // 사장님 휴대폰 알림 (1순위: 문의를 놓치지 않기)
+    if (!byPhone) notifyNewRequest(requestRef.id); // 사장님 휴대폰 알림 (1순위: 문의를 놓치지 않기). 사장님이 직접 적은 건 알릴 필요 없음
     try { localStorage.removeItem(draftKey); } catch { /* 무시 */ }
+    if (byPhone) { location.href = `owner.html#req=${requestRef.id}`; return; } // 바로 견적 상세로 → 금액 확인 후 문자 발송
     renderDone();
   } catch (e) {
     console.error(e);

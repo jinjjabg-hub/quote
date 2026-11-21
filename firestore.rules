@@ -128,13 +128,14 @@ service cloud.firestore {
     match /requests/{requestId} {
       function validNewRequest() {
         let d = request.resource.data;
-        return d.keys().hasOnly(['shopId', 'templateId', 'status', 'test', 'customer', 'answers', 'checklist', 'photos', 'quoteId', 'createdAt'])
+        return d.keys().hasOnly(['shopId', 'templateId', 'status', 'test', 'source', 'customer', 'answers', 'checklist', 'photos', 'quoteId', 'createdAt'])
           && d.keys().hasAll(['shopId', 'templateId', 'status', 'customer', 'answers', 'createdAt'])
           && d.shopId is string
           && exists(shopPath(d.shopId))
           && d.templateId == get(shopPath(d.shopId)).data.templateId
           && d.status == 'new'
           && (!('test' in d) || d.test is bool)
+          && (!('source' in d) || d.source == 'phone')   // 전화 문의를 사장님이 대신 입력한 요청 (표시용)
           && (!('quoteId' in d) || d.quoteId == null)
           && d.createdAt == request.time
           && d.customer.keys().hasOnly(['name', 'phone', 'region'])
