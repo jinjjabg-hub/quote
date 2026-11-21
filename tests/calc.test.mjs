@@ -201,3 +201,20 @@ test('lintTemplate: showIf 가 없는 질문·뒤에 있는 질문을 보면 오
   const t2 = { ...base, steps: [{ fields: [...common, { key: 'a', type: 'number', showIf: { field: 'b', equals: 1 } }, { key: 'b', type: 'choice', options: [] }] }] };
   assert.match(lintTemplate(t2).map((l) => l.msg).join('\n'), /뒤에 있습니다/);
 });
+
+test('도배: 벽·천장 벽지 따로 평당, 벽만·천장만, 방 단위, 전용 환산, 기존 실크·모름 제거 할증', () => {
+  const t = load('wallpaper');
+  const pt = mergePriceTable(t, {});
+  const calc = (answers, checklist) => calculateQuote(t, pt, { answers: { date: '2026-10-21', livingIn: false, highCeiling: false, oldPaper: 'hapji', areaType: 'supply', ...answers }, checklist });
+  const base = (r) => Object.fromEntries(r.lines.filter((l) => l.type === 'base').map((l) => [l.key, l.amount]));
+  assert.deepEqual(base(calc({ scope: 'whole', area: 32, wallPaper: 'silk', ceilPaper: 'hapji' })), { 'base:wallSilk': 32 * 60000, 'base:ceilHapji': 32 * 15000 });
+  assert.deepEqual(base(calc({ scope: 'walls', area: 32, wallPaper: 'hapji', ceilPaper: 'silk' })), { 'base:wallHapji': 32 * 35000 }, '벽만이면 천장 벽지 답은 무시');
+  assert.deepEqual(base(calc({ scope: 'ceiling', area: 32, wallPaper: 'silk', ceilPaper: 'silk' })), { 'base:ceilSilk': 32 * 25000 });
+  assert.deepEqual(base(calc({ scope: 'rooms', area: 32, rooms: 2, wallPaper: 'hapji' })), { 'base:roomHapji': 2 * 250000 }, '방 단위면 평수는 무시');
+  const ex = calc({ scope: 'whole', area: 25, areaType: 'exclusive', wallPaper: 'hapji', ceilPaper: 'hapji' });
+  assert.equal(ex.lines.find((l) => l.key === 'surcharge:exclusiveArea').amount, Math.round(25 * 50000 * 0.3));
+  const unknown = calc({ scope: 'walls', area: 32, wallPaper: 'silk', oldPaper: 'unknown' });
+  assert.equal(unknown.lines.find((l) => l.key === 'surcharge:removeOld').amount, Math.round(32 * 60000 * 0.15));
+  const noLift = calc({ scope: 'rooms', rooms: 1, wallPaper: 'hapji' }, { elevator: 'no' });
+  assert.equal(noLift.lines.find((l) => l.key === 'option:stairs').amount, 50000);
+});

@@ -28,5 +28,10 @@
     "id": "moving",
     "name": "이사",
     "status": "draft"
+  },
+  {
+    "id": "wallpaper",
+    "name": "도배",
+    "status": "pilot"
   }
 ]

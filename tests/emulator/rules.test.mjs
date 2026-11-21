@@ -47,6 +47,8 @@ test('고객: 요청 생성 가능 / 잘못된 요청 거부', async () => {
   await assertFails(setDoc(doc(guest(), 'requests', 'n4'), newRequest({ hack: 1 })));
   await assertSucceeds(setDoc(doc(guest(), 'requests', 'n5'), newRequest({ test: true })));
   await assertFails(setDoc(doc(guest(), 'requests', 'n6'), newRequest({ test: 'yes' })));
+  await assertSucceeds(setDoc(doc(guest(), 'requests', 'n7'), newRequest({ source: 'phone' })));
+  await assertFails(setDoc(doc(guest(), 'requests', 'n8'), newRequest({ source: 'kakao' })));
 });
 
 test('고객: 요청·단가표 읽기 불가, 업체 공개정보 읽기 가능', async () => {
