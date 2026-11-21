@@ -246,3 +246,34 @@ test('Storage: 요청 문서에 적힌 사진만 · 신규 요청만 · 30분 �
   await assertFails(up(p('m2', 'bath.jpg')), '신규가 아닌 요청 X');
   await assertFails(up(p('m3', 'bath.jpg')), '30분 지난 요청 X');
 });
+
+test('고객: 견적서를 처음 열면 viewedAt 한 번만 기록 (요청·견적서), 다른 칸·두 번째·신규 요청은 X', async () => {
+  const db = guest();
+  const seen = { viewedAt: serverTimestamp() };
+  const b = writeBatch(db);
+  b.update(doc(db, 'quotes', 'q1'), seen);
+  b.update(doc(db, 'requests', 'r1'), seen);
+  await assertSucceeds(b.commit());
+  await assertFails(updateDoc(doc(db, 'quotes', 'q1'), seen), '두 번째 기록 X');
+  await assertFails(updateDoc(doc(db, 'quotes', 'q1'), { viewedAt: Timestamp.fromMillis(1) }), '시각 위조 X');
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'requests', 'rn'), { shopId: OWNER, status: 'new', customer: { name: 'n' } }));
+  await assertFails(updateDoc(doc(db, 'requests', 'rn'), seen), '견적을 안 보낸 요청 X');
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'quotes', 'q5'), { shopId: OWNER, requestId: 'r1', status: 'sent', total: 1 }));
+  await assertFails(updateDoc(doc(db, 'quotes', 'q5'), { viewedAt: serverTimestamp(), total: 0 }), '금액 같이 변경 X');
+});
+
+test('오류 기록(clientErrors): 고객은 짧은 기록 쓰기만, 읽기 X', async () => {
+  const db = guest();
+  const ok = { page: 'q', where: 'submit', code: 'unavailable', message: '네트워크', shopId: OWNER, at: serverTimestamp() };
+  await assertSucceeds(setDoc(doc(db, 'clientErrors', 'e1'), ok));
+  await assertFails(getDoc(doc(db, 'clientErrors', 'e1')));
+  await assertFails(setDoc(doc(db, 'clientErrors', 'e2'), { ...ok, message: 'x'.repeat(301) }));
+  await assertFails(setDoc(doc(db, 'clientErrors', 'e3'), { ...ok, phone: '010' }));
+  await assertFails(updateDoc(doc(db, 'clientErrors', 'e1'), { code: 'x' }));
+});
+
+test('사장님: 입금 계좌 저장 O, 60자 초과 X', async () => {
+  const base = { ownerUid: OWNER, templateId: 'move-in-cleaning', name: '반짝', phone: '010' };
+  await assertSucceeds(setDoc(doc(owner(), 'shops', OWNER), { ...base, bankAccount: '국민 123-45-6789 홍길동' }));
+  await assertFails(setDoc(doc(owner(), 'shops', OWNER), { ...base, bankAccount: 'x'.repeat(61) }));
+});

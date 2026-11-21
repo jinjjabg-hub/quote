@@ -70,11 +70,15 @@ try {
   await owner.goto(`${BASE}owner.html?emulator=1`);
   await owner.getByRole('button', { name: /Google/ }).click();
   await owner.getByText('처음 오셨네요').waitFor();
+  // 처음 3분 설정: 업종 → 업체 정보 → 단가 확인 → 링크. 업종 고르기가 맨 위
+  assert.match(await owner.locator('.setup-steps').innerText(), /1\. 업종[\s\S]*2\. 업체 정보[\s\S]*3\. 단가 확인[\s\S]*4\. 링크 보내기/);
+  await owner.getByRole('button', { name: '입주청소' }).waitFor();
   const shopField = (label) => owner.locator('label.field', { hasText: label }).locator('input');
   await shopField('업체명').fill('반짝입주청소');
   await shopField('대표 전화번호').fill('010-1111-2222');
   await shopField('서비스 가능 지역').fill('서울 송파구·강동구');
   await shopField('만두 ID').fill('@Banjjak');
+  await shopField('계약금 입금 계좌').fill('국민 123456-01-123456 김사장');
   await shot(owner, '0-owner-shop');
   await owner.getByRole('button', { name: '업체 정보 저장하기' }).click();
   await owner.getByText('다른 숫자만 고치세요').waitFor();
@@ -87,7 +91,9 @@ try {
   await priceInput('곰팡이 제거').fill('30000');
   await shot(owner, '1-owner-price');
   await owner.getByRole('button', { name: '단가표 저장하기' }).click();
-  await owner.getByText('단가표를 저장했어요').waitFor();
+  await owner.getByText('설정 끝!').waitFor(); // 처음 설정의 마지막: 링크 화면으로
+  await owner.getByText('우리 업체 전용 견적 링크').waitFor();
+  assert.equal(await owner.locator('.setup-steps').count(), 0, '설정이 끝나면 단계 표시 없음');
   const uid = await owner.evaluate(async () => (await import('./js/firebase.js')).auth.currentUser.uid);
 
   // 2) 고객 입력
@@ -250,6 +256,14 @@ try {
   const viewUrl = await owner.getByRole('link', { name: '견적서 미리보기' }).getAttribute('href');
   await shot(owner, '8-owner-sent');
   await owner.getByRole('button', { name: '목록으로' }).click();
+  // 사장님이 자기 견적서를 미리보기로 열어도 "열어봄"으로 세지 않는다
+  const preview = await owner.context().newPage();
+  await preview.goto(`${viewUrl}&emulator=1`);
+  await preview.locator('.cond').waitFor();
+  await preview.waitForTimeout(1500);
+  await preview.close();
+  await owner.locator('nav.bottom-nav button', { hasText: '견적요청' }).click();
+  await owner.locator('.req-card', { hasText: '김*객' }).getByText('안 열어봄').waitFor();
 
   // 4) 견적서
   step('4) 견적서: 스티커 제거가 ⚠️ 추가요금 조건에 표시, 내부 메모는 안 보임');
@@ -260,6 +274,9 @@ try {
   assert.equal(await view.locator('.shop-head, .quote-head').getByText('전화 상담').count(), 0, '견적서 상단에는 전화 버튼 없음 (하단에 있음)');
   assert.doesNotMatch(await view.locator('body').innerText(), /주차 확인 필요/, '내부 메모는 견적서에 없음');
   assert.doesNotMatch(await view.locator('body').innerText(), /예시타운|1203/, '단지명·동·호는 공개 견적서에 없음');
+  assert.match(await view.locator('.bank-row').innerText(), /계약금 입금 계좌[\s\S]*국민 123456-01-123456 김사장/);
+  // 고객이 열면 사장님 목록에 "열어봄" (실시간)
+  await owner.locator('.req-card', { hasText: '김*객' }).getByText(/열어봄 · /).waitFor({ timeout: 10000 });
   assert.match(await view.locator('.total-box').innerText(), /560,000원/);
   assert.match(await view.locator('.total-box').innerText(), /56,000원/); // 계약금 10%
   assert.equal(await view.locator('.badge.verified').count(), 1, '사진 확인 완료 배지');
@@ -422,7 +439,8 @@ try {
   await owner.locator('.bottom-nav').getByRole('button', { name: /^견적요청/ }).click();
   await owner.locator('.req-card', { hasText: '김*객' }).click();
   await owner.getByRole('button', { name: '계약확정' }).click();
-  await owner.getByText(/일정에 등록했어요/).waitFor({ timeout: 10000 });
+  await owner.locator('#toast', { hasText: '계약확정' }).waitFor({ timeout: 10000 });
+  assert.match(await owner.locator('#toast').innerText(), /일정에 등록했어요/, '계약확정 → 일정 자동 등록 안내');
   const reqId = /req=([\w-]+)/.exec(owner.url())[1];
   const auto = await owner.evaluate(async (id) => {
     const m = await import('./js/firebase.js');
@@ -566,13 +584,14 @@ try {
   await dobae.goto(`${BASE}owner.html?emulator=1&as=dobae`);
   await dobae.getByRole('button', { name: /Google/ }).click();
   await dobae.getByText('처음 오셨네요').waitFor();
+  // 처음 설정 ① 업종부터: 도배를 고르면 그 자리에서 업체 정보 입력으로
+  await dobae.getByRole('button', { name: /도배 \(시범\)/ }).click();
+  await dobae.getByText('이제 업체명·전화번호를 넣어주세요').waitFor();
+  await dobae.getByText('지금: 도배').waitFor();
   const dField = (label) => dobae.locator('label.field', { hasText: label }).locator('input');
   await dField('업체명').fill('한결도배');
   await dField('대표 전화번호').fill('010-5555-6666');
   await dobae.getByRole('button', { name: '업체 정보 저장하기' }).click();
-  await dobae.getByText('다른 숫자만 고치세요').waitFor();
-  await dobae.locator('button.avatar').click();
-  await dobae.getByRole('button', { name: /도배 \(시범\)/ }).click();
   await dobae.getByText('시범 업종입니다').waitFor(); // 단가표로 이동 + 시범 안내
   const dPrice = (label) => dobae.locator('label.price-main, label.price-row', { hasText: label }).locator('input');
   assert.equal(await dPrice('벽 · 실크').inputValue(), '60000', '도배 기본값으로 시작');
@@ -580,7 +599,7 @@ try {
   await dPrice('천장 · 합지').fill('20000');
   await shot(dobae, '16-dobae-price');
   await dobae.getByRole('button', { name: '단가표 저장하기' }).click();
-  await dobae.getByText('단가표를 저장했어요').waitFor();
+  await dobae.getByText('설정 끝!').waitFor();
   await dobae.locator('nav.bottom-nav button', { hasText: '홈' }).click();
   await dobae.getByRole('link', { name: /전화 문의 받아 적기/ }).click();
   await dobae.getByText('전화 문의 받아 적기: 통화하면서').waitFor();

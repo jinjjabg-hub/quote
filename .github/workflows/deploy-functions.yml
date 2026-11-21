@@ -63,3 +63,8 @@ jobs:
         if: steps.cfg.outputs.ready == 'true'
         continue-on-error: true
         run: npx --yes firebase-tools@13.35.1 deploy --only functions:countQuote --project "$PROJECT" --non-interactive
+      # 매일 고객 개인정보 파기(예약 실행). Cloud Scheduler 가 처음이면 권한·API 가 더 필요할 수 있어 따로 배포 (배포.md ⑨)
+      - name: Firebase 배포 (개인정보 자동 파기)
+        if: steps.cfg.outputs.ready == 'true'
+        continue-on-error: true
+        run: npx --yes firebase-tools@13.35.1 deploy --only functions:purgeOld --project "$PROJECT" --non-interactive

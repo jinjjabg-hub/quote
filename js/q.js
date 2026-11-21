@@ -9,6 +9,7 @@ import { $, h, toast, compressImage, registerSW, showFatal, telHref, manduHref, 
 import { appConfig } from './config.js';
 import { lookupEnabled, newLookupState, renderLookupPanel } from './areaLookup.js';
 import { notifyNewRequest } from './push.js';
+import { logClientError } from './errlog.js';
 
 registerSW();
 
@@ -22,7 +23,7 @@ const state = { step: 0, answers: {}, checklist: {}, extras: [], photos: {}, con
 const LOOKUP_ON = lookupEnabled(params);
 let shop; let tpl; let draftKey;
 
-init().catch((e) => showFatal(e.message));
+init().catch((e) => { logClientError('q', 'init', e, shopId); showFatal(e.message); });
 
 async function init() {
   if (!isConfigured) throw new Error('Firebase 설정이 아직 없습니다. js/config.js 를 채워주세요.');
@@ -238,7 +239,7 @@ function consentBox() {
       h('dt', {}, '받는 곳'), h('dd', {}, who),
       h('dt', {}, '항목'), h('dd', {}, '이름, 연락처, 지역(주소), 요청 내용, 현장 사진, 희망 일정'),
       h('dt', {}, '목적'), h('dd', {}, '견적 산출·발송, 작업 일정 안내'),
-      h('dt', {}, '보관'), h('dd', {}, '견적 상담과 작업이 끝나면 지체 없이 파기 (법령상 보관 의무가 있으면 그 기간)')),
+      h('dt', {}, '보관'), h('dd', {}, '요청일로부터 6개월 뒤 자동 파기 (사진·연락처·남긴 말씀 삭제, 이름은 가림)')),
     h('p.small.muted', {}, '동의하지 않을 수 있으며, 이 경우 링크로 견적을 요청할 수 없습니다. 전화로 문의해주세요. ',
       h('a', { href: 'privacy.html', target: '_blank', rel: 'noopener' }, '개인정보처리방침')),
     h('label.consent-check', {},
@@ -312,6 +313,7 @@ async function submit() {
     });
   } catch (e) {
     console.error(e);
+    logClientError('q', byPhone ? 'submit-phone' : 'submit', e, shopId);
     state.submitting = false; render();
     toast('전송에 실패했어요. 인터넷 연결을 확인하고 다시 눌러주세요.', 4000);
     return;
@@ -334,6 +336,7 @@ async function uploadWithRetry({ path, blob }, tries = 3) {
     try { await uploadBytes(storageRef(storage, path), blob, { contentType: 'image/jpeg' }); return true; } catch (e) {
       console.error(e);
       if (t < tries) await new Promise((r) => setTimeout(r, 1500 * t));
+      else logClientError('q', 'photo', e, shopId);
     }
   }
   return false;

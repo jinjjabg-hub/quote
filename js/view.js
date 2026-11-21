@@ -1,8 +1,9 @@
 // 견적서 화면 (view.html?id=견적ID) — 고객용, 로그인 없음
 // 견적 ID 자체가 추측 불가능한 열쇠 역할을 한다. (Firestore 규칙: 단건 get 만 허용)
-import { db, doc, getDoc, writeBatch, serverTimestamp, isConfigured } from './firebase.js';
+import { db, auth, doc, getDoc, updateDoc, writeBatch, serverTimestamp, isConfigured, onAuthStateChanged } from './firebase.js';
 import { formatWon, toDateStr } from './calc.js';
-import { $, h, toast, registerSW, showFatal, telHref, manduHref, setChildren, icon, footerNote } from './util.js';
+import { $, h, toast, copyText, registerSW, showFatal, telHref, manduHref, setChildren, icon, footerNote } from './util.js';
+import { logClientError } from './errlog.js';
 import { appConfig } from './config.js';
 import { dateKo, timeKo } from './booking.js';
 
@@ -12,7 +13,7 @@ const quoteId = new URLSearchParams(location.search).get('id');
 const app = $('#app');
 let quote;
 
-init().catch((e) => showFatal(e.message));
+init().catch((e) => { logClientError('view', 'init', e); showFatal(e.message); });
 
 async function init() {
   if (!isConfigured) throw new Error('Firebase 설정이 아직 없습니다.');
@@ -22,6 +23,19 @@ async function init() {
   quote = snap.data();
   document.title = `${quote.shop?.name || ''} 견적서 ${quote.number || ''}`;
   render();
+  markViewed();
+}
+
+// 고객이 처음 열었을 때 한 번만 viewedAt 기록 → 사장님 화면에 "열어봄" (답 없음 ≠ 안 읽음).
+// 사장님이 자기 견적서를 미리보기로 연 것은 세지 않는다 (같은 브라우저에 사장님 로그인이 있으면 건너뜀).
+async function markViewed() {
+  if (quote.viewedAt) return;
+  const user = await new Promise((resolve) => { const off = onAuthStateChanged(auth, (u) => { off(); resolve(u); }); });
+  if (user && user.uid === quote.shopId) return;
+  const seen = { viewedAt: serverTimestamp() };
+  // 요청 문서는 상태(보류 등)에 따라 규칙이 막을 수 있으므로 따로 보낸다. 실패해도 고객 화면에는 영향 없음
+  updateDoc(doc(db, 'quotes', quoteId), seen).catch(() => {});
+  if (quote.requestId) updateDoc(doc(db, 'requests', quote.requestId), seen).catch(() => {});
 }
 
 function render() {
@@ -55,7 +69,10 @@ function render() {
         h('td.num', {}, formatWon(l.amount)))))),
       h('div.total-box', {},
         h('div', {}, '합계', h('b', {}, formatWon(q.total))),
-        h('div.muted', {}, `계약금 ${q.depositPct || 0}% ${formatWon(q.deposit)}`))),
+        h('div.muted', {}, `계약금 ${q.depositPct || 0}% ${formatWon(q.deposit)}`)),
+      q.shop?.bankAccount ? h('div.bank-row', {},
+        h('div.grow', {}, h('div.muted.small', {}, '계약금 입금 계좌'), h('b', {}, q.shop.bankAccount)),
+        h('button.btn.soft.small', { type: 'button', onclick: () => copyText(q.shop.bankAccount, '계좌번호를 복사했어요.') }, icon('content_copy'), '복사')) : null),
 
     section('✅ 포함 항목', q.included, 'ok'),
     section('❌ 불포함 항목', q.excluded, 'no'),
@@ -119,6 +136,7 @@ function bookingButton(expired) {
         toast('예약 요청을 보냈어요. 사장님이 곧 연락드립니다.', 3500);
       } catch (err) {
         console.error(err);
+        logClientError('view', 'booking', err, quote.shopId);
         toast('요청에 실패했어요. 전화로 문의해주세요.', 4000);
         e.target.disabled = false;
       }

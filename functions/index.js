@@ -10,6 +10,8 @@ export { notifyRequest } from './lib/notifyRequest.js';
 export { billingStatus } from './lib/billingStatus.js';
 //   countQuote  견적서가 만들어질 때 서버가 직접 무료 건수를 다시 센다 (화면 호출에 의존하지 않게). 키 없음
 export { countQuote } from './lib/billingCount.js';
+//   purgeOld  매일 04:20 — 요청일로부터 6개월 지난 고객 개인정보 파기 (사진·연락처·남긴 말씀). 키 없음
+export { purgeOld } from './lib/purgeOld.js';
 //   billingPay · billingRenew  카드 자동결제 (토스페이먼츠). Secret Manager 에 TOSS_SECRET_KEY 를 넣은 뒤 아래 줄의 주석을 풀고
 //   배포 목록(.github/workflows/deploy-functions.yml FUNCTIONS)에 functions:billingPay,functions:billingRenew 를 추가한다 (배포.md ⑦)
 // export { billingPay, billingRenew } from './lib/billingPay.js';
