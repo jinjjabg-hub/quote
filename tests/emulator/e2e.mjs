@@ -203,6 +203,13 @@ try {
   await cust.locator('.photo-slot img').nth(1).waitFor();
   await shot(cust, '4-customer-photos');
   await next();
+  // 마지막 단계: 개인정보 수집·이용 동의 없이는 보낼 수 없다
+  await cust.locator('.consent').waitFor();
+  await shot(cust, '4b-customer-consent');
+  assert.match(await cust.locator('.consent').innerText(), /수집·이용 안내[\s\S]*반짝입주청소[\s\S]*파기/);
+  await next();
+  assert.equal(await cust.getByText('요청이 접수되었습니다').count(), 0, '동의 전에는 제출 안 됨');
+  await cust.locator('.consent-check input').check();
   await next(); // 요청사항 → 제출
   await cust.getByText('요청이 접수되었습니다').waitFor({ timeout: 15000 });
   await shot(cust, '5-customer-done');
@@ -607,6 +614,8 @@ try {
   await dNext();
   await dNext(); // 추가 서비스 없음
   await dNext(); // 사진 없이 (전화 문의는 확인 창 없음)
+  assert.match(await dobae.locator('.consent-check').innerText(), /고객에게 위 내용을 안내하고 동의를 받았습니다/);
+  await dobae.locator('.consent-check input').check();
   await dNext(); // 요청사항 → 제출 → 사장님 견적 상세로 바로 이동
   await dobae.locator('.total-box').waitFor({ timeout: 15000 });
   assert.match(await dobae.locator('.total-box').innerText(), /2,880,000원/, '32 × 70,000 + 32 × 20,000');

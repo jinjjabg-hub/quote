@@ -54,8 +54,13 @@ export function computeState(prev, quoteCount, { today, enforce }) {
   };
 }
 
+/** 견적서 생성 트리거(countQuote)가 셀 견적인가: 업체 ID 가 정상이고 테스트가 아닌 것 */
+export function shouldCount(quote) {
+  return !!quote && typeof quote.shopId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(quote.shopId) && quote.test !== true;
+}
+
 /**
- * 상태 조회 (사장님 화면이 열릴 때·견적 발송 뒤에 부른다). 실제 견적서 수를 다시 세어 저장한다.
+ * 상태 조회 (사장님 화면이 열릴 때·견적 발송 뒤에 부른다. 견적서가 만들어질 때 서버 트리거 countQuote 도 부른다). 실제 견적서 수를 다시 세어 저장한다.
  * deps: { uid, today, getDoc(path), setDoc(path, data, merge), countQuotes(shopId) → number }
  */
 export async function handleStatus(deps) {

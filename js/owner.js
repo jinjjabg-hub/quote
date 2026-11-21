@@ -383,6 +383,7 @@ async function createSampleRequest(btn) {
       photos: [],
       quoteId: null,
       createdAt: serverTimestamp(),
+      consentAt: serverTimestamp(), // 보안 규칙상 필수 (샘플은 실제 개인정보가 아님)
     });
     toast('샘플 요청을 만들었어요. 목록에서 눌러 견적을 보내보세요.');
   } catch (e) { toast(`만들기 실패: ${e.message}`); }

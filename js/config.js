@@ -42,3 +42,10 @@ export const pushConfig = {
   // 새 견적 요청 → 사장님 휴대폰 알림 (고객 화면이 요청 저장 직후 부른다)
   requestNotifyUrl: 'https://asia-northeast3-quote-640f4.cloudfunctions.net/notifyRequest',
 };
+
+// App Check (감사 2026-11-21 ③): 우리 화면에서 온 요청만 Firestore·Storage·서버 함수가 받게 한다.
+// siteKey: Firebase 콘솔 → App Check → 웹 앱 → reCAPTCHA Enterprise 의 "사이트 키" (공개 값, 비밀값 아님).
+// 비어 있으면 꺼짐. 켜는 순서는 배포.md ⑧ (키를 넣고 → 지표에서 정상 요청 비율 확인 → 콘솔에서 '시행').
+export const appCheckConfig = {
+  siteKey: '',
+};

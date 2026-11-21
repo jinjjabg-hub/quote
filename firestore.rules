@@ -128,8 +128,9 @@ service cloud.firestore {
     match /requests/{requestId} {
       function validNewRequest() {
         let d = request.resource.data;
-        return d.keys().hasOnly(['shopId', 'templateId', 'status', 'test', 'source', 'customer', 'answers', 'checklist', 'photos', 'quoteId', 'createdAt'])
-          && d.keys().hasAll(['shopId', 'templateId', 'status', 'customer', 'answers', 'createdAt'])
+        return d.keys().hasOnly(['shopId', 'templateId', 'status', 'test', 'source', 'customer', 'answers', 'checklist', 'photos', 'quoteId', 'createdAt', 'consentAt'])
+          && d.keys().hasAll(['shopId', 'templateId', 'status', 'customer', 'answers', 'createdAt', 'consentAt'])
+          && d.consentAt == request.time   // 개인정보 수집·이용 동의 (고객 화면 마지막 단계). 동의 없이는 요청을 만들 수 없다
           && d.shopId is string
           && exists(shopPath(d.shopId))
           && d.templateId == get(shopPath(d.shopId)).data.templateId
@@ -148,7 +149,9 @@ service cloud.firestore {
       }
       allow create: if validNewRequest();
       allow read, delete: if isOwner(resource.data.shopId);
-      allow update: if (isOwner(resource.data.shopId) && request.resource.data.shopId == resource.data.shopId)
+      // test 표시는 만든 뒤 바꿀 수 없다 (테스트 견적은 무료 건수에서 빠지므로)
+      allow update: if (isOwner(resource.data.shopId) && request.resource.data.shopId == resource.data.shopId
+          && request.resource.data.get('test', false) == resource.data.get('test', false))
         || isCustomerBooking();
     }
 
@@ -157,10 +160,18 @@ service cloud.firestore {
       allow get: if true;
       allow list: if signedIn() && resource.data.shopId == request.auth.uid;
       // 새 견적서: 무료 한도·요금제 확인 (테스트 견적은 고객에게 "테스트"로 표시되므로 제외). 이미 보낸 견적 수정(update)은 막지 않는다.
+      // 테스트 견적은 "테스트 요청"에만 만들 수 있다 (실제 고객 요청에 test 견적을 만들어 무료 건수를 피하지 못하게).
+      function sourceRequest() { return get(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data; }
       allow create: if isOwner(request.resource.data.shopId)
-        && get(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.shopId == request.auth.uid
+        && sourceRequest().shopId == request.auth.uid
+        && request.resource.data.get('test', false) == sourceRequest().get('test', false)
         && (request.resource.data.get('test', false) == true || billingOk(request.resource.data.shopId));
-      allow update: if (isOwner(resource.data.shopId) && request.resource.data.shopId == resource.data.shopId)
+      // 이미 보낸 견적의 금액·문구 수정은 자유. 다만 어느 요청의 견적인지(requestId)와 test 표시는 바꿀 수 없다
+      // → 견적서 1장을 다른 고객용으로 고쳐 쓰며 건수를 피하지 못하게.
+      allow update: if (isOwner(resource.data.shopId)
+          && request.resource.data.shopId == resource.data.shopId
+          && request.resource.data.get('requestId', null) == resource.data.get('requestId', null)
+          && request.resource.data.get('test', false) == resource.data.get('test', false))
         || isCustomerBooking();
       allow delete: if isOwner(resource.data.shopId);
     }

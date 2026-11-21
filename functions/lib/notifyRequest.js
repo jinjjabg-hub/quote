@@ -5,9 +5,21 @@ import { logger } from 'firebase-functions/v2';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
+import { getAppCheck } from 'firebase-admin/app-check';
+import { defineBoolean } from 'firebase-functions/params';
 import { ALLOWED_ORIGINS } from './area.js';
 import { NotifyError } from './notify.js';
-import { handleRequestNotice } from './requestNotice.js';
+import { handleRequestNotice, noticeWindow } from './requestNotice.js';
+
+// App Check: 고객 화면(우리 앱)에서 온 요청인지 확인. 화면이 토큰을 보내면 항상 검사하고,
+// REQUIRE_APP_CHECK=true 로 배포하면 토큰이 없는 요청(curl 등)도 거절한다. 켜는 순서는 배포.md ⑧.
+const REQUIRE_APP_CHECK = defineBoolean('REQUIRE_APP_CHECK', { default: false });
+
+async function appCheckOk(req) {
+  const token = req.get('x-firebase-appcheck') || '';
+  if (!token) return !REQUIRE_APP_CHECK.value();
+  return getAppCheck().verifyToken(token).then(() => true, () => false);
+}
 
 if (!getApps().length) initializeApp();
 
@@ -23,6 +35,7 @@ export const notifyRequest = onRequest({
   res.set('Cache-Control', 'no-store');
   if (req.method !== 'POST') { res.status(405).json({ ok: false, reason: 'method' }); return; }
   if (!ALLOWED_ORIGINS.includes(req.get('origin') || '')) { res.status(403).json({ ok: false, reason: 'origin' }); return; }
+  if (!(await appCheckOk(req))) { res.status(401).json({ ok: false, reason: 'app_check' }); return; }
   try {
     const db = getFirestore();
     const out = await handleRequestNotice(req.body, {
@@ -30,6 +43,14 @@ export const notifyRequest = onRequest({
       getDoc: async (path) => { const s = await db.doc(path).get(); return s.exists ? s.data() : null; },
       markNotified: (path) => db.doc(path).update({ notifiedAt: FieldValue.serverTimestamp() }),
       removeTokens: (path, tokens) => db.doc(path).update({ tokens: FieldValue.arrayRemove(...tokens) }),
+      // 업체당 알림 상한. shops/{id}/notice/requests 는 보안 규칙에 match 가 없어 서버만 읽고 쓴다
+      takeSlot: (shopId) => db.runTransaction(async (tx) => {
+        const ref = db.doc(`shops/${shopId}/notice/requests`);
+        const snap = await tx.get(ref);
+        const { allowed, next } = noticeWindow(snap.exists ? snap.data() : null, Date.now());
+        if (allowed) tx.set(ref, next);
+        return allowed;
+      }),
       send: async ({ tokens, data }) => {
         const r = await getMessaging().sendEachForMulticast({
           tokens,

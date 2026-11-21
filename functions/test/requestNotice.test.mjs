@@ -1,7 +1,7 @@
 // 새 견적 요청 → 사장님 알림 테스트. Firebase 없이 가짜 저장소·발송으로 확인한다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handleRequestNotice, requestNoticeText, FRESH_MS } from '../lib/requestNotice.js';
+import { handleRequestNotice, requestNoticeText, noticeWindow, FRESH_MS, NOTICE_MAX, NOTICE_WINDOW_MS } from '../lib/requestNotice.js';
 import { NotifyError } from '../lib/notify.js';
 
 const NOW = 1_800_000_000_000;
@@ -18,6 +18,7 @@ function fake(docs, results) {
       markNotified: async (p) => { log.marked.push(p); docs[p] = { ...docs[p], notifiedAt: ts(NOW) }; },
       send: async (m) => { log.sent.push(m); return results || m.tokens.map(() => ({ ok: true })); },
       removeTokens: async (p, t) => { log.removed.push([p, t]); },
+      takeSlot: async (shopId) => { const r = noticeWindow(docs[`slot/${shopId}`], NOW); docs[`slot/${shopId}`] = r.next; return r.allowed; },
     },
   };
 }
@@ -57,4 +58,19 @@ test('없는 요청·이미 답한 요청·오래된 요청·이상한 ID 는 �
     await assert.rejects(handleRequestNotice({ requestId: id }, f.deps), (e) => e instanceof NotifyError && e.reason === reason, id);
   }
   assert.equal(f.log.sent.length, 0);
+});
+
+test('알림 상한: 한 업체에 10분에 5건까지만 울리고, 10분이 지나면 다시 울린다', async () => {
+  const docs = { 'shops/shop1/private/push': { tokens: ['t1'] } };
+  for (let i = 0; i < NOTICE_MAX + 2; i += 1) docs[`requests/r${i}`] = { ...request };
+  const f = fake(docs);
+  const out = [];
+  for (let i = 0; i < NOTICE_MAX + 2; i += 1) out.push(await handleRequestNotice({ requestId: `r${i}` }, f.deps));
+  assert.equal(out.filter((o) => o.sent).length, NOTICE_MAX);
+  assert.deepEqual(out.at(-1), { sent: false, reason: 'throttled' });
+  assert.equal(f.log.marked.length, NOTICE_MAX + 2, '넘친 요청도 알림 처리 표시는 남긴다 (다시 불러도 안 울림)');
+  // 창이 끝나면 다시 허용
+  assert.equal(noticeWindow({ start: 0, count: NOTICE_MAX }, NOTICE_WINDOW_MS).allowed, true);
+  assert.equal(noticeWindow({ start: 0, count: NOTICE_MAX }, NOTICE_WINDOW_MS - 1).allowed, false);
+  assert.deepEqual(noticeWindow(null, 7).next, { start: 7, count: 1 });
 });

@@ -6,6 +6,19 @@ import { NotifyError } from './notify.js';
 
 export const OWNER_URL = 'https://quote.bizmy.net/owner.html';
 export const FRESH_MS = 10 * 60 * 1000; // 만든 지 10분이 지난 요청은 알리지 않는다
+// 업체당 알림 상한: 10분에 5건. 고객 화면은 로그인이 없어 누구나 요청을 만들 수 있으므로,
+// 가짜 요청을 쏟아부어도 사장님 휴대폰이 계속 울리지 않게 한다. 넘친 요청도 목록에는 그대로 들어온다.
+export const NOTICE_WINDOW_MS = 10 * 60 * 1000;
+export const NOTICE_MAX = 5;
+
+/** 알림 상한 계산. prev = { start(ms), count } | null → { allowed, next } */
+export function noticeWindow(prev, now) {
+  const fresh = !prev || !(now - Number(prev.start) < NOTICE_WINDOW_MS);
+  const start = fresh ? now : Number(prev.start);
+  const count = fresh ? 0 : Number(prev.count) || 0;
+  if (count >= NOTICE_MAX) return { allowed: false, next: { start, count } };
+  return { allowed: true, next: { start, count: count + 1 } };
+}
 const ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
 /** 알림 문구. 고객 이름·연락처는 넣지 않는다 (잠금화면에 보이므로). 지역·희망일만 */
@@ -19,8 +32,9 @@ export function requestNoticeText(request) {
 }
 
 /**
- * deps: { getDoc(path) → data|null, markNotified(path), send({ tokens, data }) → [{ ok, badToken }], removeTokens(path, tokens), now (ms) }
- * @returns { sent: boolean, reason?: 'already' | 'no_token' | 'failed' }
+ * deps: { getDoc(path) → data|null, markNotified(path), send({ tokens, data }) → [{ ok, badToken }], removeTokens(path, tokens), now (ms),
+ *         takeSlot(shopId) → boolean (업체당 알림 상한. noticeWindow 를 트랜잭션으로 적용) }
+ * @returns { sent: boolean, reason?: 'already' | 'no_token' | 'failed' | 'throttled' }
  */
 export async function handleRequestNotice(body, deps) {
   const requestId = String(body?.requestId || '');
@@ -36,6 +50,7 @@ export async function handleRequestNotice(body, deps) {
   const pushPath = `shops/${request.shopId}/private/push`;
   const tokens = ((await deps.getDoc(pushPath))?.tokens || []).filter((t) => typeof t === 'string' && t);
   if (!tokens.length) return { sent: false, reason: 'no_token' };
+  if (!(await deps.takeSlot(request.shopId))) return { sent: false, reason: 'throttled' };
 
   const results = await deps.send({
     tokens,

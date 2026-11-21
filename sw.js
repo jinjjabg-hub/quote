@@ -1,6 +1,6 @@
 // 서비스워커: 앱 껍데기(HTML/CSS/JS/템플릿)만 캐시. 네트워크 우선 → 오프라인일 때만 캐시 사용.
 // Firebase·구글 요청은 건드리지 않는다.
-const CACHE = 'quote-v14';
+const CACHE = 'quote-v15';
 const SHELL = [
   './', './owner.html', './q.html', './view.html', './staff.html', './manifest-staff.webmanifest', './css/style.css', './css/legal.css', './pricing.html', './terms.html', './refund.html', './privacy.html',
   './js/config.js', './js/firebase.js', './js/calc.js', './js/templates.js', './js/util.js',
