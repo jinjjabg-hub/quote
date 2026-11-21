@@ -9,9 +9,9 @@ import { formatWon } from './calc.js';
 const TOSS_SDK = 'https://js.tosspayments.com/v2/standard';
 
 export const PLANS = [
-  { id: 'solo', name: '혼자', target: '1인 사장님', amount: 19900, points: ['견적 무제한', '새 문의 휴대폰 알림', '여러 업종 템플릿'] },
+  { id: 'solo', name: '혼자', target: '1인 사장님', amount: 19900, points: ['견적 무제한', '새 문의 휴대폰 알림', '업종별 견적 템플릿'] },
   { id: 'team', name: '팀', target: '직원이 있는 업체', amount: 49000, points: ['‘혼자’의 모든 기능', '일정·인력 관리', '직원 일정 알림'] },
-  { id: 'company', name: '회사', target: '직원이 많은 업체', amount: 99000, points: ['‘팀’의 모든 기능', '직원 수·견적 수 확대'] },
+  { id: 'company', name: '회사', target: '직원이 많은 업체', amount: 99000, points: ['‘팀’의 모든 기능', '견적별 필요 인원·시간 예상'] },
 ];
 const planName = (id) => PLANS.find((p) => p.id === id)?.name || '';
 const md = (d) => (d ? `${Number(d.slice(5, 7))}/${Number(d.slice(8))}` : '');

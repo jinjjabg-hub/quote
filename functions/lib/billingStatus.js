@@ -15,10 +15,14 @@ if (!getApps().length) initializeApp();
 export async function billingDeps(req) {
   const m = /^Bearer (.+)$/.exec(req.get('authorization') || '');
   const user = m ? await getAuth().verifyIdToken(m[1]).catch(() => null) : null;
+  return { ...firestoreBillingDeps(user?.uid || null), email: user?.email || '' };
+}
+
+/** Firestore 연결만 (견적서 생성 트리거 countQuote 는 로그인 없이 업체 ID 로 부른다) */
+export function firestoreBillingDeps(uid) {
   const db = getFirestore();
   return {
-    uid: user?.uid || null,
-    email: user?.email || '',
+    uid,
     today: koreaToday(),
     getDoc: async (path) => { const s = await db.doc(path).get(); return s.exists ? s.data() : null; },
     setDoc: (path, data, merge) => db.doc(path).set({ ...data, updatedAt: FieldValue.serverTimestamp() }, { merge: !!merge }),

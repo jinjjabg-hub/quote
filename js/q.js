@@ -4,11 +4,12 @@ import {
   db, storage, doc, collection, getDoc, setDoc, serverTimestamp, storageRef, uploadBytes, isConfigured,
 } from './firebase.js';
 import { loadTemplate } from './templates.js';
-import { visibleSteps, pruneHidden } from './calc.js';
+import { visibleSteps, pruneHidden, toDateStr } from './calc.js';
 import { $, h, toast, compressImage, registerSW, showFatal, telHref, manduHref, setChildren, icon, footerNote } from './util.js';
 import { appConfig } from './config.js';
 import { lookupEnabled, newLookupState, renderLookupPanel } from './areaLookup.js';
 import { notifyNewRequest } from './push.js';
+import { logClientError } from './errlog.js';
 
 registerSW();
 
@@ -18,11 +19,11 @@ const isTest = params.get('test') === '1'; // 사장님 테스트 모드에서 �
 const byPhone = !isTest && params.get('by') === 'phone'; // 전화 문의를 사장님이 대신 입력 (알림 안 보냄, 사진 선택)
 const app = $('#app');
 const EXTRA_PHOTOS = 5;
-const state = { step: 0, answers: {}, checklist: {}, extras: [], photos: {}, submitting: false, lookup: newLookupState() };
+const state = { step: 0, answers: {}, checklist: {}, extras: [], photos: {}, consent: false, submitting: false, lookup: newLookupState() };
 const LOOKUP_ON = lookupEnabled(params);
 let shop; let tpl; let draftKey;
 
-init().catch((e) => showFatal(e.message));
+init().catch((e) => { logClientError('q', 'init', e, shopId); showFatal(e.message); });
 
 async function init() {
   if (!isConfigured) throw new Error('Firebase 설정이 아직 없습니다. js/config.js 를 채워주세요.');
@@ -74,6 +75,7 @@ function render({ focus = true } = {}) {
       h('h1', {}, step.title),
       step.description ? h('p.muted', {}, step.description) : null,
       ...step.fields.map(renderField)),
+    state.step === all.length - 1 ? consentBox() : null,
     footerNote('입력하신 정보는 이 업체에만 전달됩니다.'),
     h('div.nav-row', {},
       state.step > 0 ? h('button.btn.prev', { type: 'button', onclick: prev }, '이전') : null,
@@ -100,7 +102,7 @@ function renderField(f) {
       const input = h('input.input', {
         type: f.type, value: v ?? '', placeholder: f.placeholder || '', maxLength: f.maxLength || 100,
         inputMode: f.type === 'number' ? 'decimal' : f.type === 'tel' ? 'tel' : undefined,
-        min: f.type === 'date' ? new Date().toISOString().slice(0, 10) : f.min, max: f.max,
+        min: f.type === 'date' ? toDateStr(new Date()) : f.min, max: f.max, // 현지 날짜 (toISOString 은 UTC라 한국 오전 9시 전엔 어제가 됨)
         oninput: (e) => {
           set(f.type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value);
           if (f.lookup) markManualIfChanged(f);
@@ -227,6 +229,24 @@ function renderPhotoSlot(slot) {
     h('div.photo-label', {}, slot.label));
 }
 
+// ---------- 개인정보 수집·이용 안내 (개인정보보호법: 수집 전에 목적·항목·보유기간·거부권 고지) ----------
+// 마지막 단계(보내기 버튼 바로 위)에만 보인다. 체크해야 보낼 수 있고, 보안 규칙도 consentAt 이 없는 요청은 막는다.
+function consentBox() {
+  const who = shop.name || '이 업체';
+  return h('section.card.consent', {},
+    h('div.card-title', {}, icon('info'), '개인정보 수집·이용 안내 (필수)'),
+    h('dl.kv.small', {},
+      h('dt', {}, '받는 곳'), h('dd', {}, who),
+      h('dt', {}, '항목'), h('dd', {}, '이름, 연락처, 지역(주소), 요청 내용, 현장 사진, 희망 일정'),
+      h('dt', {}, '목적'), h('dd', {}, '견적 산출·발송, 작업 일정 안내'),
+      h('dt', {}, '보관'), h('dd', {}, '요청일로부터 6개월 뒤 자동 파기 (사진·연락처·남긴 말씀 삭제, 이름은 가림)')),
+    h('p.small.muted', {}, '동의하지 않을 수 있으며, 이 경우 링크로 견적을 요청할 수 없습니다. 전화로 문의해주세요. ',
+      h('a', { href: 'privacy.html', target: '_blank', rel: 'noopener' }, '개인정보처리방침')),
+    h('label.consent-check', {},
+      h('input', { type: 'checkbox', checked: state.consent, onchange: (e) => { state.consent = e.target.checked; } }),
+      h('span', {}, byPhone ? '고객에게 위 내용을 안내하고 동의를 받았습니다' : '위 내용을 확인했고 동의합니다')));
+}
+
 // ---------- 이동·검증 ----------
 
 function validateStep() {
@@ -257,6 +277,7 @@ function next() {
   const err = validateStep();
   if (err) { toast(err); return; }
   if (state.step < steps().length - 1) { state.step += 1; render(); window.scrollTo(0, 0); return; }
+  if (!state.consent) { toast('개인정보 수집·이용 안내에 동의해야 보낼 수 있어요.'); app.querySelector('.consent')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
   submit();
 }
 
@@ -264,14 +285,12 @@ async function submit() {
   if (state.submitting) return;
   if (!byPhone && !Object.keys(state.photos).length && !confirm('사진 없이 보낼까요?\n사진이 있으면 현장 추가요금 없이 더 정확한 견적을 받을 수 있어요.')) return;
   state.submitting = true; render();
+  // 순서: ① 요청 문서(올릴 사진 목록 포함)를 먼저 저장 → ② 사진 업로드 → ③ 사장님 알림.
+  // 사진 업로드 규칙(storage.rules)이 "방금 만든 신규 요청의 사진 목록에 적힌 파일"만 받기 때문.
+  // 사진 일부가 실패해도 요청은 이미 들어가 있으므로 고객을 놓치지 않는다 (실패한 사진은 완료 화면에서 안내).
+  const requestRef = doc(collection(db, 'requests'));
+  const uploads = Object.entries(state.photos).map(([slot, blob]) => ({ slot, blob, path: `requests/${shopId}/${requestRef.id}/${slot}.jpg` }));
   try {
-    const requestRef = doc(collection(db, 'requests'));
-    const photos = [];
-    for (const [slot, blob] of Object.entries(state.photos)) {
-      const path = `requests/${shopId}/${requestRef.id}/${slot}.jpg`;
-      await uploadBytes(storageRef(storage, path), blob, { contentType: 'image/jpeg' });
-      photos.push({ slot, path }); // 다운로드 URL은 사장님 화면에서 권한 확인 후 받는다
-    }
     const { name, phone, region, ...rest } = pruneHidden(tpl, state.answers);
     if (LOOKUP_ON) {
       for (const f of tpl.steps.flatMap((st) => st.fields).filter((x) => x.lookup)) {
@@ -287,26 +306,52 @@ async function submit() {
       customer: { name: String(name).trim(), phone: String(phone).trim(), region: String(region || '').trim() },
       answers: { ...rest, extras: state.extras },
       checklist: state.checklist,
-      photos,
+      photos: uploads.map(({ slot, path }) => ({ slot, path })), // 다운로드 URL은 사장님 화면에서 권한 확인 후 받는다
       quoteId: null,
       createdAt: serverTimestamp(),
+      consentAt: serverTimestamp(),
     });
-    if (!byPhone) notifyNewRequest(requestRef.id); // 사장님 휴대폰 알림 (1순위: 문의를 놓치지 않기). 사장님이 직접 적은 건 알릴 필요 없음
-    try { localStorage.removeItem(draftKey); } catch { /* 무시 */ }
-    if (byPhone) { location.href = `owner.html#req=${requestRef.id}`; return; } // 바로 견적 상세로 → 금액 확인 후 문자 발송
-    renderDone();
   } catch (e) {
     console.error(e);
+    logClientError('q', byPhone ? 'submit-phone' : 'submit', e, shopId);
     state.submitting = false; render();
     toast('전송에 실패했어요. 인터넷 연결을 확인하고 다시 눌러주세요.', 4000);
+    return;
   }
+  try { localStorage.removeItem(draftKey); } catch { /* 무시 */ }
+  const failed = [];
+  for (let i = 0; i < uploads.length; i += 1) {
+    const u = uploads[i];
+    setChildren(app, shopHeader(), h('section.card.done', {}, h('h1', {}, '사진 보내는 중…'), h('p.muted', {}, `${i + 1} / ${uploads.length}`)));
+    if (!(await uploadWithRetry(u))) failed.push(photoLabel(u.slot));
+  }
+  if (!byPhone) notifyNewRequest(requestRef.id); // 사장님 휴대폰 알림 (1순위: 문의를 놓치지 않기). 사장님이 직접 적은 건 알릴 필요 없음
+  if (byPhone) { location.href = `owner.html#req=${requestRef.id}`; return; } // 바로 견적 상세로 → 금액 확인 후 문자 발송
+  renderDone(failed);
 }
 
-function renderDone() {
+// 휴대폰 데이터가 잠깐 끊기는 경우가 많아 사진마다 3번까지 시도
+async function uploadWithRetry({ path, blob }, tries = 3) {
+  for (let t = 1; t <= tries; t += 1) {
+    try { await uploadBytes(storageRef(storage, path), blob, { contentType: 'image/jpeg' }); return true; } catch (e) {
+      console.error(e);
+      if (t < tries) await new Promise((r) => setTimeout(r, 1500 * t));
+      else logClientError('q', 'photo', e, shopId);
+    }
+  }
+  return false;
+}
+
+function photoLabel(slot) {
+  return tpl.photoSlots.find((s) => s.key === slot)?.label || slot.replace(/^extra(\d+)$/, '기타 $1');
+}
+
+function renderDone(failed = []) {
   setChildren(app, shopHeader(), h('section.card.done', {},
     h('div.done-icon', {}, icon('check', true)),
     h('h1', {}, '요청이 접수되었습니다'),
     h('p', {}, `${shop.name || '사장님'}이 확인 후 견적을 보내드립니다.`),
+    failed.length ? h('p.risk', {}, `사진 ${failed.length}장(${failed.join(', ')})은 보내지 못했어요. 채팅이나 문자로 따로 보내주세요.`) : null,
     h('p.muted', {}, '보통 작업이 끝난 뒤 순서대로 확인합니다. 급하시면 전화 주세요.'),
     h('div.btn-col', {},
       shop.phone ? h('a.btn.primary.big', { href: telHref(shop.phone) }, icon('call', true), `${shop.phone} 전화 상담하기`) : null,

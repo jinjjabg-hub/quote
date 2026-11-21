@@ -2,7 +2,7 @@
 // 사장님: 새 견적 요청 알림 받기 (고객 화면이 요청 저장 직후 서버 함수 notifyRequest 호출)
 // 직원: 이 기기에서 알림 받기 (FCM 토큰을 내 직원 문서 pushTokens 에 저장)
 // 사장님: 일정 저장 뒤 서버 함수 notifyJob 호출 → 바뀐 직원에게만 알림
-import { app, auth, db, doc, setDoc, updateDoc, serverTimestamp, useEmulator } from './firebase.js';
+import { app, auth, db, doc, setDoc, updateDoc, serverTimestamp, useEmulator, appCheckHeaders } from './firebase.js';
 import { pushConfig } from './config.js';
 
 const MSG = 'https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging.js';
@@ -52,9 +52,9 @@ export async function enableOwnerPush(shopId, current = []) {
 /** 고객 화면: 요청 저장 직후 사장님에게 알림 요청. 실패해도 고객 화면에는 영향 없음 */
 export function notifyNewRequest(requestId) {
   if (!pushConfig.requestNotifyUrl || useEmulator) return;
-  fetch(pushConfig.requestNotifyUrl, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId }), keepalive: true,
-  }).catch(() => {});
+  appCheckHeaders().then((ac) => fetch(pushConfig.requestNotifyUrl, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...ac }, body: JSON.stringify({ requestId }), keepalive: true,
+  })).catch(() => {});
 }
 
 export function thisDeviceToken() {

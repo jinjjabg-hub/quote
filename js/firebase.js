@@ -11,7 +11,7 @@ import {
 import {
   getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject, connectStorageEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
-import { firebaseConfig } from './config.js';
+import { firebaseConfig, appCheckConfig } from './config.js';
 
 // 개발용 에뮬레이터 모드: localhost 에서 주소 뒤에 ?emulator=1 을 한 번 붙이면 켜진다. (?emulator=0 으로 끔)
 const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
@@ -26,6 +26,27 @@ export const isConfigured = useEmulator || !String(firebaseConfig.apiKey).starts
 const app = initializeApp(useEmulator
   ? { apiKey: 'demo-key', projectId: 'demo-quote', storageBucket: 'demo-quote.appspot.com', authDomain: 'localhost' }
   : firebaseConfig);
+// App Check: 사이트 키가 있을 때만 모듈을 받아 켠다 (꺼져 있으면 추가 다운로드 없음).
+// Firestore·Storage 를 쓰기 전에 켜져야 하므로 최상위 await (이 파일을 가져오는 화면은 켜질 때까지 기다린다).
+let appCheck = null;
+const AC_URL = 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check.js';
+if (appCheckConfig.siteKey && !useEmulator) {
+  try {
+    const m = await import(AC_URL);
+    appCheck = m.initializeAppCheck(app, { provider: new m.ReCaptchaEnterpriseProvider(appCheckConfig.siteKey), isTokenAutoRefreshEnabled: true });
+  } catch (e) { console.error('App Check 시작 실패', e); } // 실패해도 화면은 연다 (콘솔에서 '시행' 전이면 그대로 동작)
+}
+
+/** 서버 함수 호출에 붙일 App Check 머리글. 꺼져 있거나 실패하면 빈 객체 */
+export async function appCheckHeaders() {
+  if (!appCheck) return {};
+  try {
+    const { getToken } = await import(AC_URL);
+    const { token } = await getToken(appCheck);
+    return token ? { 'X-Firebase-AppCheck': token } : {};
+  } catch { return {}; }
+}
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);

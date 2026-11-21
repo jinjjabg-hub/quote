@@ -734,3 +734,20 @@ tr.total td { text-align: center; color: var(--primary-deep); }
   .shop-head, .quote-head { position: static; box-shadow: none; margin: 0 0 12px; padding: 0 0 12px; border-bottom: 1px solid #d8e3fb; }
   .total-box, .card.cond, .badge.verified, .quote-title { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* 고객 화면: 개인정보 수집·이용 안내 (마지막 단계) */
+.consent .kv dd { text-align: left; font-weight: 400; }
+.consent-check { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 12px; border-radius: 12px; background: var(--bg, #f8fafc); font-weight: 600; cursor: pointer; }
+.consent-check input { width: 22px; height: 22px; flex: none; accent-color: var(--primary); }
+
+/* 견적서 열람 표시 (사장님 화면) */
+.badge.st-viewed { background: #e0f2fe; color: #0369a1; display: inline-flex; align-items: center; gap: 2px; }
+.badge.st-viewed .ms { font-size: 14px; }
+.badge.st-unread { background: #f1f5f9; color: var(--muted); }
+/* 견적서: 계약금 입금 계좌 */
+.bank-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 12px; border-radius: 12px; background: var(--bg); }
+/* 첫 설정 단계 표시 */
+.setup-steps { display: flex; gap: 6px; margin: 0 0 14px; padding: 0; list-style: none; font-size: 13px; }
+.setup-steps li { flex: 1; text-align: center; padding: 8px 4px; border-radius: 10px; background: var(--bg); color: var(--muted); }
+.setup-steps li.on { background: var(--primary); color: #fff; font-weight: 700; }
+.setup-steps li.done { color: var(--primary); font-weight: 600; }

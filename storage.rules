@@ -4,11 +4,19 @@ service firebase.storage {
   match /b/{bucket}/o {
 
     // 고객 현장 사진: 고객은 "올리기"만 (덮어쓰기·읽기 불가), 사장님만 보기
+    // 고객 화면은 요청 문서(사진 목록 포함)를 먼저 만들고 사진을 올린다. 그래서 여기서는
+    //   그 요청이 이 업체의 신규 요청이고 · 만든 지 30분 안이며 · 사진 목록에 이 파일이 적혀 있을 때만 허용한다.
+    // → 아무 경로에나 사진을 무제한으로 올릴 수 없다 (요청 1건당 최대 10장, 각 1번).
     match /requests/{shopId}/{requestId}/{file} {
+      function req() { return firestore.get(/databases/(default)/documents/requests/$(requestId)).data; }
       allow create: if resource == null
         && request.resource.size < 3 * 1024 * 1024
         && request.resource.contentType.matches('image/.*')
-        && firestore.exists(/databases/(default)/documents/shops/$(shopId));
+        && file.matches('^[A-Za-z0-9_-]{1,30}[.]jpg$')
+        && req().shopId == shopId
+        && req().status == 'new'
+        && request.time < req().createdAt + duration.value(30, 'm')
+        && {'slot': file.split('[.]')[0], 'path': 'requests/' + shopId + '/' + requestId + '/' + file} in req().photos;
       allow read, delete: if request.auth != null && request.auth.uid == shopId;
     }
 

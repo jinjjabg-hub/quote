@@ -1,7 +1,7 @@
 // 요금 테스트 (무료 10건 세기 · 요금제 시작 · 해지 · 매월 결제). Firebase·토스 없이 가짜 저장소·가짜 결제로 확인한다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computeState, nextMonth, handleStatus, handleSubscribe, handleCancel, runRenewals, BillingError, FREE_LIMIT, MAX_RETRY } from '../lib/billing.js';
+import { computeState, nextMonth, handleStatus, handleSubscribe, handleCancel, runRenewals, BillingError, FREE_LIMIT, MAX_RETRY, shouldCount } from '../lib/billing.js';
 
 const TODAY = '2026-11-11';
 
@@ -115,3 +115,12 @@ test(`매월 결제 실패: 하루 1번 다시 시도, ${MAX_RETRY}번 실패하
 
 function pick(s) { return { plan: s.plan, used: s.used, freeLeft: s.freeLeft, canSend: s.canSend }; }
 function pickSaved(d) { return { used: d.used, canSend: d.canSend }; }
+
+test('견적서 생성 트리거: 테스트 견적·이상한 업체 ID 는 세지 않는다', () => {
+  assert.equal(shouldCount({ shopId: 'shop1', total: 1 }), true);
+  assert.equal(shouldCount({ shopId: 'shop1', test: false }), true);
+  assert.equal(shouldCount({ shopId: 'shop1', test: true }), false);
+  assert.equal(shouldCount({ shopId: 'a/b' }), false);
+  assert.equal(shouldCount({}), false);
+  assert.equal(shouldCount(null), false);
+});

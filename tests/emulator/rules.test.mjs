@@ -3,7 +3,7 @@
 import test, { before, after, beforeEach } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where, serverTimestamp, writeBatch, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getBytes } from 'firebase/storage';
 
 let env;
@@ -37,7 +37,7 @@ const newRequest = (over = {}) => ({
   shopId: OWNER, templateId: 'move-in-cleaning', status: 'new', quoteId: null,
   customer: { name: '홍길동', phone: '010-1234-5678', region: '서울 송파구' },
   answers: { area: 34, isNew: true }, checklist: { mold: 'yes' }, photos: [{ slot: 'bath', path: 'x' }],
-  createdAt: serverTimestamp(), ...over,
+  createdAt: serverTimestamp(), consentAt: serverTimestamp(), ...over,
 });
 
 test('고객: 요청 생성 가능 / 잘못된 요청 거부', async () => {
@@ -49,6 +49,10 @@ test('고객: 요청 생성 가능 / 잘못된 요청 거부', async () => {
   await assertFails(setDoc(doc(guest(), 'requests', 'n6'), newRequest({ test: 'yes' })));
   await assertSucceeds(setDoc(doc(guest(), 'requests', 'n7'), newRequest({ source: 'phone' })));
   await assertFails(setDoc(doc(guest(), 'requests', 'n8'), newRequest({ source: 'kakao' })));
+  // 개인정보 수집·이용 동의(consentAt) 없이는 요청을 만들 수 없다
+  const { consentAt, ...noConsent } = newRequest();
+  await assertFails(setDoc(doc(guest(), 'requests', 'n9'), noConsent));
+  await assertFails(setDoc(doc(guest(), 'requests', 'n10'), newRequest({ consentAt: Timestamp.fromMillis(Date.now() - 60000) })));
 });
 
 test('고객: 요청·단가표 읽기 불가, 업체 공개정보 읽기 가능', async () => {
@@ -103,8 +107,30 @@ test('요금: 무료 견적을 다 쓰면(canSend=false) 새 견적서 X, 테스
   await assertSucceeds(q('q10'));
   await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'shops', OWNER, 'billing', 'state'), { used: 10, canSend: false }));
   await assertFails(q('q11'));
-  await assertSucceeds(q('q12', { test: true }));
+  // 테스트 견적은 테스트 요청에만. 실제 고객 요청(r1)에 test 견적을 만들어 한도를 피할 수 없다
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'requests', 'rt'), { shopId: OWNER, status: 'new', test: true, customer: { name: 't' } }));
+  await assertSucceeds(q('q12', { test: true, requestId: 'rt' }));
+  await assertFails(q('q13', { test: true }));
+  await assertFails(q('q14', { requestId: 'rt' }), '테스트 요청에 실제 견적(test 없음)도 X');
   await assertSucceeds(updateDoc(doc(db, 'quotes', 'q1'), { total: 570000 }));
+});
+
+test('요금: 보낸 견적서를 다른 요청용으로 고쳐 쓰거나 test 표시를 바꿀 수 없다', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const a = ctx.firestore();
+    await setDoc(doc(a, 'requests', 'r2'), { shopId: OWNER, status: 'new', customer: { name: 'b' } });
+    await setDoc(doc(a, 'requests', 'rt'), { shopId: OWNER, status: 'sent', test: true, customer: { name: 't' } });
+    await setDoc(doc(a, 'quotes', 'qt'), { shopId: OWNER, requestId: 'rt', status: 'sent', total: 1, test: true });
+  });
+  const db = owner();
+  await assertFails(updateDoc(doc(db, 'quotes', 'q1'), { requestId: 'r2' }));
+  await assertFails(updateDoc(doc(db, 'quotes', 'q1'), { test: true }));
+  await assertFails(updateDoc(doc(db, 'quotes', 'qt'), { test: false }));
+  await assertFails(updateDoc(doc(db, 'requests', 'r1'), { test: true }), '요청의 test 표시도 고정');
+  await assertFails(updateDoc(doc(db, 'requests', 'rt'), { test: false }));
+  // 다시 보내기(같은 요청·같은 표시로 통째로 덮어쓰기)는 된다
+  await assertSucceeds(setDoc(doc(db, 'quotes', 'q1'), { shopId: OWNER, requestId: 'r1', status: 'sent', total: 600000 }));
+  await assertSucceeds(updateDoc(doc(db, 'requests', 'r1'), { status: 'hold' }));
 });
 
 test('사장님: 만두 ID 형식 검사', async () => {
@@ -194,9 +220,60 @@ test('알림: 직원은 자기 기기 토큰(최대 5개)만 저장, 알림 기�
 test('Storage: 고객 사진 업로드 O, 읽기 X, 사장님 읽기 O', async () => {
   const img = new Uint8Array([1, 2, 3]);
   const path = `requests/${OWNER}/n1/bath.jpg`;
+  // 고객 화면 순서: 요청 문서(사진 목록 포함)를 먼저 만든 뒤 사진을 올린다
+  await assertSucceeds(setDoc(doc(guest(), 'requests', 'n1'), newRequest({ photos: [{ slot: 'bath', path }, { slot: 'a', path: `requests/${OWNER}/n1/a.txt` }] })));
   await assertSucceeds(uploadBytes(ref(env.unauthenticatedContext().storage(), path), img, { contentType: 'image/jpeg' }));
   await assertFails(uploadBytes(ref(env.unauthenticatedContext().storage(), path), img, { contentType: 'image/jpeg' })); // 덮어쓰기
   await assertFails(uploadBytes(ref(env.unauthenticatedContext().storage(), `requests/${OWNER}/n1/a.txt`), img, { contentType: 'text/plain' }));
   await assertFails(getBytes(ref(env.unauthenticatedContext().storage(), path)));
   await assertSucceeds(getBytes(ref(env.authenticatedContext(OWNER).storage(), path)));
+});
+
+test('Storage: 요청 문서에 적힌 사진만 · 신규 요청만 · 30분 안에만 업로드', async () => {
+  const img = new Uint8Array([1, 2, 3]);
+  const up = (p) => uploadBytes(ref(env.unauthenticatedContext().storage(), p), img, { contentType: 'image/jpeg' });
+  const p = (req, file, shop = OWNER) => `requests/${shop}/${req}/${file}`;
+  await assertSucceeds(setDoc(doc(guest(), 'requests', 'm1'), newRequest({ photos: [{ slot: 'bath', path: p('m1', 'bath.jpg') }] })));
+  await assertFails(up(p('m1', 'kitchen.jpg')), '목록에 없는 사진 X');
+  await assertFails(up(p('nope', 'bath.jpg')), '없는 요청 X');
+  await assertFails(up(p('m1', 'bath.jpg', OTHER)), '다른 업체 경로 X');
+  await assertSucceeds(up(p('m1', 'bath.jpg')));
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'requests', 'm2'), { shopId: OWNER, status: 'sent', createdAt: Timestamp.now(), photos: [{ slot: 'bath', path: p('m2', 'bath.jpg') }] });
+    await setDoc(doc(db, 'requests', 'm3'), { shopId: OWNER, status: 'new', createdAt: Timestamp.fromMillis(Date.now() - 31 * 60000), photos: [{ slot: 'bath', path: p('m3', 'bath.jpg') }] });
+  });
+  await assertFails(up(p('m2', 'bath.jpg')), '신규가 아닌 요청 X');
+  await assertFails(up(p('m3', 'bath.jpg')), '30분 지난 요청 X');
+});
+
+test('고객: 견적서를 처음 열면 viewedAt 한 번만 기록 (요청·견적서), 다른 칸·두 번째·신규 요청은 X', async () => {
+  const db = guest();
+  const seen = { viewedAt: serverTimestamp() };
+  const b = writeBatch(db);
+  b.update(doc(db, 'quotes', 'q1'), seen);
+  b.update(doc(db, 'requests', 'r1'), seen);
+  await assertSucceeds(b.commit());
+  await assertFails(updateDoc(doc(db, 'quotes', 'q1'), seen), '두 번째 기록 X');
+  await assertFails(updateDoc(doc(db, 'quotes', 'q1'), { viewedAt: Timestamp.fromMillis(1) }), '시각 위조 X');
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'requests', 'rn'), { shopId: OWNER, status: 'new', customer: { name: 'n' } }));
+  await assertFails(updateDoc(doc(db, 'requests', 'rn'), seen), '견적을 안 보낸 요청 X');
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'quotes', 'q5'), { shopId: OWNER, requestId: 'r1', status: 'sent', total: 1 }));
+  await assertFails(updateDoc(doc(db, 'quotes', 'q5'), { viewedAt: serverTimestamp(), total: 0 }), '금액 같이 변경 X');
+});
+
+test('오류 기록(clientErrors): 고객은 짧은 기록 쓰기만, 읽기 X', async () => {
+  const db = guest();
+  const ok = { page: 'q', where: 'submit', code: 'unavailable', message: '네트워크', shopId: OWNER, at: serverTimestamp() };
+  await assertSucceeds(setDoc(doc(db, 'clientErrors', 'e1'), ok));
+  await assertFails(getDoc(doc(db, 'clientErrors', 'e1')));
+  await assertFails(setDoc(doc(db, 'clientErrors', 'e2'), { ...ok, message: 'x'.repeat(301) }));
+  await assertFails(setDoc(doc(db, 'clientErrors', 'e3'), { ...ok, phone: '010' }));
+  await assertFails(updateDoc(doc(db, 'clientErrors', 'e1'), { code: 'x' }));
+});
+
+test('사장님: 입금 계좌 저장 O, 60자 초과 X', async () => {
+  const base = { ownerUid: OWNER, templateId: 'move-in-cleaning', name: '반짝', phone: '010' };
+  await assertSucceeds(setDoc(doc(owner(), 'shops', OWNER), { ...base, bankAccount: '국민 123-45-6789 홍길동' }));
+  await assertFails(setDoc(doc(owner(), 'shops', OWNER), { ...base, bankAccount: 'x'.repeat(61) }));
 });

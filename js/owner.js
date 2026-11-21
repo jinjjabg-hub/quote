@@ -34,6 +34,7 @@ const S = {
   pushTokens: [], // 새 견적 요청 알림을 받는 내 기기들
   billing: null, // 요금 상태 (서버 함수 billingStatus). null 이면 아직 모름 → 막지 않는다
   settings: {}, // shops/{id}/private/settings (사장님만): scheduleOn 등
+  setup: false, // 가입 직후 3분 설정 중 (업종 → 업체 정보 → 단가 → 링크)
 };
 
 const NUDGE_DAYS = 2; // 견적을 보내고 이만큼 답이 없으면 "다시 연락" 할 일로 올린다
@@ -93,7 +94,7 @@ async function loadShop() {
   S.priceTable = mergePriceTable(S.tpl, saved);
   S.pushTokens = await getDoc(doc(db, 'shops', uid, 'private', 'push')).then((d) => (d.exists() ? d.data().tokens || [] : [])).catch(() => []);
   S.settings = await getDoc(doc(db, 'shops', uid, 'private', 'settings')).then((d) => (d.exists() ? d.data() : {})).catch(() => ({}));
-  if (!S.shop.name) S.tab = 'shop'; // 처음이면 업체 정보부터
+  if (!S.shop.name) { S.tab = 'shop'; S.setup = true; } // 처음이면 3분 설정: 업종 → 업체 정보 → 단가 확인 → 링크
 }
 
 // 요금 상태를 다시 받아 홈·업체 정보에 반영 (입력 중인 화면은 건드리지 않는다)
@@ -238,8 +239,20 @@ function todoList() {
   ];
 }
 
+// 안 열어본 고객과 열어보고 답 없는 고객은 다른 문자를 보낸다
 function nudgeMessage(r) {
-  return `[${S.shop.name}] ${r.customer?.name || '고객'}님, 보내드린 ${S.tpl.name} 견적서 확인해 보셨나요? 궁금한 점은 편하게 연락 주세요.\n견적서 보기: ${pageUrl('view.html', { id: r.quoteId })}`;
+  const link = `견적서 보기: ${pageUrl('view.html', { id: r.quoteId })}`;
+  return r.viewedAt
+    ? `[${S.shop.name}] ${r.customer?.name || '고객'}님, 보내드린 ${S.tpl.name} 견적서 보시고 궁금한 점 있으셨나요? 날짜·금액 조정도 편하게 말씀 주세요.\n${link}`
+    : `[${S.shop.name}] ${r.customer?.name || '고객'}님, ${S.tpl.name} 견적서를 보내드렸는데 아직 못 보신 것 같아 다시 보내드려요.\n${link}`;
+}
+
+// 견적서를 고객이 열어봤는지 (view.html 이 처음 열릴 때 viewedAt 기록). 견적을 보낸 요청에만 표시
+function viewedTag(r) {
+  if (!r.quoteId || !['sent', 'booking_requested', 'confirmed'].includes(r.status)) return null;
+  return r.viewedAt
+    ? h('span.badge.st-viewed', { title: fmtDateTime(r.viewedAt) }, icon('visibility'), `열어봄 · ${timeAgo(r.viewedAt)}`)
+    : h('span.badge.st-unread', {}, '안 열어봄');
 }
 
 function smsHref(phone, body) {
@@ -254,7 +267,7 @@ function renderTodo({ kind, r }) {
   const head = {
     book: ['계약 요청', `${timeAgo(r.bookingRequestedAt || r.updatedAt)} 요청`],
     quote: ['견적 기다리는 중', `${timeAgo(r.createdAt)} 접수`],
-    nudge: ['답 없음', `견적 보낸 지 ${timeAgo(r.sentAt || r.updatedAt).replace(' 전', '')}`],
+    nudge: [r.viewedAt ? '열어보고 답 없음' : '견적서 안 열어봄', `견적 보낸 지 ${timeAgo(r.sentAt || r.updatedAt).replace(' 전', '')}`],
   }[kind];
   const action = {
     book: phone ? h('a.btn.ok', { href: telHref(phone), onclick: stop() }, icon('call'), '전화해서 확정') : null,
@@ -383,6 +396,7 @@ async function createSampleRequest(btn) {
       photos: [],
       quoteId: null,
       createdAt: serverTimestamp(),
+      consentAt: serverTimestamp(), // 보안 규칙상 필수 (샘플은 실제 개인정보가 아님)
     });
     toast('샘플 요청을 만들었어요. 목록에서 눌러 견적을 보내보세요.');
   } catch (e) { toast(`만들기 실패: ${e.message}`); }
@@ -432,6 +446,7 @@ function renderListItem(r) {
       statusBadge(r.status),
       r.test ? h('span.badge.st-test', {}, '테스트') : null,
       r.source === 'phone' ? h('span.badge.st-test', {}, '전화') : null,
+      viewedTag(r),
       h(`span.when${fresh && ageMin < 60 ? '.fresh' : ''}`, {}, icon(fresh && ageMin < 60 ? 'bolt' : 'schedule'), `${timeAgo(r.createdAt)} 접수`)),
     h('div.req-box', {},
       h('div.loc', {}, icon('location_on'), [r.customer?.region, size].filter(Boolean).join(' ') || '지역 미입력'),
@@ -466,6 +481,7 @@ function renderPriceForm() {
 
   updateWarn();
   return h('section', {},
+    setupSteps(2),
     h('div.notice', {}, h('div.box-row', {}, icon('calculate'), h('b', {}, '자동 계산 안내')),
       h('p.small', {}, `입력하신 단가로 고객 견적이 자동 계산됩니다. ${S.tpl.name} 기본값이 채워져 있으니 다른 숫자만 고치세요.`)),
     ['draft', 'pilot'].includes(S.tpl.status) ? h('div.warn-box', {}, S.tpl.draftNote || '시범 업종입니다. 단가를 꼭 확인하세요.') : null,
@@ -495,6 +511,7 @@ function renderPriceForm() {
         try {
           await setDoc(doc(db, 'shops', S.user.uid, 'private', 'pricing'), { priceTable: pt, templateId: S.tpl.id, updatedAt: serverTimestamp() });
           S.priceTable = mergePriceTable(S.tpl, pt);
+          if (S.setup) { S.setup = false; toast('설정 끝! 이 링크를 고객에게 보내면 견적이 자동 계산돼요.', 3500); goTab('link'); return; }
           toast('단가표를 저장했어요.');
         } catch (err) { toast(`저장 실패: ${err.message}`); }
         btn.disabled = false;
@@ -561,6 +578,14 @@ function renderLinkTab() {
     footerNote('고객이 보낸 요청은 홈과 견적요청 탭에 바로 표시됩니다.'));
 }
 
+// ---------- 처음 3분 설정 (가입 직후) ----------
+// 업종 → 업체 정보 → 단가 확인 → 링크 보내기. 업체명을 저장하기 전까지는 업체 정보 탭에서 시작한다.
+const SETUP_STEPS = ['업종', '업체 정보', '단가 확인', '링크 보내기'];
+function setupSteps(at) {
+  if (!S.setup) return null;
+  return h('ol.setup-steps', { 'aria-label': '처음 설정' }, SETUP_STEPS.map((t, i) => h(`li${i === at ? '.on' : i < at ? '.done' : ''}`, {}, `${i + 1}. ${t}`)));
+}
+
 // ---------- 업체 정보 ----------
 
 function renderShopForm() {
@@ -586,7 +611,9 @@ function renderShopForm() {
     },
   });
   return h('section', {},
-    !S.shop.name ? h('p.notice', {}, '처음 오셨네요! 견적서에 표시될 업체 정보를 먼저 입력해주세요.') : null,
+    setupSteps(1),
+    S.setup ? h('p.notice', {}, `처음 오셨네요! 3분이면 끝나요. 업종을 확인하고(지금: ${S.tpl.name}) 업체명·전화번호만 넣으면 됩니다.`) : null,
+    S.setup ? renderIndustryCard() : null,
     h('p.muted', {}, '고객 견적 화면과 견적서 상단에 표시되는 정보입니다.'),
     h('div.card', {},
       sectionTitle(1, '로고', '견적서 상단 표시'),
@@ -600,8 +627,9 @@ function renderShopForm() {
       text('ownerName', '대표자'),
       text('bizNo', '사업자번호', { optional: true, placeholder: '000-00-00000' }),
       text('intro', '한 줄 소개', { optional: true, multiline: true, placeholder: '예) 10년 경력 직영팀이 꼼꼼하게 시공합니다.' }),
-      text('serviceArea', '서비스 가능 지역', { optional: true, placeholder: '예) 부산 전 지역, 김해·양산' })),
-    renderIndustryCard(),
+      text('serviceArea', '서비스 가능 지역', { optional: true, placeholder: '예) 부산 전 지역, 김해·양산' }),
+      text('bankAccount', '계약금 입금 계좌', { optional: true, placeholder: '예) 국민 123456-01-123456 홍길동', hint: '견적서의 계약금 아래에 복사 버튼과 함께 표시됩니다' })),
+    S.setup ? null : renderIndustryCard(),
     h('div.card', {},
       sectionTitle(3, '만두 채팅 연결', '선택'),
       text('manduId', '만두 ID', { placeholder: '예) banjjak (@ 없이)', hint: '넣으면 고객 화면·견적서에 "만두로 채팅 문의" 버튼이 생깁니다. 외국인 고객과도 자동 번역으로 대화할 수 있어요.' })),
@@ -636,7 +664,7 @@ function renderShopForm() {
         try {
           const data = {
             name: f.name, ownerName: f.ownerName || '', phone: f.phone, bizNo: f.bizNo || '', logoUrl: f.logoUrl || '', manduId: f.manduId || '',
-            intro: f.intro || '', serviceArea: f.serviceArea || '', updatedAt: serverTimestamp(),
+            intro: f.intro || '', serviceArea: f.serviceArea || '', bankAccount: f.bankAccount || '', updatedAt: serverTimestamp(),
           };
           await updateDoc(doc(db, 'shops', S.user.uid), data);
           const first = !S.shop.name;
@@ -678,6 +706,7 @@ async function switchIndustry(t) {
     S.shop = { ...S.shop, templateId: t.id };
     S.tpl = tpl;
     S.priceTable = mergePriceTable(tpl, {});
+    if (S.setup) { toast(`${t.name}(으)로 바꿨어요. 이제 업체명·전화번호를 넣어주세요.`, 3000); renderMain(); return; }
     toast(`${t.name}(으)로 바꿨어요. 단가표를 확인해주세요.`, 3000);
     goTab('price');
   } catch (e) { toast(`바꾸기 실패: ${e.message}`); }
@@ -716,7 +745,7 @@ function currentReq() { return S.requests.get(S.detail.id) || S.detail.req; }
 function renderDetailStatus() {
   const box = $('#status-box');
   const req = currentReq();
-  if (box && req) box.replaceChildren(statusBadge(req.status), statusActions(req));
+  if (box && req) box.replaceChildren(statusBadge(req.status), viewedTag(req) || '', statusActions(req));
 }
 
 function statusActions(req) {
@@ -993,7 +1022,7 @@ async function sendQuote(req, btn) {
       templateId: S.tpl.id,
       templateName: S.tpl.name,
       number: `Q${today.replace(/-/g, '').slice(2)}-${quoteRef.id.slice(0, 4).toUpperCase()}`,
-      shop: { name: S.shop.name, ownerName: S.shop.ownerName || '', phone: S.shop.phone, bizNo: S.shop.bizNo || '', logoUrl: S.shop.logoUrl || '', manduId: S.shop.manduId || '' },
+      shop: { name: S.shop.name, ownerName: S.shop.ownerName || '', phone: S.shop.phone, bizNo: S.shop.bizNo || '', logoUrl: S.shop.logoUrl || '', manduId: S.shop.manduId || '', bankAccount: S.shop.bankAccount || '' },
       customer: { name: req.customer?.name || '', region: req.customer?.region || '' },
       service: {
         date: a.date || '', timeSlot: optionLabel(timeField, a.timeSlot) || '',
